@@ -1,0 +1,1 @@
+-- Creates projects table with user_id FK
