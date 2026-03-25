@@ -1,0 +1,28 @@
+# Env files
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Next.js build output
+.next/
+
+# Data files
+tools/data/raga_raw.json
+tools/data/ragajungle_raw/
+!tools/data/raga_catalogue.json
+
+# System files
+.DS_Store
+
+# Logs
+*.log
+
+# Build outputs
+dist/
+build/

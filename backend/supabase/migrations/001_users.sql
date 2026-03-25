@@ -1,0 +1,1 @@
+-- Creates profiles table extending Supabase auth.users

@@ -1,0 +1,1 @@
+-- Enables pgvector extension for RAG embeddings
