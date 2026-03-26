@@ -1,272 +1,181 @@
-# Tool 2: sends raga_raw.json to Gemini, outputs raga_catalogue.json
-"""
-Tool 2: Raga Structuring Engine
-=================================
-Takes raga_raw.json from Tool 1.
-Sends each raga to Gemini with a strict extraction prompt.
-Outputs raga_catalogue.json — the production-ready dataset for Saptaswara.
-
-Usage:
-    pip install google-generativeai pydantic
-    export GEMINI_API_KEY="your_key_here"
-    python structurer.py
-
-Get your free Gemini API key at: https://aistudio.google.com/app/apikey
-"""
-
 import json
 import os
-import time
-from pathlib import Path
+import re
 
-try:
-    import google.generativeai as genai
-except ImportError:
-    print("Install: pip install google-generativeai")
-    exit(1)
+# --- CONFIGURATION ---
+INPUT_FILE = "tools/data/raga_raw.json"
+OUTPUT_FILE = "tools/data/raga_catalogue.json"
+HZ_SA = 261.63
 
-try:
-    from pydantic import BaseModel, field_validator
-    from typing import Optional
-except ImportError:
-    print("Install: pip install pydantic")
-    exit(1)
-
-
-# ─────────────────────────────────────────────
-# CONFIG
-# ─────────────────────────────────────────────
-
-INPUT_FILE  = "../tool1_raga_collector/raga_raw.json"
-OUTPUT_FILE = "raga_catalogue.json"
-ERRORS_FILE = "raga_errors.json"
-
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL   = "gemini-1.5-flash"   # fast + cheap for structured extraction
-
-# How many ragas to process per run (None = all)
-# Set to 5 for a test run first
-LIMIT = None
-
-# Delay between Gemini calls (free tier = 15 requests/min)
-API_DELAY_SECONDS = 4
-
-
-# ─────────────────────────────────────────────
-# SCHEMA — what one raga must look like
-# ─────────────────────────────────────────────
-
-SWARAS = ["S", "r", "R", "g", "G", "m", "M", "P", "d", "D", "n", "N", "S'"]
-
-# The JSON schema we ask Gemini to produce
-RAGA_SCHEMA = {
-    "name":         "string — English name of the raga",
-    "aroha":        "array of strings — ascending note sequence using SRGMPDN notation",
-    "avaroha":      "array of strings — descending note sequence",
-    "vadi":         "string — the most important note (king swara)",
-    "samvadi":      "string — the second most important note",
-    "pakad":        "string — characteristic phrase that identifies this raga",
-    "thaat":        "string — parent thaat (e.g. Kalyan, Bhairav, Kafi...)",
-    "time_of_day":  "string — when this raga is ideally performed (e.g. Morning, Evening, Night, Any)",
-    "mood":         "string — primary emotional quality (e.g. Peaceful, Romantic, Devotional, Melancholic)",
-    "jati":         "string — note count structure (e.g. Sampurna-Sampurna, Audav-Audav)",
-    "hz_sa":        "number — frequency of Sa in Hz for middle octave (default 261.63 = C4)",
-    "tags":         "array of strings — 2-4 descriptive tags for search/filter"
+# --- MAPPINGS ---
+VADI_NAME_MAP = {
+    "Shadj": "S", "Sa": "S",
+    "Komal Re": "r", "Rishabh": "R", "Shuddha Re": "R", "Re": "R",
+    "Komal Ga": "g", "Gandhar": "G", "Ga": "G",
+    "Madhyam": "m", "Shuddha Ma": "m", "Tivra Ma": "M",
+    "Pancham": "P", "Pa": "P",
+    "Komal Dha": "d", "Dhaivat": "D", "Dha": "D",
+    "Komal Ni": "n", "Nishad": "N", "Ni": "N"
 }
 
+SEMITONE_MAP = {
+    "S": 0, "r": 1, "R": 2, "g": 3, "G": 4, "m": 5, "M": 6, "P": 7, "d": 8, "D": 9, "n": 10, "N": 11
+}
 
-# ─────────────────────────────────────────────
-# PYDANTIC MODEL — validates Gemini's output
-# ─────────────────────────────────────────────
+def clean_swara(s):
+    """Removes punctuation except S'."""
+    if s == "S'": return s
+    # Remove ;, - , (not apostrophes for S')
+    s = s.replace(";", "").replace(",", "").replace("-", "")
+    return s.strip()
 
-class RagaEntry(BaseModel):
-    name:        str
-    aroha:       list[str]
-    avaroha:     list[str]
-    vadi:        str
-    samvadi:     str
-    pakad:       str
-    thaat:       str
-    time_of_day: str
-    mood:        str
-    jati:        str
-    hz_sa:       float = 261.63
-    tags:        list[str] = []
+def parse_swara_list(raw_str, is_aroha=False):
+    """Converts space-separated swara string into a clean list."""
+    if not raw_str: return []
+    tokens = raw_str.split()
+    cleaned = [clean_swara(t) for t in tokens if clean_swara(t)]
+    # Tanarang often uses S at the end of Aroha to mean S'
+    if is_aroha and cleaned and cleaned[-1] == "S":
+        cleaned[-1] = "S'"
+    return cleaned
 
-    @field_validator("aroha", "avaroha")
-    @classmethod
-    def must_have_notes(cls, v):
-        if not v or len(v) < 2:
-            raise ValueError("aroha/avaroha must have at least 2 notes")
-        return v
+def map_vadi_name(raw_name):
+    """Maps a full swara name to its letter shorthand."""
+    raw_name = raw_name.strip()
+    # Check for exact matches first (case sensitive in map but we'll try to be fuzzy)
+    for full_name, short in VADI_NAME_MAP.items():
+        if full_name.lower() in raw_name.lower():
+            return short
+    return raw_name[:1].upper() # Fallback
 
-    @field_validator("name")
-    @classmethod
-    def name_not_empty(cls, v):
-        if not v.strip():
-            raise ValueError("name cannot be empty")
-        return v.strip()
+def get_time_category(raw_time):
+    """Maps a raw time string to a standard category."""
+    t = raw_time.lower()
+    if any(x in t for x in ["6pm", "7pm", "8pm", "1st prahar of the night"]): return "Evening"
+    if any(x in t for x in ["9pm", "10pm", "11pm", "12am", "2nd prahar", "3rd prahar", "3am", "4am", "5am"]): return "Night"
+    if any(x in t for x in ["6am", "7am", "8am", "9am", "1st prahar of the day"]): return "Morning"
+    if any(x in t for x in ["10am", "11am", "12pm", "2nd prahar of the day"]): return "Afternoon"
+    return "Any"
 
-
-# ─────────────────────────────────────────────
-# GEMINI PROMPT
-# ─────────────────────────────────────────────
-
-def build_prompt(raw: dict) -> str:
-    return f"""
-You are a classical Indian music expert and data engineer.
-
-Your task: take this raw raga record scraped from the web and produce a
-clean, validated JSON object matching the exact schema below.
-
-RAW INPUT:
-{json.dumps(raw, ensure_ascii=False, indent=2)}
-
-REQUIRED OUTPUT SCHEMA:
-{json.dumps(RAGA_SCHEMA, indent=2)}
-
-RULES:
-1. Output ONLY a valid JSON object. No markdown, no explanation, no code block.
-2. aroha and avaroha must be arrays of individual swaras, e.g. ["S", "R", "G", "m", "P", "D", "N", "S'"]
-3. Use standard swara notation: S R G m M P D N (uppercase = shuddha, lowercase = komal/tivra)
-4. S' = upper octave Sa. Use it only at the end of aroha or start of avaroha.
-5. If vadi or samvadi is unclear from the raw data, use your knowledge of this raga.
-6. time_of_day must be one of: Morning, Afternoon, Evening, Night, Any
-7. mood must be a single English word or short phrase (max 3 words)
-8. tags: generate 2-4 tags useful for searching, e.g. ["peaceful", "morning", "beginner-friendly"]
-9. hz_sa: always set to 261.63 (C4) unless the raw data specifies otherwise
-10. If any field is missing in the raw input, fill it from your knowledge of this raga.
-    Saptaswara is a music education app — accuracy is critical.
-
-Output the JSON object now:
-""".strip()
-
-
-# ─────────────────────────────────────────────
-# GEMINI CALL
-# ─────────────────────────────────────────────
-
-def call_gemini(model, prompt: str) -> str:
-    response = model.generate_content(prompt)
-    return response.text.strip()
-
-
-def parse_gemini_response(text: str) -> dict | None:
-    """
-    Extracts JSON from Gemini's response.
-    Handles cases where Gemini wraps JSON in markdown code blocks.
-    """
-    # Strip markdown code fences if present
-    text = text.strip()
-    if text.startswith("```"):
-        lines = text.split("\n")
-        text = "\n".join(lines[1:-1])
-
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError as e:
-        print(f"    JSON parse error: {e}")
-        return None
-
-
-# ─────────────────────────────────────────────
-# MAIN
-# ─────────────────────────────────────────────
+def get_semitones(aroha, avaroha):
+    """Extracts unique semitones. Sa (0) is always included."""
+    unique_swaras = set(aroha + avaroha)
+    offsets = [0] # Always include Sa
+    for s in unique_swaras:
+        # Normalize to root octave
+        root_s = s.replace("'", "").replace(",", "")
+        if root_s == "S": continue # Already added
+        if root_s in SEMITONE_MAP:
+            val = SEMITONE_MAP[root_s]
+            if val not in offsets:
+                offsets.append(val)
+    return sorted(offsets)
 
 def main():
-    print("=" * 60)
-    print("SAPTASWARA — Tool 2: Raga Structuring Engine")
-    print("=" * 60)
-
-    # Check API key
-    if not GEMINI_API_KEY:
-        print("\nERROR: GEMINI_API_KEY not set.")
-        print("Get your free key at: https://aistudio.google.com/app/apikey")
-        print("Then run: export GEMINI_API_KEY='your_key_here'")
+    if not os.path.exists(INPUT_FILE):
+        print(f"Error: {INPUT_FILE} not found.")
         return
 
-    # Load raw data from Tool 1
-    raw_path = Path(INPUT_FILE)
-    if not raw_path.exists():
-        print(f"\nERROR: {INPUT_FILE} not found.")
-        print("Run Tool 1 first: python ../tool1_raga_collector/scraper.py")
-        return
+    with open(INPUT_FILE, 'r') as f:
+        raw_data = json.load(f)
 
-    with open(raw_path, encoding="utf-8") as f:
-        raw_ragas = json.load(f)
+    catalogue = []
+    total = len(raw_data)
 
-    if LIMIT:
-        raw_ragas = raw_ragas[:LIMIT]
-        print(f"TEST MODE: processing first {LIMIT} ragas only")
+    for i, raga in enumerate(raw_data, 1):
+        name = raga.get("name", "Unknown")
+        jati = raga.get("jati", "").strip()
+        
+        # 1. Swara Lists
+        avaroha = parse_swara_list(raga.get("avaroha", ""), is_aroha=False)
+        
+        if "Sampurna" in jati and "Audhav" not in jati and "Shadav" not in jati:
+            # If avaroha starts with S', it is properly descending -> reverse it
+            if avaroha and avaroha[0] == "S'":
+                aroha = avaroha[::-1]
+            # If avaroha ends with S', it is actually ascending (scraper put Aroha in Avaroha field)
+            elif avaroha and avaroha[-1] == "S'":
+                aroha = avaroha[:]
+            else:
+                aroha = avaroha[::-1] # fallback
+                
+            # Remove duplicate S'
+            if len(aroha) >= 2 and aroha[-1] == "S'" and aroha[-2] == "S'":
+                aroha.pop()
+        else:
+            aroha = parse_swara_list(raga.get("aroha", ""), is_aroha=True)
 
-    print(f"\nLoaded {len(raw_ragas)} ragas from {INPUT_FILE}")
+        # 2. Vadi / Samvadi mapping
+        vs = raga.get("vadi_samvadi", "")
+        vadi, samvadi = "", ""
+        for sep in [" - ", "–"]:
+            if sep in vs:
+                parts = vs.split(sep)
+                vadi = map_vadi_name(parts[0])
+                samvadi = map_vadi_name(parts[1])
+                break
 
-    # Load existing output to support resume
-    out_path = Path(OUTPUT_FILE)
-    if out_path.exists():
-        with open(out_path, encoding="utf-8") as f:
-            catalogue = json.load(f)
-        done_names = {r["name"].lower() for r in catalogue}
-        print(f"Resuming — {len(catalogue)} already done, {len(raw_ragas) - len(done_names)} remaining")
-    else:
-        catalogue = []
-        done_names = set()
+        # 3. Semitones (excluding Sa)
+        semitones_list = get_semitones(aroha, avaroha)
+        
+        # 4. HZ_MAP (Including S)
+        swaras_in_raga = set(aroha + avaroha)
+        hz_map = {}
+        # S is always present
+        hz_map["S"] = round(HZ_SA, 2)
+        for s in swaras_in_raga:
+            root_s = s.replace("'", "").replace(",", "")
+            if root_s in SEMITONE_MAP:
+                offset = SEMITONE_MAP[root_s]
+                hz_map[root_s] = round(HZ_SA * (2 ** (offset / 12)), 2)
 
-    errors = []
+        # 5. Time and Mood
+        time_cat = get_time_category(raga.get("time", "Any"))
+        
+        mood_raw = raga.get("mood", "Classical").strip()
+        if not mood_raw: mood_raw = "Classical"
+        first_sentence = mood_raw.split(".")[0].strip()
+        if len(first_sentence) > 80:
+            first_sentence = first_sentence[:80].strip()
+        mood = first_sentence
 
-    # Init Gemini
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(GEMINI_MODEL)
+        # 6. Jati and Tags
+        thaat = raga.get("thaat", "Unknown")
+        tags = ["hindustani", thaat.lower(), time_cat.lower()]
+        if "Sampurna" in jati: tags.append("seven-notes")
+        if "Audhav" in jati: tags.append("five-notes")
+        if "Shadav" in jati: tags.append("six-notes")
 
-    print(f"\nProcessing with Gemini ({GEMINI_MODEL})...")
-    print(f"Estimated time: ~{len(raw_ragas) * API_DELAY_SECONDS // 60} min\n")
+        # 7. Structuring
+        entry = {
+            "name": name,
+            "aroha": aroha,
+            "avaroha": avaroha,
+            "vadi": vadi,
+            "samvadi": samvadi,
+            "pakad": raga.get("pakad", ""),
+            "thaat": thaat,
+            "time_of_day": time_cat,
+            "mood": mood,
+            "jati": jati,
+            "semitones": semitones_list,
+            "hz_sa": HZ_SA,
+            "hz_map": hz_map,
+            "tags": sorted(list(set(tags))),
+            "verified": False,
+            "vishranti_sthan": raga.get("notes_extra", {}).get("vishranti_sthan", ""),
+            "source_url": raga.get("source_url", "")
+        }
 
-    for i, raw in enumerate(raw_ragas):
-        name = raw.get("name", f"Unknown_{i}")
+        catalogue.append(entry)
+        print(f"[{i}/{total}] {name} ✓")
 
-        if name.lower() in done_names:
-            print(f"  [{i+1}/{len(raw_ragas)}] {name} — already done, skipping")
-            continue
+    # 8. Save output
+    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
+    with open(OUTPUT_FILE, 'w') as f:
+        json.dump(catalogue, f, indent=4)
 
-        print(f"  [{i+1}/{len(raw_ragas)}] {name}", end=" ", flush=True)
-
-        try:
-            prompt = build_prompt(raw)
-            response_text = call_gemini(model, prompt)
-            parsed = parse_gemini_response(response_text)
-
-            if parsed is None:
-                raise ValueError("Could not parse JSON from Gemini response")
-
-            # Validate with Pydantic
-            validated = RagaEntry(**parsed)
-            catalogue.append(validated.model_dump())
-            print("✓")
-
-        except Exception as e:
-            print(f"ERROR — {e}")
-            errors.append({"name": name, "error": str(e), "raw": raw})
-
-        # Save after every raga — crash-safe
-        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-            json.dump(catalogue, f, ensure_ascii=False, indent=2)
-
-        time.sleep(API_DELAY_SECONDS)
-
-    # Save error log
-    if errors:
-        with open(ERRORS_FILE, "w", encoding="utf-8") as f:
-            json.dump(errors, f, ensure_ascii=False, indent=2)
-        print(f"\n  {len(errors)} errors saved to {ERRORS_FILE}")
-        print("  Fix these manually or re-run — the tool will skip already-done ragas.")
-
-    print("\n" + "=" * 60)
-    print(f"Tool 2 complete.")
-    print(f"  {len(catalogue)} ragas validated → {OUTPUT_FILE}")
-    print(f"  {len(errors)} errors → {ERRORS_FILE}")
-    print("Next step: run Tool 3 (validator UI) to review each raga.")
-    print("=" * 60)
-
+    print(f"\nConverted {len(catalogue)} ragas → {OUTPUT_FILE}")
 
 if __name__ == "__main__":
     main()
