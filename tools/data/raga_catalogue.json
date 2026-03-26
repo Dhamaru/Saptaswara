@@ -52,7 +52,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R; m; D; S;",
         "source_url": "https://tanarang.com/wordpress/raag-abhogi-kanada/"
     },
@@ -114,7 +114,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "P; n; - S'; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-adana-2/"
     },
@@ -192,7 +192,7 @@
             "morning",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; r; m; P; - S'; P; m; r;",
         "source_url": "https://tanarang.com/wordpress/raag-aheer-bhairav/"
     },
@@ -260,7 +260,7 @@
             "morning",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P; - S'; P; G;",
         "source_url": "https://tanarang.com/wordpress/raag-alhaiya-bilawal/"
     },
@@ -326,7 +326,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; D; - S'; D; m; g;",
         "source_url": "https://tanarang.com/wordpress/raag-bageshree/"
     },
@@ -391,7 +391,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; - S'; m; R;",
         "source_url": "https://tanarang.com/wordpress/raag-bahar/"
     },
@@ -441,7 +441,7 @@
             "hindustani",
             "morning"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; r; m; P;",
         "source_url": "https://tanarang.com/wordpress/raag-bairagi/"
     },
@@ -491,7 +491,7 @@
             "morning",
             "todi"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; r; P;",
         "source_url": "https://tanarang.com/wordpress/raag-bairagi-todi/"
     },
@@ -553,7 +553,7 @@
             "poorvi",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; - S'; P; G;",
         "source_url": "https://tanarang.com/wordpress/raag-basant/"
     },
@@ -615,7 +615,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; m; - S'; P; m; r;",
         "source_url": "https://tanarang.com/wordpress/raag-basant-mukhari/"
     },
@@ -673,7 +673,7 @@
             "morning",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; d; - S'; d; P; r;",
         "source_url": "https://tanarang.com/wordpress/raag-bhairav/"
     },
@@ -731,7 +731,7 @@
             "morning",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; - S'; P; m;",
         "source_url": "https://tanarang.com/wordpress/raag-bhairavi/"
     },
@@ -799,7 +799,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; D; - m; S;",
         "source_url": "https://tanarang.com/wordpress/raag-bhatiyar/"
     },
@@ -866,7 +866,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P; - S'; P; G;",
         "source_url": "https://tanarang.com/wordpress/raag-bheem/"
     },
@@ -929,7 +929,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; - S'; P; m;",
         "source_url": "https://tanarang.com/wordpress/raag-bheempalasi/"
     },
@@ -982,7 +982,7 @@
             "hindustani",
             "kalyan"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; R; G; P; - P; G; R; S;",
         "source_url": "https://tanarang.com/wordpress/raag-bhoopali/"
     },
@@ -1035,7 +1035,7 @@
             "hindustani",
             "morning"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; g; P; d; - d; P; g; S;",
         "source_url": "https://tanarang.com/wordpress/raag-bhupal-todi/"
     },
@@ -1105,7 +1105,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P; N; - S'; N; P; G;",
         "source_url": "https://tanarang.com/wordpress/raag-bihag/"
     },
@@ -1179,7 +1179,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G; m; N;",
         "source_url": "https://tanarang.com/wordpress/raag-bihagda/"
     },
@@ -1244,7 +1244,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; g; P; d; - d; P; g; S;",
         "source_url": "https://tanarang.com/wordpress/raag-bilaskhani-todi/"
     },
@@ -1298,7 +1298,7 @@
             "night",
             "not defined"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; N; - S'; N; m;",
         "source_url": "https://tanarang.com/wordpress/raag-chandrakauns/"
     },
@@ -1362,7 +1362,7 @@
             "not defined",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R; G; m; P; d;",
         "source_url": "https://tanarang.com/wordpress/raag-charukeshi/"
     },
@@ -1438,7 +1438,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R; G; P; - S'; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-chhayanut/"
     },
@@ -1500,7 +1500,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; R; P; - S'; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-darbari-kanada/"
     },
@@ -1562,7 +1562,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R P N S' - S' P R;",
         "source_url": "https://tanarang.com/wordpress/raag-des/"
     },
@@ -1615,7 +1615,7 @@
             "hindustani",
             "morning"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "P; D; S'; - S'; D; P;",
         "source_url": "https://tanarang.com/wordpress/raag-deshkar/"
     },
@@ -1674,7 +1674,7 @@
             "kafi",
             "morning"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; R; P; - P; R; S;",
         "source_url": "https://tanarang.com/wordpress/raag-desi/"
     },
@@ -1744,7 +1744,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G; m; P; - S'; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-dev-gandhar/"
     },
@@ -1826,7 +1826,7 @@
             "morning",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P; - P; G; S';",
         "source_url": "https://tanarang.com/wordpress/raag-devgiri-bilawal/"
     },
@@ -1876,7 +1876,7 @@
             "kalyan",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R; P; n; - n; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-devshree/"
     },
@@ -1937,7 +1937,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; P; - S'; P; g;",
         "source_url": "https://tanarang.com/wordpress/raag-dhanashree-bhairavi-ang/"
     },
@@ -1987,7 +1987,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "g; n;",
         "source_url": "https://tanarang.com/wordpress/raag-dhani/"
     },
@@ -2040,7 +2040,7 @@
             "hindustani",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; R; P; D; - S'; D; m; R;",
         "source_url": "https://tanarang.com/wordpress/raag-durga/"
     },
@@ -2108,7 +2108,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; - S'; P; m;",
         "source_url": "https://tanarang.com/wordpress/raag-gaud-malhar/"
     },
@@ -2218,7 +2218,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G; P; S'; - S'; P; G;",
         "source_url": "https://tanarang.com/wordpress/raag-gaud-sarang/"
     },
@@ -2302,7 +2302,7 @@
             "hindustani",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "",
         "source_url": "https://tanarang.com/wordpress/raag-gauri-bhairav-ang/"
     },
@@ -2370,7 +2370,7 @@
             "hindustani",
             "morning"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S m - S' P g;",
         "source_url": "https://tanarang.com/wordpress/raag-gopika-basant/"
     },
@@ -2424,7 +2424,7 @@
             "khamaj",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; D; - D; m; R; ,n;",
         "source_url": "https://tanarang.com/wordpress/raag-gorakh-kalyan/"
     },
@@ -2477,7 +2477,7 @@
             "hindustani",
             "morning"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; r; d; - d; r; S;",
         "source_url": "https://tanarang.com/wordpress/raag-gunkali/"
     },
@@ -2537,7 +2537,7 @@
             "night",
             "todi"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "r; g; d; S\u2019;",
         "source_url": "https://tanarang.com/wordpress/raag-gurjari-todi/"
     },
@@ -2625,7 +2625,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; D; S'; - S'; D; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-hameer/"
     },
@@ -2680,7 +2680,7 @@
             "hindustani",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G P N - S' N P G;",
         "source_url": "https://tanarang.com/wordpress/raag-hansdhwani/"
     },
@@ -2748,7 +2748,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R; P; N; - S'; N; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-hanskinkini/"
     },
@@ -2798,7 +2798,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; g; D; - D; g; S;",
         "source_url": "https://tanarang.com/wordpress/raag-harikauns/"
     },
@@ -2855,7 +2855,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; m; D; N;",
         "source_url": "https://tanarang.com/wordpress/raag-hemant/"
     },
@@ -2913,7 +2913,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; - S'; P; m;",
         "source_url": "https://tanarang.com/wordpress/raag-hemshree/"
     },
@@ -2969,7 +2969,7 @@
             "kalyan",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G; D; S'; - D; G;",
         "source_url": "https://tanarang.com/wordpress/raag-hindol/"
     },
@@ -3051,7 +3051,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S R P N - S' P R;",
         "source_url": "https://tanarang.com/wordpress/raag-jaijaivanti/"
     },
@@ -3101,7 +3101,7 @@
             "hindustani",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "m; S;",
         "source_url": "https://tanarang.com/wordpress/raag-jaldhar-kedar/"
     },
@@ -3159,7 +3159,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R; P; d; S'; - d; P; g; R;",
         "source_url": "https://tanarang.com/wordpress/raag-jaunpuri/"
     },
@@ -3216,7 +3216,7 @@
             "hindustani",
             "marwa"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P;",
         "source_url": "https://tanarang.com/wordpress/raag-jayat/"
     },
@@ -3276,7 +3276,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; P; D; - S'; P; G;",
         "source_url": "https://tanarang.com/wordpress/raag-jhinjhoti/"
     },
@@ -3330,7 +3330,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G; m; P; - P; m; G;",
         "source_url": "https://tanarang.com/wordpress/raag-jog/"
     },
@@ -3384,7 +3384,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G m; D; - D; m; G; S;",
         "source_url": "https://tanarang.com/wordpress/raag-jogeshwari/"
     },
@@ -3442,7 +3442,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G m; D; - D; m; G; S;",
         "source_url": "https://tanarang.com/wordpress/raag-pancham-jogeshwari/"
     },
@@ -3496,7 +3496,7 @@
             "hindustani",
             "morning"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; d; - S'; d; m; r;",
         "source_url": "https://tanarang.com/wordpress/raag-jogiya/"
     },
@@ -3558,7 +3558,7 @@
             "hindustani",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; - m; S;",
         "source_url": "https://tanarang.com/wordpress/raag-jogkauns/"
     },
@@ -3616,7 +3616,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S P - S' P R;",
         "source_url": "https://tanarang.com/wordpress/raag-kafi/"
     },
@@ -3671,7 +3671,7 @@
             "khamaj",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G D - D G;",
         "source_url": "https://tanarang.com/wordpress/raag-kalawati/"
     },
@@ -3745,7 +3745,7 @@
             "kalyan",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; R; P; - S'; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-kamod/"
     },
@@ -3795,7 +3795,7 @@
             "hindustani",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; m; D; N;",
         "source_url": "https://tanarang.com/wordpress/raag-kaushik-dhwani-raag-bhinn-shadj/"
     },
@@ -3859,7 +3859,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; - S'; m;",
         "source_url": "https://tanarang.com/wordpress/raag-kausi-kanada/"
     },
@@ -3920,7 +3920,7 @@
             "kalyan",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; - S'; P; m;",
         "source_url": "https://tanarang.com/wordpress/raag-kedar/"
     },
@@ -3992,7 +3992,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S m P - S' P G;",
         "source_url": "https://tanarang.com/wordpress/raag-khamaj/"
     },
@@ -4062,7 +4062,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; P; - D; P; G; S;",
         "source_url": "https://tanarang.com/wordpress/raag-khambavati/"
     },
@@ -4120,7 +4120,7 @@
             "not defined",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S R P - S' P R;",
         "source_url": "https://tanarang.com/wordpress/raag-keervani/"
     },
@@ -4184,7 +4184,7 @@
             "hindustani",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; d; - d; m; r;",
         "source_url": "https://tanarang.com/wordpress/raag-komal-rishabh-asawari/"
     },
@@ -4244,7 +4244,7 @@
             "night",
             "poorvi"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; m; - S'; m; G;",
         "source_url": "https://tanarang.com/wordpress/raag-lalit/"
     },
@@ -4310,7 +4310,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R; P; S' - S'; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-lanka-dahan-sarang/"
     },
@@ -4360,7 +4360,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "M P S' - P M S;",
         "source_url": "https://tanarang.com/wordpress/raag-madhukauns/"
     },
@@ -4411,7 +4411,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; P; - S'; P;",
         "source_url": "https://tanarang.com/wordpress/raag-madhumad-sarang/"
     },
@@ -4473,7 +4473,7 @@
             "seven-notes",
             "todi"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; g; P; N; - S'; N; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-madhuvanti/"
     },
@@ -4541,7 +4541,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; - m; S;",
         "source_url": "https://tanarang.com/wordpress/raag-malgunji/"
     },
@@ -4607,7 +4607,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S R P N - S' P R;",
         "source_url": "https://tanarang.com/wordpress/raag-malhar-raag-miya-malhar/"
     },
@@ -4657,7 +4657,7 @@
             "hindustani",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S g m - m g S;",
         "source_url": "https://tanarang.com/wordpress/raag-malkauns/"
     },
@@ -4717,7 +4717,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S m P - S' D m G;",
         "source_url": "https://tanarang.com/wordpress/raag-mand/"
     },
@@ -4776,7 +4776,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G P N - S' D P G R;",
         "source_url": "https://tanarang.com/wordpress/raag-maru-bihag/"
     },
@@ -4837,7 +4837,7 @@
             "hindustani",
             "marwa"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "r; D; - D; r;",
         "source_url": "https://tanarang.com/wordpress/raag-marwa/"
     },
@@ -4890,7 +4890,7 @@
             "hindustani",
             "kafi"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; - P; m; R;",
         "source_url": "https://tanarang.com/wordpress/raag-megh-malhar-or-raag-megh/"
     },
@@ -4942,7 +4942,7 @@
             "hindustani",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; m; d; n; - n; d; m; S;",
         "source_url": "https://tanarang.com/wordpress/raag-mohankauns-different-flavour/"
     },
@@ -5000,7 +5000,7 @@
             "seven-notes",
             "todi"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; g; P; N; - N; P; g; S;",
         "source_url": "https://tanarang.com/wordpress/raag-multani/"
     },
@@ -5072,7 +5072,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; m; P; - P; m; G; S;",
         "source_url": "https://tanarang.com/wordpress/raag-nand/"
     },
@@ -5125,7 +5125,7 @@
             "khamaj",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; P; - P; S;",
         "source_url": "https://tanarang.com/wordpress/raag-narayani/"
     },
@@ -5184,7 +5184,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R; P; - P; m; R;",
         "source_url": "https://tanarang.com/wordpress/raag-nayaki-kanada/"
     },
@@ -5242,7 +5242,7 @@
             "morning",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R; m; d; - d; m; R;",
         "source_url": "https://tanarang.com/wordpress/raag-nut-bhairav/"
     },
@@ -5295,7 +5295,7 @@
             "night",
             "not defined"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "r; m; D; - D; m; r;",
         "source_url": "https://tanarang.com/wordpress/raag-parmeshwari/"
     },
@@ -5355,7 +5355,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "g; P; N; \u2013 D; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-patdeep/"
     },
@@ -5421,7 +5421,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P; N; - n; P; g;",
         "source_url": "https://tanarang.com/wordpress/raag-pilu/"
     },
@@ -5479,7 +5479,7 @@
             "marwa",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G; N; - N; G;",
         "source_url": "https://tanarang.com/wordpress/raag-puriya/"
     },
@@ -5543,7 +5543,7 @@
             "poorvi",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P; N; - S'; P; G; r;",
         "source_url": "https://tanarang.com/wordpress/raag-puriya-dhanashree/"
     },
@@ -5605,7 +5605,7 @@
             "marwa",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G; M; P; N; - S'; N; P; G; r;",
         "source_url": "https://tanarang.com/wordpress/raag-puriya-kalyan/"
     },
@@ -5669,7 +5669,7 @@
             "poorvi",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P; N; - S'; P; G;",
         "source_url": "https://tanarang.com/wordpress/raag-poorvi/"
     },
@@ -5723,7 +5723,7 @@
             "khamaj",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G; m; D;",
         "source_url": "https://tanarang.com/wordpress/raag-rageshree/"
     },
@@ -5799,7 +5799,7 @@
             "kafi",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P;",
         "source_url": "https://tanarang.com/wordpress/raag-ramdasi-malhar/"
     },
@@ -5877,7 +5877,7 @@
             "morning",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; P; - S'; P; r;",
         "source_url": "https://tanarang.com/wordpress/raag-ramkali/"
     },
@@ -5930,7 +5930,7 @@
             "night",
             "todi"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; g; P;",
         "source_url": "https://tanarang.com/wordpress/raag-saalag-varali/"
     },
@@ -5984,7 +5984,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; R; P; N; - S'; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-sarang-raag-brindavani-sarang/"
     },
@@ -6042,7 +6042,7 @@
             "kalyan",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "R; P; S'; - D; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-saraswati/"
     },
@@ -6102,7 +6102,7 @@
             "kalyan",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S M P D - S' P m R;",
         "source_url": "https://tanarang.com/wordpress/raag-saraswati-kedar/"
     },
@@ -6164,7 +6164,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; P; D; - S'; D; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-shahana-kanada/"
     },
@@ -6219,7 +6219,7 @@
             "hindustani",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P; N; - N; P; G; S;",
         "source_url": "https://tanarang.com/wordpress/raag-shankara/"
     },
@@ -6272,7 +6272,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "P; S'; - S'; P;",
         "source_url": "https://tanarang.com/wordpress/raag-shivranjani/"
     },
@@ -6324,7 +6324,7 @@
             "hindustani",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; P; - S'; P; m;",
         "source_url": "https://tanarang.com/wordpress/raag-shobhawari/"
     },
@@ -6385,7 +6385,7 @@
             "poorvi",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; r; P; - P; r; S;",
         "source_url": "https://tanarang.com/wordpress/raag-shree/"
     },
@@ -6448,7 +6448,7 @@
             "kalyan",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P; - P; G; S;",
         "source_url": "https://tanarang.com/wordpress/raag-shuddha-kalyan-2/"
     },
@@ -6508,7 +6508,7 @@
             "kalyan",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": ",N; R; P; N; - S'; N; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-shuddha-sarang/"
     },
@@ -6586,7 +6586,7 @@
             "kalyan",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; R; P; N; - S'; N; P; R;",
         "source_url": "https://tanarang.com/wordpress/raag-shyam-kalyan/"
     },
@@ -6646,7 +6646,7 @@
             "kafi",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; P; D; - S'; D; P; g;",
         "source_url": "https://tanarang.com/wordpress/raag-sindhura/"
     },
@@ -6701,7 +6701,7 @@
             "marwa",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G; D; - D; G;",
         "source_url": "https://tanarang.com/wordpress/raag-sohani/"
     },
@@ -6788,7 +6788,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; g ; m ; P ;",
         "source_url": "https://tanarang.com/wordpress/raag-suha-sughrai/"
     },
@@ -6840,7 +6840,7 @@
             "night",
             "not defined"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; n; - n; P; G ;",
         "source_url": "https://tanarang.com/wordpress/raag-sundarkali/"
     },
@@ -6894,7 +6894,7 @@
             "kafi",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; m; D; - S'; D; m;",
         "source_url": "https://tanarang.com/wordpress/raag-sundarkauns/"
     },
@@ -6956,7 +6956,7 @@
             "hindustani",
             "kafi"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; R; m; P; - S'; P; m; R;",
         "source_url": "https://tanarang.com/wordpress/raag-surdasi-malhar/"
     },
@@ -7027,7 +7027,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": ",N P S' - S' G S;",
         "source_url": "https://tanarang.com/wordpress/raag-tilak-kamod/"
     },
@@ -7079,7 +7079,7 @@
             "khamaj",
             "night"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; P; N; - S; P; G; S;",
         "source_url": "https://tanarang.com/wordpress/raag-tilang/"
     },
@@ -7135,7 +7135,7 @@
             "night",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S m P - S' P m G;",
         "source_url": "https://tanarang.com/wordpress/raag-tilang-bahar/"
     },
@@ -7193,7 +7193,7 @@
             "seven-notes",
             "todi"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; g; d; - d; g; S;",
         "source_url": "https://tanarang.com/wordpress/raag-todi/"
     },
@@ -7252,7 +7252,7 @@
             "not defined",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "G; P; n; - D; P; G; R;",
         "source_url": "https://tanarang.com/wordpress/raag-vachaspati/"
     },
@@ -7302,7 +7302,7 @@
             "hindustani",
             "morning"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "r; P; d;",
         "source_url": "https://tanarang.com/wordpress/raag-vibhas/"
     },
@@ -7360,7 +7360,7 @@
             "kalyan",
             "seven-notes"
         ],
-        "verified": false,
+        "verified": true,
         "vishranti_sthan": "S; G; N; - S'; N; P; G;",
         "source_url": "https://tanarang.com/wordpress/raag-yaman/"
     }
