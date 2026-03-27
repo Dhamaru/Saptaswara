@@ -6812,8 +6812,8 @@
             "r",
             "S"
         ],
-        "vadi": "",
-        "samvadi": "",
+        "vadi": "P",
+        "samvadi": "S",
         "pakad": "S r G P n P ; G P n ; P G r S ; r S ,n S r S;",
         "thaat": "Not Defined",
         "time_of_day": "Night",
