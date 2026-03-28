@@ -7,7 +7,7 @@
       }
     ],
     "jsx": "preserve",
-    "incremental": true,
+    "incremental": false,
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "moduleResolution": "node",
