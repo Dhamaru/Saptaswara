@@ -1,7 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
-import { Sparkles, Send, Bot, User, Loader2, X } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -9,121 +8,157 @@ interface Message {
 }
 
 interface AssistantProps {
-  ragaContext?: string
+  ragaContext?: any
 }
 
 export function Assistant({ ragaContext }: AssistantProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: `I'm your Saptaswara AI. Ask me about ${ragaContext || 'a raga'}, swara patterns, or the mood for your composition.` }
+    {
+      role: 'assistant',
+      content: ragaContext 
+        ? `I am analyzing the resonance of ${ragaContext.name}. How can I assist your composition?`
+        : "I am your Raga Assistant. Select a melodic foundation to begin our harmonic dialogue."
+    }
   ])
-  const [isLoading, setIsLoading] = useState(false)
+  const [input, setInput] = useState('')
+  const [isTyping, setIsTyping] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
+  const [isMinimized, setIsMinimized] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
   }, [messages])
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return
-
+    if (!input.trim()) return
+    
     const userMsg: Message = { role: 'user', content: input }
     setMessages(prev => [...prev, userMsg])
     setInput('')
-    setIsLoading(true)
+    setIsTyping(true)
 
     try {
-      const res = await fetch('/api/ai/suggest', {
+      const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: input, ragaContext })
+        body: JSON.stringify({
+          messages: [...messages, userMsg],
+          ragaContext
+        })
       })
       const data = await res.json()
-
-      if (data.text) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.text }])
-      } else {
-        throw new Error(data.error || 'Unknown error')
-      }
+      setMessages(prev => [...prev, { role: 'assistant', content: data.content }])
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I'm having trouble connecting. Please try again." }])
+      console.error('Assistant error:', err)
     } finally {
-      setIsLoading(false)
+      setIsTyping(false)
     }
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100]">
-      {!isOpen ? (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="w-14 h-14 bg-gradient-to-br from-primary to-primary-dark rounded-2xl flex items-center justify-center shadow-glow hover:scale-110 active:scale-95 transition-all group"
+    <div className={`fixed right-8 bottom-8 z-[200] transition-all duration-700 ease-in-out ${
+      isMinimized ? 'w-16 h-16' : isFocused ? 'w-[500px] h-[700px]' : 'w-96 h-[500px]'
+    }`}>
+      {isMinimized ? (
+        <button 
+          onClick={() => setIsMinimized(false)}
+          className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center shadow-glow hover:scale-110 active:scale-95 transition-all group"
         >
-          <Sparkles className="w-6 h-6 text-white group-hover:animate-glow-pulse" />
-          <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-background animate-glow-pulse" />
+          <span className="material-symbols-outlined text-white !text-2xl animate-pulse group-hover:animate-none">auto_fix_high</span>
         </button>
       ) : (
-        <div className="w-96 h-[480px] glass rounded-3xl shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-slide-up">
-          {/* Header */}
-          <div className="px-5 py-4 glass-gold border-b border-white/5 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-lg flex items-center justify-center">
-                <Bot className="w-4 h-4 text-white" />
+        <div className="w-full h-full bg-surface-lowest/80 backdrop-blur-3xl rounded-[40px] border border-outline-variant/10 shadow-2xl flex flex-col overflow-hidden group">
+        
+        {/* Assistant Header */}
+        <div className="p-8 border-b border-outline-variant/10 flex items-center justify-between bg-surface-lowest/40">
+           <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center shadow-glow">
+                 <span className="material-symbols-outlined text-white !text-xl">auto_fix_high</span>
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Raga Assistant</h3>
-                <p className="text-[10px] text-primary-light font-mono uppercase tracking-widest">RAG v1.0 • Online</p>
+                 <h4 className="font-display text-lg font-light text-on-surface leading-tight">Raga Assistant</h4>
+                 <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/60 font-bold">Neural Engine Live</span>
+                 </div>
               </div>
-            </div>
-            <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-all text-white/40 hover:text-white">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+           </div>
+           
+           <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setIsMinimized(true)}
+                className="material-symbols-outlined text-on-surface-variant/40 hover:text-primary transition-colors !text-xl"
+              >
+                close
+              </button>
+              <h4 className="font-display text-lg font-light text-on-surface leading-tight">Assistant</h4>
+           </div>
+           
+           <button 
+             onClick={() => setIsFocused(!isFocused)}
+             className="material-symbols-outlined text-on-surface-variant/20 hover:text-primary transition-colors !text-xl"
+           >
+             {isFocused ? 'close_fullscreen' : 'open_in_full'}
+           </button>
+        </div>
 
-          {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4">
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${
-                  m.role === 'user'
-                    ? 'bg-gradient-to-br from-primary to-primary-dark text-white rounded-tr-sm'
-                    : 'glass-light rounded-tl-sm text-white/70'
+        {/* Chat Thread */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-8 scroll-thin">
+           {messages.map((m, i) => (
+             <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div className={`max-w-[85%] p-5 rounded-3xl text-sm leading-relaxed ${
+                  m.role === 'assistant' 
+                    ? 'bg-gradient-to-br from-primary to-primary-container text-white shadow-glow font-medium' 
+                    : 'bg-surface-container-high text-on-surface border border-outline-variant/5 shadow-2xl font-light'
                 }`}>
                   {m.content}
                 </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="glass-light p-4 rounded-2xl rounded-tl-sm">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input */}
-          <div className="p-4 border-t border-white/5">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Ask about ragas, swaras, moods..."
-                className="w-full glass-light rounded-xl py-3 pl-4 pr-12 text-sm focus:ring-1 focus:ring-primary/50 outline-none text-white placeholder:text-white/20"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSend()}
-              />
-              <button
-                onClick={handleSend}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary/20 hover:bg-primary/40 rounded-lg text-primary transition-all"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+                <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/20 mt-2 px-2">
+                  {m.role === 'assistant' ? 'AI Synthesis' : 'User Prompt'}
+                </span>
+             </div>
+           ))}
+           {isTyping && (
+             <div className="flex items-center gap-2 px-4 py-2 bg-surface-container-low/40 rounded-full w-fit">
+                <div className="w-1 h-1 bg-primary rounded-full animate-bounce" />
+                <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
+                <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:0.4s]" />
+             </div>
+           )}
         </div>
-      )}
-    </div>
-  )
+
+        {/* Suggestion Chips */}
+        <div className="px-8 py-4 flex gap-2 overflow-x-auto scroller-none border-t border-outline-variant/5">
+           {['Scale Theory', 'Morning Ragas', 'Generate Pattern'].map(chip => (
+             <button key={chip} className="whitespace-nowrap px-4 py-2 rounded-xl bg-surface-container-low/40 border border-outline-variant/5 text-[10px] font-mono uppercase tracking-widest text-on-surface-variant/60 hover:text-primary hover:border-primary/20 transition-all">
+                {chip}
+             </button>
+           ))}
+        </div>
+
+        {/* Input Area */}
+        <div className="p-8 bg-surface-lowest/40 backdrop-blur-md">
+           <div className="relative group">
+              <input 
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                placeholder="Talk to your Raga Assistant..."
+                className="w-full bg-surface-container-high rounded-2xl py-4 pl-6 pr-14 text-sm font-sans placeholder:text-on-surface-variant/20 border border-outline-variant/5 focus:border-primary/40 focus:bg-surface-lowest transition-all outline-none"
+              />
+              <button 
+                onClick={handleSend}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-glow"
+              >
+                <span className="material-symbols-outlined !text-xl">mic</span>
+              </button>
+           </div>
+        </div>
+      </div>
+    )}
+  </div>
+)
 }
