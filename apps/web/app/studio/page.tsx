@@ -1,318 +1,337 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import { audioEngine } from '@/lib/audio'
 import { Assistant } from '@/components/Assistant'
-import { Play, Square, Save, Music, ChevronDown, Search, Sparkles, Wand2, Zap } from 'lucide-react'
-import type { Raga, Swara } from '@saptaswara/core'
+import Piano from '@/components/Piano'
+import type { Raga } from '@saptaswara/core'
 import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 
 const STEPS = 16
+const TABLA_STROKES = ['Dha', 'Na', 'Ti', 'Te']
 
-export default function StudioPage() {
+type LayerType = 'melody' | 'rhythm' | 'drone'
+type KeyboardLayout = 'Piano' | 'Harmonium' | 'Swara'
+type InstrumentType = 'piano' | 'harmonium' | 'sitar'
+
+interface Layer {
+  id: string
+  type: LayerType
+  name: string
+  sequence: (any | null)[]
+  visible: boolean
+}
+
+const SWARA_OFFSETS: Record<string, number> = {
+  'Sa': 0, 're': 1, 'Re': 2, 'ga': 3, 'Ga': 4, 'Ma': 5, 'ma': 6, 'Pa': 7, 'dha': 8, 'Dha': 9, 'ni': 10, 'Ni': 11
+}
+
+function StudioContent() {
   const searchParams = useSearchParams()
   const projectIdFromUrl = searchParams.get('project_id')
 
+  const [user, setUser] = useState<any>(null)
   const [ragas, setRagas] = useState<Raga[]>([])
   const [selectedRaga, setSelectedRaga] = useState<Raga | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isStarted, setIsStarted] = useState(false)
   const [activeStep, setActiveStep] = useState(-1)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [sequence, setSequence] = useState<(Swara | null)[]>(new Array(STEPS).fill(null))
+  
+  const [keyboardLayout, setKeyboardLayout] = useState<KeyboardLayout>('Piano')
+  const [activeInstrument, setActiveInstrument] = useState<InstrumentType>('piano')
+
+  const [layers, setLayers] = useState<Layer[]>([
+    { id: '1', type: 'melody', name: 'Melody', sequence: new Array(STEPS).fill(null), visible: true },
+    { id: '2', type: 'rhythm', name: 'Tabla', sequence: new Array(STEPS).fill(null), visible: true },
+  ])
+  const [activeLayerId, setActiveLayerId] = useState('1')
+  
   const [projectId, setProjectId] = useState<string | null>(projectIdFromUrl)
   const [projectName, setProjectName] = useState('Untitled Composition')
 
+  const supabaseClient = createClient()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const activeLayer = layers.find(l => l.id === activeLayerId) || layers[0]
 
   useEffect(() => {
     const init = async () => {
-      const { data: ragaData } = await supabase.from('ragas').select('*').order('name')
-      if (ragaData) setRagas(ragaData)
-
-      if (projectIdFromUrl) {
-        const { data: project } = await supabase
-          .from('projects')
-          .select('*, ragas(*)')
-          .eq('id', projectIdFromUrl)
-          .single()
-
-        if (project) {
-          setProjectName(project.title)
-          setSelectedRaga(project.ragas)
-
-          const { data: layers } = await supabase
-            .from('layers')
-            .select('*')
-            .eq('project_id', project.id)
-
-          if (layers && layers.length > 0) {
-            const savedSeq = (layers[0].events as any)?.sequence
-            if (savedSeq) setSequence(savedSeq)
-          }
-        }
+      const { data: { user } } = await supabaseClient.auth.getUser()
+      setUser(user)
+      const { data: ragaData } = await supabaseClient.from('ragas').select('*').order('name')
+      if (ragaData && ragaData.length > 0) {
+        setRagas(ragaData as any)
+        // Auto-select first raga for immediate visibility
+        setSelectedRaga(ragaData[0] as any)
       }
     }
     init()
-  }, [projectIdFromUrl])
+  }, [])
 
   useEffect(() => {
-    if (isPlaying && isStarted) {
-      let step = 0
+    if (isPlaying) {
       timerRef.current = setInterval(() => {
-        const swara = sequence[step]
-        if (swara && selectedRaga && audioEngine) {
-          audioEngine.playSwara(selectedRaga.hz_map[swara])
-        }
-        setActiveStep(step)
-        step = (step + 1) % STEPS
-      }, 250)
+        setActiveStep((prev) => {
+          const nextStep = (prev + 1) % STEPS
+          layers.forEach(layer => {
+            const event = layer.sequence[nextStep]
+            if (event && audioEngine) {
+              if (layer.type === 'melody') audioEngine.playSwara(event.frequency)
+              if (layer.type === 'rhythm') audioEngine.playStroke(event.stroke)
+            }
+          })
+          return nextStep
+        })
+      }, 500)
     } else {
       if (timerRef.current) clearInterval(timerRef.current)
       setActiveStep(-1)
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [isPlaying, sequence, selectedRaga, isStarted])
+  }, [isPlaying, layers])
 
-  const startAudio = async () => {
-    if (audioEngine) { await audioEngine.start(); setIsStarted(true) }
+  const getFreq = (swara: string, octave = 4) => {
+    const offset = SWARA_OFFSETS[swara] || 0
+    return 261.63 * Math.pow(2, octave - 4) * Math.pow(2, offset / 12)
   }
 
-  const toggleSequence = (step: number, swara: Swara) => {
-    const newSeq = [...sequence]
-    newSeq[step] = newSeq[step] === swara ? null : swara
-    setSequence(newSeq)
-    if (isStarted && selectedRaga && audioEngine && newSeq[step]) {
-      audioEngine.playSwara(selectedRaga.hz_map[swara])
-    }
+  const handleToggleStep = (stepIdx: number, value: any) => {
+    setLayers(prev => prev.map(l => {
+      if (l.id === activeLayerId) {
+        const newSeq = [...l.sequence]
+        newSeq[stepIdx] = newSeq[stepIdx]?.label === value.label ? null : value
+        return { ...l, sequence: newSeq }
+      }
+      return l
+    }))
   }
 
-  const filteredRagas = ragas.filter(r =>
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.thaat.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const handleInstrumentChange = (inst: InstrumentType) => {
+    setActiveInstrument(inst)
+    if (audioEngine) audioEngine.setInstrument(inst)
+  }
 
-  const handleSave = async () => {
-    if (!selectedRaga) return
-    try {
-      const res = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId,
-          title: projectName || `Composition in ${selectedRaga.name}`,
-          raga_id: selectedRaga.id,
-          bpm: 120,
-          sequence
-        })
-      })
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error)
-      setProjectId(result.id)
-      alert('Composition saved successfully!')
-    } catch (err: any) {
-      console.error('Save Error:', err)
-      alert('Failed to save: ' + err.message)
+  const handleInitAudio = async () => {
+    if (audioEngine) {
+      await audioEngine.start()
+      setIsStarted(true)
     }
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden relative">
-      {/* Background */}
-      <div className="absolute inset-0 dot-pattern opacity-10" />
-
-      {/* Studio Toolbar */}
-      <div className="relative z-20 glass border-b border-white/5 px-6 py-3 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          {/* Raga Selector */}
-          <div className="relative group">
-            <button className="glass-light px-5 py-2.5 rounded-2xl flex items-center gap-3 hover:border-primary/30 transition-all">
-              <Music className="w-5 h-5 text-primary" />
-              <span className="font-bold tracking-tight">{selectedRaga?.name || 'Select Raga'}</span>
-              <ChevronDown className="w-4 h-4 text-white/30" />
-            </button>
-            <div className="absolute top-full left-0 mt-3 w-80 glass rounded-3xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-4">
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-                <input
-                  type="text"
-                  placeholder="Filter 120 ragas..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/50 outline-none"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div className="max-h-80 overflow-y-auto space-y-1 pr-1">
-                {filteredRagas.map(raga => (
-                  <button
-                    key={raga.id}
-                    onClick={() => {
-                      setSelectedRaga(raga)
-                      setSequence(new Array(STEPS).fill(null))
-                    }}
-                    className={`w-full text-left p-3 rounded-xl transition-all flex justify-between items-center ${
-                      selectedRaga?.id === raga.id
-                        ? 'glass-gold text-primary-light'
-                        : 'hover:bg-white/5'
-                    }`}
-                  >
-                    <div>
-                      <p className="font-bold text-sm">{raga.name}</p>
-                      <p className="text-[10px] text-white/25 uppercase tracking-widest">{raga.thaat}</p>
-                    </div>
-                    {selectedRaga?.id === raga.id && <div className="w-2 h-2 bg-primary rounded-full animate-glow-pulse" />}
-                  </button>
-                ))}
-              </div>
-            </div>
+    <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-background">
+      {!isStarted && (
+        <div className="fixed inset-0 z-[100] bg-background/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-8 animate-pulse text-primary">
+            <span className="material-symbols-outlined !text-4xl">headphones</span>
           </div>
-
-          <div className="h-6 w-px bg-white/10" />
-
-          {/* Project Name */}
-          <input
-            type="text"
-            value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-            className="bg-transparent text-lg font-bold focus:ring-0 focus:outline-none w-56 text-white/70 focus:text-white transition-colors placeholder:text-white/20"
-            placeholder="Name your composition..."
-          />
-
-          <div className="h-6 w-px bg-white/10" />
-
-          {/* Audio Engine */}
-          <button
-            onClick={startAudio}
-            disabled={isStarted}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm transition-all ${
-              isStarted
-                ? 'glass-gold text-primary-light'
-                : 'btn-primary'
-            }`}
-          >
-            {isStarted ? <div className="w-2 h-2 bg-primary rounded-full animate-glow-pulse" /> : <Zap className="w-4 h-4" />}
-            {isStarted ? 'Engine Live' : 'Initialize Audio'}
+          <h2 className="font-display text-4xl font-light text-on-surface mb-4 tracking-tight">Activate the Resonance.</h2>
+          <p className="text-on-surface-variant max-w-sm mb-12 font-sans font-light">
+            Explicit interaction is required to initialize the studio engine. Click below to begin your melodic dialogue.
+          </p>
+          <button onClick={handleInitAudio} className="px-10 py-5 bg-primary text-on-primary rounded-2xl font-medium tracking-tight shadow-glow hover:scale-105 active:scale-95 transition-all">
+            Initialize Audio Engine
           </button>
         </div>
+      )}
 
-        {/* Right Controls */}
-        <div className="flex gap-3 items-center">
-          <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            disabled={!isStarted || !selectedRaga}
-            className={`w-11 h-11 flex items-center justify-center rounded-xl transition-all ${
-              isPlaying
-                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                : 'glass-light hover:text-emerald-400'
-            }`}
-          >
-            {isPlaying ? <Square className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-emerald-600/20"
-          >
-            <Save className="w-4 h-4" />
-            Save
-          </button>
-        </div>
-      </div>
-
-      {/* Main Studio Area */}
-      <div className="relative z-10 flex-1 p-8 overflow-hidden flex flex-col gap-8">
-        {!selectedRaga ? (
-          <div className="flex-1 flex flex-col items-center justify-center space-y-8 animate-fade-in">
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/10 blur-[60px] rounded-full" />
-              <div className="relative w-28 h-28 glass rounded-[2rem] flex items-center justify-center shadow-glow">
-                <Music className="w-12 h-12 text-primary animate-float" />
-              </div>
-            </div>
-            <div className="text-center space-y-3">
-              <h2 className="text-4xl font-black text-gradient-subtle tracking-tight">Select your Raag</h2>
-              <p className="text-white/25 max-w-sm mx-auto leading-relaxed">
-                Choose from 120 verified ragas to unlock their musical geometry and start composing.
-              </p>
-            </div>
+      {/* Control Sidebar */}
+      <aside className="w-80 bg-surface-lowest border-r border-outline-variant/10 flex flex-col overflow-hidden">
+        <div className="p-8 border-b border-outline-variant/10">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-primary mb-2 font-bold opacity-60">Project</div>
+          <input value={projectName} onChange={(e) => setProjectName(e.target.value)} className="w-full bg-transparent font-display text-2xl font-light text-on-surface focus:outline-none focus:text-primary transition-colors mb-8" />
+          
+          <div className="space-y-6">
+             <div>
+                <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-3 font-bold">Instrument Engine</span>
+                <select 
+                   value={activeInstrument} 
+                   onChange={(e) => handleInstrumentChange(e.target.value as InstrumentType)}
+                   className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-xs font-mono uppercase tracking-widest text-on-surface border border-outline-variant/10 focus:border-primary/40 transition-all outline-none"
+                >
+                   <option value="piano">Concert Piano</option>
+                   <option value="harmonium">Reed Harmonium</option>
+                   <option value="sitar">Sitar (WIP)</option>
+                </select>
+             </div>
+             <div>
+                <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-3 font-bold">Input Method</span>
+                <select 
+                   value={keyboardLayout} 
+                   onChange={(e) => setKeyboardLayout(e.target.value as KeyboardLayout)}
+                   className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-xs font-mono uppercase tracking-widest text-on-surface border border-outline-variant/10 focus:border-primary/40 transition-all outline-none"
+                >
+                   <option value="Piano">Chromatic Piano</option>
+                   <option value="Harmonium">Classic Harmonium</option>
+                   <option value="Swara">Swara Boards</option>
+                </select>
+             </div>
           </div>
-        ) : (
-          <div className="flex-1 flex flex-col gap-8 overflow-hidden animate-slide-up">
-            {/* Raga Info Header */}
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="glass-gold px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.2em] text-primary-light">
-                  {selectedRaga.thaat} Thaat
-                </span>
-                <h2 className="text-5xl font-black mt-3 text-gradient-gold flex items-center gap-4">
-                  {selectedRaga.name}
-                  <button className="p-2 hover:bg-white/5 rounded-xl text-white/20 hover:text-primary transition-all">
-                    <Wand2 className="w-6 h-6" />
-                  </button>
-                </h2>
-                <div className="flex gap-4 mt-4 text-xs font-mono text-white/30">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 bg-primary rounded-full" /> Vadi: {selectedRaga.vadi}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 bg-accent rounded-full" /> Samvadi: {selectedRaga.samvadi}
-                  </div>
-                  <div className="text-white/15">{selectedRaga.time_of_day}</div>
-                </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-8 space-y-12 scroll-thin">
+           <section>
+              <div className="font-mono text-[9px] uppercase tracking-widest text-primary/60 mb-6 font-bold">Studio Tracks</div>
+              <div className="space-y-4">
+                 {layers.map(layer => (
+                   <button
+                     key={layer.id}
+                     onClick={() => setActiveLayerId(layer.id)}
+                     className={`w-full flex items-center justify-between p-5 rounded-2xl transition-all border ${
+                       activeLayerId === layer.id ? 'bg-surface-container-high border-primary/40 shadow-glow' : 'bg-surface-lowest border-outline-variant/5 hover:border-outline-variant/20'
+                     }`}
+                   >
+                     <div className="flex items-center gap-4">
+                       <span className="material-symbols-outlined !text-xl opacity-40">{layer.type === 'melody' ? 'music_note' : 'equalizer'}</span>
+                       <span className="font-sans text-xs font-medium uppercase tracking-widest opacity-80">{layer.name}</span>
+                     </div>
+                     <div className={`w-2 h-2 rounded-full ${activeLayerId === layer.id ? 'bg-primary animate-pulse' : 'bg-outline-variant/20'}`} />
+                   </button>
+                 ))}
+              </div>
+           </section>
+
+           <section>
+              <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 mb-6 font-bold">Raga Selection</div>
+              <div className="relative group mb-4">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined !text-xl text-on-surface-variant/40">search</span>
+                <input placeholder="Find foundation..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-surface-container-low rounded-xl py-3 pl-10 pr-4 text-xs font-sans border border-outline-variant/10" />
+              </div>
+              <div className="h-64 overflow-y-auto scroller-none space-y-1 pr-2">
+                 {ragas.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(raga => (
+                   <button key={raga.id} onClick={() => setSelectedRaga(raga)} className={`w-full text-left px-4 py-2.5 rounded-lg text-xs font-medium transition-all ${selectedRaga?.id === raga.id ? 'bg-primary/20 text-primary border border-primary/20' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'}`}>
+                     {raga.name}
+                   </button>
+                 ))}
+              </div>
+           </section>
+        </div>
+      </aside>
+
+      {/* Main Workspace */}
+      <main className="flex-1 relative flex flex-col bg-surface overflow-hidden">
+        {/* Header HUD Capsule */}
+        <div className="h-20 px-12 flex justify-between items-center border-b border-outline-variant/5 bg-surface/40 backdrop-blur-md">
+           <div className="px-6 py-2 rounded-full bg-surface-container-high border border-outline-variant/10 flex items-center gap-4">
+              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-primary/60 font-bold">Active Resonance</span>
+              <span className="font-display text-lg font-light text-on-surface tracking-wide uppercase">{selectedRaga?.name || 'Searching...'}</span>
+           </div>
+
+           <div className="flex items-center gap-8">
+              <div className="flex flex-col items-end">
+                <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Master Tempo</span>
+                <span className="font-mono text-xl font-light text-primary tracking-tighter">120.0 <span className="text-[10px] text-on-surface-variant/40">BPM</span></span>
+              </div>
+              <button className="px-6 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all">Save Project</button>
+           </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-12 space-y-12 scroll-thin">
+           {/* Visual Keyboard Segment */}
+           <section className="animate-slide-up">
+              <Piano 
+                layout={keyboardLayout}
+                activeRagaNotes={selectedRaga?.aroha || []} 
+                onNoteClick={(note, freq) => {
+                  // Link piano click to selected step in sequencer
+                  if (activeStep !== -1) {
+                    handleToggleStep(activeStep, { label: note, frequency: freq })
+                  }
+                }}
+              />
+           </section>
+
+           {/* Sequencer Grid */}
+           <section className="max-w-6xl mx-auto">
+              <div className="flex items-center justify-between mb-8 border-b border-outline-variant/5 pb-4">
+                 <div className="flex items-center gap-4">
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-on-surface font-bold">Pulse Sequencer</span>
+                 </div>
+                 <div className="font-mono text-[10px] text-on-surface-variant/40 uppercase tracking-widest">16 Steps / {activeLayer.name}</div>
               </div>
 
-              <div className="glass rounded-3xl p-5 max-w-xs">
-                <p className="text-sm text-white/30 italic leading-relaxed">
-                  &ldquo;{selectedRaga.mood || "The soul of this raga speaks through its precise note structure."}&rdquo;
-                </p>
+              <div className="grid grid-cols-16 gap-3">
+                 {new Array(STEPS).fill(0).map((_, i) => {
+                   const step = activeLayer.sequence[i]
+                   const isActive = step !== null
+                   const isPlayhead = activeStep === i
+                   
+                   return (
+                     <div key={i} className="flex flex-col gap-3">
+                        <button
+                          className={`w-full aspect-square rounded-2xl transition-all border flex flex-col items-center justify-center gap-2 group ${
+                            isActive 
+                              ? 'bg-primary border-primary shadow-glow scale-105' 
+                              : isPlayhead 
+                                ? 'bg-surface-container-highest border-primary/40' 
+                                : 'bg-surface-lowest border-outline-variant/10 hover:border-outline-variant/30'
+                          }`}
+                        >
+                           {isActive && <span className="font-mono text-[9px] font-bold text-white uppercase">{step.label || 'Note'}</span>}
+                           {isPlayhead && !isActive && <div className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse" />}
+                        </button>
+                        <div className={`h-1 mx-auto rounded-full transition-all ${isPlayhead ? 'w-full bg-primary' : 'w-2 bg-outline-variant/10'}`} />
+                     </div>
+                   )
+                 })}
               </div>
-            </div>
+           </section>
+        </div>
 
-            {/* Sequencer Grid */}
-            <div className="flex-1 overflow-x-auto pb-4">
-              <div className="inline-flex flex-col gap-1 min-w-full glass rounded-3xl p-6">
-                {selectedRaga.aroha.slice().reverse().map((swara) => (
-                  <div key={swara} className="flex gap-1 group">
-                    <div className="w-14 h-11 flex items-center justify-center font-black text-white/15 group-hover:text-primary transition-colors text-sm sticky left-0 bg-surface/80 z-10 rounded-l-xl">
-                      {swara}
-                    </div>
-                    {new Array(STEPS).fill(0).map((_, step) => (
-                      <button
-                        key={step}
-                        onClick={() => toggleSequence(step, swara)}
-                        className={`w-11 h-11 rounded-lg border transition-all relative ${
-                          sequence[step] === swara
-                            ? 'bg-gradient-to-br from-primary to-primary-dark border-primary/50 shadow-glow'
-                            : 'bg-white/[0.02] border-white/5 hover:border-white/15 hover:bg-white/5'
-                        } ${activeStep === step ? 'ring-2 ring-white/30 ring-offset-2 ring-offset-background' : ''}`}
-                      >
-                        {activeStep === step && sequence[step] === swara && (
-                          <div className="absolute inset-0 bg-white/30 rounded-lg animate-ping" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* AI Tip Bar */}
-            <div className="glass-gold rounded-2xl px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3 text-white/40">
-                <Sparkles className="w-5 h-5 text-primary" />
-                <p className="text-sm font-medium">
-                  AI Tip: The characteristic phrase for <span className="text-primary-light font-bold">{selectedRaga.name}</span> often emphasizes <span className="text-primary-light font-bold">{selectedRaga.vadi}</span>
-                </p>
-              </div>
-              <button className="glass-light px-4 py-2 rounded-xl text-xs font-bold transition-all hover:bg-white/10 text-white/50">
-                Show Rules
+        {/* Playback Rail */}
+        <div className="h-28 glass-panel mx-8 mb-8 rounded-[40px] border border-outline-variant/20 flex items-center justify-between px-16 shadow-2xl">
+           <div className="flex items-center gap-12">
+              <button 
+                onClick={() => setIsPlaying(!isPlaying)}
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                  isPlaying ? 'bg-primary text-on-primary shadow-glow' : 'bg-surface-container-high border border-outline-variant/10 text-on-surface hover:text-primary'
+                }`}
+              >
+                 <span className="material-symbols-outlined !text-4xl">{isPlaying ? 'square' : 'play_arrow'}</span>
               </button>
-            </div>
-          </div>
-        )}
-      </div>
+              
+              <div className="flex flex-col">
+                 <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 mb-1">Time Signature</span>
+                 <span className="font-mono text-xl font-light text-on-surface">16 / 4 <span className="text-[10px] opacity-40 italic">Matra</span></span>
+              </div>
+           </div>
 
-      <Assistant ragaContext={selectedRaga?.name} />
+           <div className="flex-1 flex justify-center gap-12 border-x border-outline-variant/10 mx-16 px-16">
+              <div className="flex flex-col gap-2 w-48">
+                 <div className="flex justify-between font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">
+                   <span>Main Vol</span>
+                   <span className="text-primary">-0.0 DB</span>
+                 </div>
+                 <div className="h-1 bg-surface-container-low rounded-full overflow-hidden">
+                    <div className="h-full w-[80%] bg-primary shadow-glow" />
+                 </div>
+              </div>
+           </div>
+
+           <button className="flex items-center gap-3 px-8 py-3.5 bg-primary text-on-primary rounded-2xl font-mono text-[10px] uppercase tracking-widest font-bold shadow-glow hover:scale-105 active:scale-95 transition-all">
+              <span>Rec Master</span>
+              <span className="material-symbols-outlined !text-xl animate-pulse">fiber_manual_record</span>
+           </button>
+        </div>
+      </main>
+
+      <Assistant ragaContext={selectedRaga} />
     </div>
+  )
+}
+
+export default function StudioPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-surface-lowest flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    }>
+      <StudioContent />
+    </Suspense>
   )
 }
