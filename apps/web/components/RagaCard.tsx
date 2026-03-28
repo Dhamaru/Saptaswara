@@ -1,82 +1,67 @@
-import React from 'react'
-import Link from 'next/link'
-import { Sun, Moon, Sunset, Clock, ArrowUpRight } from 'lucide-react'
-import type { Raga } from '@saptaswara/core'
+'use client'
+
+import Image from 'next/image'
 
 interface RagaCardProps {
-  raga: Raga
+  raga: any
+  onClick?: () => void
 }
 
-function getTimeIcon(time: string) {
-  const t = time.toLowerCase()
-  if (t.includes('morning') || t.includes('dawn')) return <Sun className="w-4 h-4 text-amber-400" />
-  if (t.includes('evening') || t.includes('dusk') || t.includes('sunset')) return <Sunset className="w-4 h-4 text-orange-400" />
-  if (t.includes('night') || t.includes('late')) return <Moon className="w-4 h-4 text-indigo-400" />
-  return <Clock className="w-4 h-4 text-slate-400" />
-}
+export default function RagaCard({ raga, onClick }: RagaCardProps) {
+  // Map time-of-day to generated assets
+  const getAtmosphere = (time: string) => {
+    const t = time?.toLowerCase() || ''
+    if (t.includes('morning')) return '/raga_morning_atmosphere.png'
+    if (t.includes('night') || t.includes('evening')) return '/raga_night_atmosphere.png'
+    return '/raga_afternoon_atmosphere.png'
+  }
 
-export function RagaCard({ raga }: RagaCardProps) {
   return (
-    <div className="group card relative overflow-hidden">
-      {/* Hover gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+    <button 
+      onClick={onClick}
+      className="group relative h-80 w-full bg-surface-lowest rounded-[32px] overflow-hidden border border-outline-variant/5 hover:border-primary/40 transition-all shadow-2xl text-left"
+    >
+      {/* Immersive Background */}
+      <div className="absolute inset-0 z-0">
+        <Image 
+          src={getAtmosphere(raga.time_of_day)} 
+          alt={raga.name}
+          fill
+          className="object-cover opacity-40 group-hover:opacity-60 group-hover:scale-110 transition-all duration-700"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface-lowest via-surface-lowest/40 to-transparent" />
+      </div>
 
-      <div className="relative z-10">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-5">
-          <div>
-            <h3 className="text-2xl font-bold text-white group-hover:text-primary-light transition-colors duration-300">
-              {raga.name}
-            </h3>
-            <span className="text-xs text-white/30 font-semibold uppercase tracking-widest">{raga.thaat} Thaat</span>
+      <div className="relative z-10 p-10 h-full flex flex-col justify-between">
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-primary/60 font-semibold">
+              {raga.time_of_day || 'Universal'}
+            </span>
+            <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">
+              {raga.thaat || 'Classic'}
+            </span>
           </div>
-          <div className="glass-light rounded-xl p-2.5">
-            {getTimeIcon(raga.time_of_day)}
-          </div>
-        </div>
-
-        {/* Swara Pills */}
-        <div className="flex gap-1.5 mb-5 flex-wrap">
-          <span className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary-light text-xs font-bold border border-primary/20">
-            V: {raga.vadi}
-          </span>
-          <span className="px-2.5 py-1 rounded-lg bg-accent/10 text-accent-light text-xs font-bold border border-accent/20">
-            S: {raga.samvadi}
-          </span>
-        </div>
-
-        {/* Aroha */}
-        <div className="glass-light rounded-2xl p-4 mb-5">
-          <div className="text-[9px] uppercase tracking-[0.25em] text-white/25 font-bold mb-2">Aroha</div>
-          <div className="flex gap-2 flex-wrap text-sm font-bold">
-            {raga.aroha.map((s, i) => (
-              <span key={i} className="text-primary-light">{s}</span>
-            ))}
-          </div>
-        </div>
-
-        {/* Mood */}
-        {raga.mood && (
-          <p className="text-sm text-white/30 line-clamp-2 leading-relaxed italic mb-5">
-            &ldquo;{raga.mood}&rdquo;
+          <h3 className="font-display text-4xl font-light text-on-surface tracking-tight group-hover:text-primary transition-colors leading-tight">
+            {raga.name}
+          </h3>
+          <p className="font-sans text-xs text-on-surface-variant/60 font-light mt-2 max-w-[200px]">
+            {raga.mood || 'Traditional melodic structure'}
           </p>
-        )}
+        </div>
 
-        {/* Footer */}
-        <div className="flex justify-between items-center pt-4 border-t border-white/5">
-          <span className="text-xs text-white/25 font-medium flex items-center gap-1.5">
-            {getTimeIcon(raga.time_of_day)}
-            {raga.time_of_day}
-          </span>
-          <Link 
-            href={`/studio`} 
-            className="flex items-center gap-1 text-primary text-xs font-bold hover:text-primary-light transition-colors"
-          >
-            Open in Studio
-            <ArrowUpRight className="w-3 h-3" />
-          </Link>
+        <div className="flex items-center gap-2 overflow-hidden">
+           {raga.aroha?.slice(0, 5).map((s: string, i: number) => (
+             <span key={i} className="font-label text-[10px] text-on-surface-variant/30 border border-outline-variant/10 px-2 py-1 rounded-md">
+               {s}
+             </span>
+           ))}
+           <span className="text-[10px] text-on-surface-variant/20">...</span>
         </div>
       </div>
-    </div>
+
+      {/* Tonal Layering Overlay */}
+      <div className="absolute inset-0 ring-1 ring-inset ring-white/5 rounded-[32px] pointer-events-none" />
+    </button>
   )
 }

@@ -2,112 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-sans selection:bg-primary/30;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-:root {
-  --foreground: 255, 255, 255;
-  --bg-primary: 3, 7, 18;
-  --gold: 196, 132, 29;
-  --accent: 139, 92, 246;
+  /* Reset link styles */
+  a {
+    @apply text-inherit no-underline;
+  }
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.08) transparent;
-}
-
-*::-webkit-scrollbar { width: 6px; height: 6px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
-*::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
-
-body {
-  color: rgb(var(--foreground));
-  background: rgb(var(--bg-primary));
-  font-family: 'Inter', system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* ---- Glass Surface ---- */
 @layer components {
-  .glass {
-    background: rgba(17, 24, 39, 0.6);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+  .bg-mesh {
+    background: radial-gradient(circle at 50% 50%, rgba(67, 56, 202, 0.08) 0%, rgba(14, 14, 16, 0) 70%);
+  }
+  
+  .noise-texture {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+  }
+  
+  .text-glow {
+    text-shadow: 0 0 30px rgba(195, 192, 255, 0.15);
   }
 
-  .glass-light {
-    background: rgba(31, 41, 55, 0.5);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+  .glass-panel {
+    @apply bg-surface-container-lowest/80 backdrop-blur-2xl border border-outline-variant/10;
   }
 
-  .glass-gold {
-    background: rgba(196, 132, 29, 0.08);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(196, 132, 29, 0.15);
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    @apply inline-block align-middle select-none;
   }
 
-  /* ---- Text Gradients ---- */
-  .text-gradient-gold {
-    background: linear-gradient(135deg, #e6a94d, #c4841d, #a06b14);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  /* Custom scroller for clean workspace look */
+  .scroll-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scroll-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    @apply bg-outline-variant/20 rounded-full hover:bg-outline-variant/40 transition-colors;
   }
 
-  .text-gradient-hero {
-    background: linear-gradient(135deg, #ffffff 0%, #e6a94d 40%, #c4841d 70%, #a78bfa 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .text-gradient-subtle {
-    background: linear-gradient(135deg, #ffffff, #94a3b8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  /* ---- Buttons ---- */
-  .btn-primary {
-    @apply px-8 py-3.5 bg-gradient-to-r from-primary to-primary-dark rounded-2xl font-bold
-           transition-all duration-300 hover:shadow-glow hover:scale-[1.02] active:scale-[0.98]
-           text-white tracking-wide;
-  }
-
-  .btn-ghost {
-    @apply px-8 py-3.5 rounded-2xl font-bold border border-white/10 text-white/80
-           transition-all duration-300 hover:bg-white/5 hover:border-white/20 hover:text-white;
-  }
-
-  /* ---- Cards ---- */
-  .card {
-    @apply glass rounded-3xl p-6 transition-all duration-300
-           hover:border-primary/30 hover:shadow-glow;
-  }
-
-  /* ---- Noise texture ---- */
-  .noise::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* ---- Decorative elements ---- */
-  .dot-pattern {
-    background-image: radial-gradient(rgba(196, 132, 29, 0.1) 1px, transparent 1px);
-    background-size: 24px 24px;
+  .scroller-none::-webkit-scrollbar {
+    display: none;
   }
 }
 
 @layer utilities {
-  .text-balance { text-wrap: balance; }
+  .text-balance {
+    text-wrap: balance;
+  }
 }

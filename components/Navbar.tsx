@@ -7,9 +7,9 @@ export default function Navbar() {
   const pathname = usePathname()
   
   const navLinks = [
-    { name: 'Workspace', href: '/' },
-    { name: 'Library', href: '/explore' },
-    { name: 'Journal', href: '/studio' },
+    { name: 'Dashboard', href: '/dashboard' },
+    { name: 'Explore', href: '/explore' },
+    { name: 'Recording', href: '/studio' },
   ]
 
   return (
