@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/rateLimit'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 const supabase = createClient(
@@ -10,7 +11,28 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
+    const authHeader = req.headers.get('Authorization')
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const authSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data: userData, error: authError } = await authSupabase.auth.getUser(token)
+    if (authError || !userData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!checkRateLimit(userData.user.id)) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+    }
+
     const { query, ragaContext } = await req.json()
+
+    if (!query || typeof query !== 'string' || query.trim() === '') {
+      return NextResponse.json({ error: 'query is required and must be a non-empty string' }, { status: 400 })
+    }
 
     // 1. Generate embedding for the user query (must match 768d of the DB)
     const model = genAI.getGenerativeModel({ model: 'models/gemini-embedding-001' })
@@ -42,7 +64,7 @@ export async function POST(req: Request) {
 
       User Question: ${query}
 
-      Provide a concise, helpful response focused on musical theory, swara patterns, or mood. 
+      Provide a concise, helpful response focused on musical theory, swara patterns, or mood.
       If suggesting swara patterns, use standard notation (S, r, R, g, G, m, M, P, d, D, n, N).
     `
 
@@ -53,7 +75,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ text })
   } catch (error: any) {
-    console.error('AI Suggest API Error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('AI Suggest API Error:', error) // intentional
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
   }
 }

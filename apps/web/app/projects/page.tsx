@@ -1,5 +1,4 @@
-// Vercel Cache Bust: 2026-03-28T22:30
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import React from 'react'
 
@@ -22,10 +21,20 @@ function formatTimeAgo(dateString: string) {
 export const dynamic = 'force-dynamic'
 
 export default async function ProjectsPage() {
+  const supabase = await createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    // Should be handled by middleware, but extra safety
+    return null
+  }
+
   // Fetch projects with raga information joined
   const { data: projects, error } = await supabase
     .from('projects')
     .select('id, title, raga_id, created_at, updated_at, ragas(name)')
+    .eq('user_id', user.id)
     .order('updated_at', { ascending: false })
 
   if (error) {

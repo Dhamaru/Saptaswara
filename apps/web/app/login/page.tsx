@@ -1,111 +1,127 @@
 'use client'
 
-import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { Music, ArrowRight, Mail, Sparkles, Wand2 } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
+  const router = useRouter()
   const supabase = createClient()
+  const [email, setEmail] = useState('')
+
+  useEffect(() => { document.title = 'Sign in — Saptaswara' }, [])
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
     setLoading(true)
-    setMessage('')
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      setMessage(error.message)
-    } else {
-      setMessage('Check your email for the magic link!')
+      setError(error.message)
+      setLoading(false)
+      return
     }
-    setLoading(false)
+
+    // Force hard navigation to ensure cookies are sent to middleware
+    window.location.href = '/studio'
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-6 bg-background overflow-hidden">
-      {/* Background Decorations */}
-      <div className="absolute inset-0 dot-pattern opacity-10" />
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[120px]" />
+    <div className="relative min-h-[calc(100vh-80px)] flex items-center justify-center px-6 overflow-hidden bg-background">
+      {/* Mesh Gradient Background */}
+      <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80" aria-hidden="true">
+        <div
+          className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-primary/20 to-primary-container/20 opacity-30 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"
+          style={{ clipPath: 'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)' }}
+        />
       </div>
 
-      <div className="relative z-10 w-full max-w-md animate-slide-up">
-        {/* Logo/Brand */}
-        <div className="flex flex-col items-center mb-10 text-center">
-          <div className="w-20 h-20 glass rounded-[2rem] flex items-center justify-center mb-6 shadow-glow border border-white/10">
-            <Music className="w-10 h-10 text-primary animate-float" />
+      <div className="w-full max-w-md animate-fade-in">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-3 px-5 py-2 mb-8 rounded-full bg-surface-container-high/40 border border-outline-variant/10 backdrop-blur-md">
+            <span className="material-symbols-outlined !text-base text-primary/60">lock</span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-primary/80 font-bold">Resonance Archive</span>
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tight mb-2">Welcome Back</h1>
-          <p className="text-white/40 font-light">Enter your email to access your studio.</p>
+          <h1 className="font-display text-5xl font-light text-on-surface tracking-tighter mb-4">
+            Welcome back.
+          </h1>
+          <p className="font-sans text-on-surface-variant/60 font-light">
+            Sign in to resume your raga session.
+          </p>
         </div>
 
-        {/* Login Card */}
-        <div className="glass rounded-[2.5rem] p-8 shadow-2xl border border-white/5">
+        {/* Card */}
+        <div className="bg-surface-lowest rounded-[32px] border border-outline-variant/10 p-10 shadow-2xl">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-white/60 ml-1 uppercase tracking-wider">Email Address</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                  <Mail className="w-5 h-5 text-white/20 group-focus-within:text-primary transition-colors" />
-                </div>
-                <input
-                  type="email"
-                  placeholder="name@example.com"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary/50 outline-none transition-all placeholder:text-white/10"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
+              <label className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 font-bold block">
+                Email
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full bg-surface-container-low rounded-xl py-3.5 px-4 text-sm font-sans text-on-surface border border-outline-variant/10 focus:border-primary/40 focus:outline-none transition-colors placeholder:text-on-surface-variant/20"
+              />
             </div>
+
+            <div className="space-y-2">
+              <label className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 font-bold block">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-surface-container-low rounded-xl py-3.5 px-4 text-sm font-sans text-on-surface border border-outline-variant/10 focus:border-primary/40 focus:outline-none transition-colors placeholder:text-on-surface-variant/20"
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-error/10 border border-error/20">
+                <span className="material-symbols-outlined !text-base text-error/80">error</span>
+                <span className="font-sans text-xs text-error/80">{error}</span>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-primary py-4 rounded-2xl font-bold flex items-center justify-center gap-2 group transform active:scale-[0.98] transition-all"
+              className="w-full py-4 bg-gradient-to-r from-[#7C3AED] to-[#3B82F6] rounded-2xl font-medium text-white shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Signing in…</span>
+                </>
               ) : (
                 <>
-                  Connect via Magic Link
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  <span>Enter Studio</span>
+                  <span className="material-symbols-outlined !text-xl">arrow_forward</span>
                 </>
               )}
             </button>
           </form>
-
-          {message && (
-            <div className={`mt-6 p-4 rounded-xl text-sm font-medium text-center animate-fade-in ${
-              message.includes('Error') ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-primary/10 text-primary-light border border-primary/20'
-            }`}>
-              {message}
-            </div>
-          )}
         </div>
 
-        {/* Footer Info */}
-        <div className="mt-8 grid grid-cols-2 gap-4">
-          <div className="glass-light p-4 rounded-2xl flex items-center gap-3">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <span className="text-[10px] uppercase tracking-widest font-bold text-white/40">Secure Sync</span>
-          </div>
-          <div className="glass-light p-4 rounded-2xl flex items-center gap-3">
-            <Wand2 className="w-5 h-5 text-accent" />
-            <span className="text-[10px] uppercase tracking-widest font-bold text-white/40">AI Ready</span>
-          </div>
-        </div>
+        {/* Footer link */}
+        <p className="text-center mt-8 font-sans text-sm text-on-surface-variant/40">
+          No account?{' '}
+          <Link href="/signup" className="text-primary/80 hover:text-primary transition-colors">
+            Create one
+          </Link>
+        </p>
       </div>
     </div>
   )

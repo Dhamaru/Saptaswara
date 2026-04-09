@@ -1,136 +1,439 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import * as Tone from 'tone'
 import { createClient } from '@/lib/supabase/client'
 import { audioEngine } from '@/lib/audio'
 import { Assistant } from '@/components/Assistant'
 import Piano from '@/components/Piano'
+import DrumPad from '@/components/DrumPad'
+import SwaPad from '@/components/SwaPad'
 import type { Raga } from '@saptaswara/core'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { usePlayback } from '@/context/PlaybackContext'
+import { RagaEngine } from '@saptaswara/core'
+import { CompositionProvider, useComposition } from '@/context/CompositionContext'
+import { TALAS, DEFAULT_TALA, expandTala } from '@/lib/talas'
+import type { Tala } from '@saptaswara/core'
 
-const STEPS = 16
-const TABLA_STROKES = ['Dha', 'Na', 'Ti', 'Te']
+// ── Track system ──────────────────────────────────────────────────────────────
+type TrackType = 'melody' | 'rhythm' | 'vocal' | 'bass' | 'drone' | 'pad'
+type KeyboardLayout = 'Piano' | 'Harmonium' | 'Swara' | 'SwaPad'
 
-type LayerType = 'melody' | 'rhythm' | 'drone'
-type KeyboardLayout = 'Piano' | 'Harmonium' | 'Swara'
-type InstrumentType = 'piano' | 'harmonium' | 'sitar'
+const TRACK_META: Record<TrackType, { icon: string; defaultName: string; colorIdx: number }> = {
+  melody: { icon: 'music_note',  defaultName: 'Melody', colorIdx: 0 },
+  rhythm: { icon: 'equalizer',   defaultName: 'Tabla',  colorIdx: 1 },
+  vocal:  { icon: 'mic',         defaultName: 'Vocal',  colorIdx: 2 },
+  bass:   { icon: 'piano',       defaultName: 'Bass',   colorIdx: 3 },
+  drone:  { icon: 'waves',       defaultName: 'Drone',  colorIdx: 4 },
+  pad:    { icon: 'blur_on',     defaultName: 'Pad',    colorIdx: 5 },
+}
 
-interface Layer {
+// Each index maps to a tailwind color family
+const TRACK_COLORS = [
+  { fill: 'bg-primary/25 border-primary/40',       text: 'text-primary',     dot: 'bg-primary',      active: 'bg-primary text-on-primary'       },
+  { fill: 'bg-violet-500/25 border-violet-500/40', text: 'text-violet-400',  dot: 'bg-violet-400',   active: 'bg-violet-500 text-white'          },
+  { fill: 'bg-rose-500/25 border-rose-500/40',     text: 'text-rose-400',    dot: 'bg-rose-400',     active: 'bg-rose-500 text-white'            },
+  { fill: 'bg-amber-500/25 border-amber-500/40',   text: 'text-amber-400',   dot: 'bg-amber-400',    active: 'bg-amber-500 text-white'           },
+  { fill: 'bg-emerald-500/25 border-emerald-500/40', text: 'text-emerald-400', dot: 'bg-emerald-400', active: 'bg-emerald-500 text-white'        },
+  { fill: 'bg-cyan-500/25 border-cyan-500/40',     text: 'text-cyan-400',    dot: 'bg-cyan-400',     active: 'bg-cyan-500 text-white'            },
+]
+
+const LOOP_OPTIONS = [8, 16, 32] as const
+const VELOCITY_STEPS = [0.25, 0.5, 0.75, 1.0] // shift+click cycles through these
+
+interface StepEvent {
+  label: string
+  frequency?: number
+  stroke?: string
+  velocity: number  // 0–1
+}
+
+interface Track {
   id: string
-  type: LayerType
+  type: TrackType
   name: string
-  sequence: (any | null)[]
-  visible: boolean
+  sequence: (StepEvent | null)[]
+  muted: boolean
+  soloed: boolean
+  volume: number    // -40 to 0 dB
+  colorIdx: number
 }
 
-const SWARA_OFFSETS: Record<string, number> = {
-  'Sa': 0, 're': 1, 'Re': 2, 'ga': 3, 'Ga': 4, 'Ma': 5, 'ma': 6, 'Pa': 7, 'dha': 8, 'Dha': 9, 'ni': 10, 'Ni': 11
+// ── Helpers ───────────────────────────────────────────────────────────────────
+let _uid = 3
+const uid = () => String(++_uid)
+
+function makeTrack(type: TrackType, loopLen: number, overrides: Partial<Track> = {}): Track {
+  const meta = TRACK_META[type]
+  return {
+    id: uid(),
+    type,
+    name: meta.defaultName,
+    sequence: new Array(loopLen).fill(null),
+    muted: false,
+    soloed: false,
+    volume: 0,
+    colorIdx: meta.colorIdx,
+    ...overrides,
+  }
 }
 
+// ── StudioContent ─────────────────────────────────────────────────────────────
 function StudioContent() {
   const searchParams = useSearchParams()
   const projectIdFromUrl = searchParams.get('project_id')
 
+  useEffect(() => { document.title = 'Saptaswara Studio' }, [])
+
+  const { isPlaying, setIsPlaying, isRecording, setIsRecording, currentRagaId, setCurrentRagaId, saveTriggered } = usePlayback()
+  const { state: comp } = useComposition()
+  const { activeInstrument, activeTradition } = comp
+
+  // ── Core state ──────────────────────────────────────────────────────────────
   const [user, setUser] = useState<any>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
   const [ragas, setRagas] = useState<Raga[]>([])
   const [selectedRaga, setSelectedRaga] = useState<Raga | null>(null)
+  const [activeSwara, setActiveSwara] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isStarted, setIsStarted] = useState(false)
   const [activeStep, setActiveStep] = useState(-1)
-  const [isPlaying, setIsPlaying] = useState(false)
-  
-  const [keyboardLayout, setKeyboardLayout] = useState<KeyboardLayout>('Piano')
-  const [activeInstrument, setActiveInstrument] = useState<InstrumentType>('piano')
 
-  const [layers, setLayers] = useState<Layer[]>([
-    { id: '1', type: 'melody', name: 'Melody', sequence: new Array(STEPS).fill(null), visible: true },
-    { id: '2', type: 'rhythm', name: 'Tabla', sequence: new Array(STEPS).fill(null), visible: true },
+  const [keyboardLayout, setKeyboardLayout] = useState<KeyboardLayout>('Piano')
+  const [droneActive, setDroneActive] = useState(false)
+  const [bpm, setBpm] = useState(120)
+  const [volume, setVolume] = useState(0)
+  const [loopLength, setLoopLength] = useState<8 | 16 | 32>(16)
+  const [swingAmount, setSwingAmount] = useState(0)          // 0–0.5
+  const [ragaConstrained, setRagaConstrained] = useState(false)
+  const [selectedTala, setSelectedTala] = useState<Tala>(DEFAULT_TALA)
+  const [laySetting, setLaySetting] = useState<'vilambit' | 'madhya' | 'drut'>('madhya')
+
+  // ── Track state ─────────────────────────────────────────────────────────────
+  const [tracks, setTracks] = useState<Track[]>([
+    makeTrack('melody', 16, { id: '1', name: 'Melody', colorIdx: 0 }),
+    makeTrack('rhythm', 16, { id: '2', name: 'Tabla',  colorIdx: 1 }),
   ])
-  const [activeLayerId, setActiveLayerId] = useState('1')
-  
+  const [activeTrackId, setActiveTrackId] = useState('1')
+  const [showAddTrack, setShowAddTrack] = useState(false)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+
+  // ── Project state ────────────────────────────────────────────────────────────
   const [projectId, setProjectId] = useState<string | null>(projectIdFromUrl)
   const [projectName, setProjectName] = useState('Untitled Composition')
+  const [detectedPhrases, setDetectedPhrases] = useState<any[]>([])
+  const [ragasLoading, setRagasLoading] = useState(true)
+  const [ragasError, setRagasError] = useState(false)
+  const [isBlueprintPlaying, setIsBlueprintPlaying] = useState(false)
+  const [isExportingMidi, setIsExportingMidi] = useState(false)
 
   const supabaseClient = createClient()
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const activeLayer = layers.find(l => l.id === activeLayerId) || layers[0]
+  // Refs to avoid stale closures in playback loop
+  const tracksRef = useRef(tracks)
+  const bpmRef    = useRef(bpm)
+  const swingRef  = useRef(swingAmount)
+  const loopRef   = useRef(loopLength)
+  useEffect(() => { tracksRef.current = tracks   }, [tracks])
+  useEffect(() => { bpmRef.current    = bpm      }, [bpm])
+  useEffect(() => { swingRef.current  = swingAmount }, [swingAmount])
+  useEffect(() => { loopRef.current   = loopLength  }, [loopLength])
+
+  const playbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Raga loading ─────────────────────────────────────────────────────────────
+  const loadRagas = useCallback(async () => {
+    setRagasLoading(true)
+    setRagasError(false)
+    try {
+      const { data: ragaData, error } = await supabaseClient.from('ragas').select('*, raga_phrases(*)').order('name')
+      if (error) throw error
+      if (ragaData && ragaData.length > 0) {
+        setRagas(ragaData as any)
+        const targetId = projectIdFromUrl || currentRagaId
+        const initial = ragaData.find((r: any) => r.id === targetId) || ragaData[0]
+        setSelectedRaga(initial as any)
+        setCurrentRagaId(initial.id)
+      }
+    } catch (err) {
+      console.error('Failed to load ragas:', err)
+      setRagasError(true)
+    } finally {
+      setRagasLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabaseClient.auth.getUser()
       setUser(user)
-      const { data: ragaData } = await supabaseClient.from('ragas').select('*').order('name')
-      if (ragaData && ragaData.length > 0) {
-        setRagas(ragaData as any)
-        // Auto-select first raga for immediate visibility
-        setSelectedRaga(ragaData[0] as any)
-      }
+      const { data: { session } } = await supabaseClient.auth.getSession()
+      setAccessToken(session?.access_token ?? null)
+      await loadRagas()
     }
     init()
   }, [])
 
+  // ── Navbar save trigger ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (isPlaying) {
-      timerRef.current = setInterval(() => {
-        setActiveStep((prev) => {
-          const nextStep = (prev + 1) % STEPS
-          layers.forEach(layer => {
-            const event = layer.sequence[nextStep]
-            if (event && audioEngine) {
-              if (layer.type === 'melody') audioEngine.playSwara(event.frequency)
-              if (layer.type === 'rhythm') audioEngine.playStroke(event.stroke)
-            }
-          })
-          return nextStep
-        })
-      }, 500)
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current)
-      setActiveStep(-1)
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [isPlaying, layers])
+    if (saveTriggered > 0) handleSaveProject()
+  }, [saveTriggered])
 
-  const getFreq = (swara: string, octave = 4) => {
-    const offset = SWARA_OFFSETS[swara] || 0
-    return 261.63 * Math.pow(2, octave - 4) * Math.pow(2, offset / 12)
+  // ── Playback engine (setTimeout chain for swing support) ────────────────────
+  useEffect(() => {
+    if (!isPlaying) {
+      if (playbackTimer.current) clearTimeout(playbackTimer.current)
+      setActiveStep(-1)
+      return
+    }
+
+    let running = true
+
+    const scheduleNext = (step: number) => {
+      if (!running) return
+      const currentStep = step % loopRef.current
+      setActiveStep(currentStep)
+
+      // Determine which tracks should play
+      const allTracks = tracksRef.current
+      const hasSolo = allTracks.some(t => t.soloed)
+      allTracks.forEach(track => {
+        const shouldPlay = !track.muted && (!hasSolo || track.soloed)
+        if (!shouldPlay) return
+        const event = track.sequence[currentStep]
+        if (!event || !audioEngine) return
+        const vel = event.velocity ?? 0.8
+        if (track.type === 'rhythm') {
+          audioEngine.playStroke(event.stroke || event.label)
+        } else if (event.frequency) {
+          audioEngine.playSwara(event.frequency, '8n', undefined, vel)
+        }
+      })
+
+      // Swing timing: even steps get longer, odd steps shorter
+      const baseMsPerStep = (60 / bpmRef.current) * 1000 / 4
+      const swing = swingRef.current
+      const swingMs = currentStep % 2 === 0
+        ? baseMsPerStep * (1 + swing)
+        : baseMsPerStep * (1 - swing)
+
+      playbackTimer.current = setTimeout(
+        () => scheduleNext(currentStep + 1),
+        Math.max(swingMs, 30)
+      )
+    }
+
+    scheduleNext(0)
+    return () => {
+      running = false
+      if (playbackTimer.current) clearTimeout(playbackTimer.current)
+    }
+  }, [isPlaying])
+
+  // ── Track management ─────────────────────────────────────────────────────────
+  const addTrack = (type: TrackType) => {
+    const t = makeTrack(type, loopLength)
+    setTracks(prev => [...prev, t])
+    setActiveTrackId(t.id)
+    setShowAddTrack(false)
   }
 
-  const handleToggleStep = (stepIdx: number, value: any) => {
-    setLayers(prev => prev.map(l => {
-      if (l.id === activeLayerId) {
-        const newSeq = [...l.sequence]
-        newSeq[stepIdx] = newSeq[stepIdx]?.label === value.label ? null : value
-        return { ...l, sequence: newSeq }
-      }
-      return l
+  const removeTrack = (id: string) => {
+    setTracks(prev => {
+      if (prev.length <= 1) return prev
+      const next = prev.filter(t => t.id !== id)
+      if (activeTrackId === id) setActiveTrackId(next[0].id)
+      return next
+    })
+  }
+
+  const updateTrack = (id: string, patch: Partial<Track>) => {
+    setTracks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t))
+  }
+
+  const toggleMute = (id: string) => {
+    updateTrack(id, { muted: !tracks.find(t => t.id === id)?.muted })
+  }
+
+  const toggleSolo = (id: string) => {
+    const isSoloed = tracks.find(t => t.id === id)?.soloed
+    setTracks(prev => prev.map(t =>
+      t.id === id ? { ...t, soloed: !isSoloed } : { ...t, soloed: false }
+    ))
+  }
+
+  // When loop length changes, resize all track sequences
+  const handleLoopLengthChange = (len: 8 | 16 | 32) => {
+    setLoopLength(len)
+    setTracks(prev => prev.map(t => {
+      const seq = new Array(len).fill(null)
+      t.sequence.slice(0, len).forEach((e, i) => { seq[i] = e })
+      return { ...t, sequence: seq }
+    }))
+    setActiveStep(-1)
+  }
+
+  // ── Step toggling ─────────────────────────────────────────────────────────────
+  const handleToggleStep = (stepIdx: number, value: StepEvent, trackId = activeTrackId) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id !== trackId) return t
+      const seq = [...t.sequence]
+      seq[stepIdx] = seq[stepIdx]?.label === value.label ? null : value
+      return { ...t, sequence: seq }
     }))
   }
 
-  const handleInstrumentChange = (inst: InstrumentType) => {
-    setActiveInstrument(inst)
-    if (audioEngine) audioEngine.setInstrument(inst)
+  // Cycle velocity on a filled step: 25 → 50 → 75 → 100 → 25 …
+  const cycleVelocity = (stepIdx: number, trackId: string) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id !== trackId) return t
+      const seq = [...t.sequence]
+      const ev = seq[stepIdx]
+      if (!ev) return t
+      const curIdx = VELOCITY_STEPS.findIndex(v => ev.velocity <= v)
+      const nextVel = VELOCITY_STEPS[(curIdx + 1) % VELOCITY_STEPS.length]
+      seq[stepIdx] = { ...ev, velocity: nextVel }
+      return { ...t, sequence: seq }
+    }))
   }
 
+  // ── Audio init ────────────────────────────────────────────────────────────────
   const handleInitAudio = async () => {
     if (audioEngine) {
       await audioEngine.start()
+      audioEngine.setTimbre(activeInstrument as any, activeTradition as any)
       setIsStarted(true)
     }
   }
 
+  React.useEffect(() => {
+    if (isStarted && audioEngine) {
+      audioEngine.setTimbre(activeInstrument as any, activeTradition as any)
+    }
+  }, [activeInstrument, activeTradition, isStarted])
+
+  // Stop playback on unmount — do NOT dispose singleton
+  useEffect(() => {
+    return () => { audioEngine?.stopAll() }
+  }, [])
+
+  // ── Blueprint (aroha/avaroha demo) ────────────────────────────────────────────
+  const handlePlayBlueprint = () => {
+    if (!audioEngine || !selectedRaga?.aroha || !selectedRaga?.avaroha) return
+    if (isBlueprintPlaying) {
+      audioEngine.isSequencing = false
+      setIsBlueprintPlaying(false)
+      setActiveSwara(null)
+      return
+    }
+    setIsBlueprintPlaying(true)
+    audioEngine.playArohaAvaroha(selectedRaga.aroha, selectedRaga.avaroha, (note) => {
+      setActiveSwara(note)
+      if (!note) setIsBlueprintPlaying(false)
+    })
+  }
+
+  // ── Recording ─────────────────────────────────────────────────────────────────
+  const handleToggleRecording = async () => {
+    if (!audioEngine) return
+    if (!isRecording) {
+      await audioEngine.startRecording()
+      setIsRecording(true)
+    } else {
+      await audioEngine.stopRecording()
+      setIsRecording(false)
+    }
+  }
+
+  // ── Real-time phrase detection ────────────────────────────────────────────────
+  useEffect(() => {
+    const melodyTrack = tracks.find(t => t.type === 'melody')
+    if (!melodyTrack || !selectedRaga?.raga_phrases?.length) {
+      setDetectedPhrases([])
+      return
+    }
+    const seq = melodyTrack.sequence.filter(Boolean).map(s => s!.label)
+    if (seq.length === 0) { setDetectedPhrases([]); return }
+    try {
+      setDetectedPhrases(RagaEngine.detectPhrases(seq as any, selectedRaga as any))
+    } catch {
+      setDetectedPhrases([])
+    }
+  }, [tracks, selectedRaga])
+
+  // ── MIDI export ───────────────────────────────────────────────────────────────
+  const handleExportMidi = async () => {
+    setIsExportingMidi(true)
+    try {
+      if (!accessToken) { alert('Please sign in to export MIDI.'); return }
+      const res = await fetch('/api/export/midi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ composition: { layers: tracks, bpm, name: projectName } }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        alert(json.error || 'MIDI export failed.')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${projectName || 'composition'}.mid`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('MIDI export error:', err)
+      alert('MIDI export failed.')
+    } finally {
+      setIsExportingMidi(false)
+    }
+  }
+
+  // ── Save project ──────────────────────────────────────────────────────────────
+  const handleSaveProject = async () => {
+    if (!user) { alert('Authentication required to save projects.'); return }
+    try {
+      const melodyTrack = tracks.find(t => t.type === 'melody') || tracks[0]
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ projectId, title: projectName, raga_id: selectedRaga?.id, bpm, sequence: melodyTrack.sequence }),
+      })
+      const data = await res.json()
+      if (data.id) { setProjectId(data.id); alert('Project saved!') }
+    } catch (err) {
+      console.error('Save error:', err)
+      alert('Failed to save project.')
+    }
+  }
+
+  // ── Raga-valid notes ──────────────────────────────────────────────────────────
+  const ragaValidNotes = ragaConstrained && selectedRaga
+    ? [...(selectedRaga.aroha || []), ...(selectedRaga.avaroha || [])]
+    : null
+
+  const colors = (idx: number) => TRACK_COLORS[idx % TRACK_COLORS.length]
+
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-background">
+
+      {/* Audio init gate */}
       {!isStarted && (
         <div className="fixed inset-0 z-[100] bg-background/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
           <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-8 animate-pulse text-primary">
             <span className="material-symbols-outlined !text-4xl">headphones</span>
           </div>
-          <h2 className="font-display text-4xl font-light text-on-surface mb-4 tracking-tight">Activate the Resonance.</h2>
+          <h2 className="font-display text-4xl font-light text-on-surface mb-4 tracking-tight">Ready to Play?</h2>
           <p className="text-on-surface-variant max-w-sm mb-12 font-sans font-light">
-            Explicit interaction is required to initialize the studio engine. Click below to begin your melodic dialogue.
+            Click the button below to start the audio engine and begin your raga session.
           </p>
           <button onClick={handleInitAudio} className="px-10 py-5 bg-primary text-on-primary rounded-2xl font-medium tracking-tight shadow-glow hover:scale-105 active:scale-95 transition-all">
             Initialize Audio Engine
@@ -138,184 +441,662 @@ function StudioContent() {
         </div>
       )}
 
-      {/* Control Sidebar */}
+      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside className="w-80 bg-surface-lowest border-r border-outline-variant/10 flex flex-col overflow-hidden">
-        <div className="p-8 border-b border-outline-variant/10">
+        {/* Project header */}
+        <div className="p-8 border-b border-outline-variant/10 flex-shrink-0">
           <div className="font-mono text-[10px] uppercase tracking-widest text-primary mb-2 font-bold opacity-60">Project</div>
-          <input value={projectName} onChange={(e) => setProjectName(e.target.value)} className="w-full bg-transparent font-display text-2xl font-light text-on-surface focus:outline-none focus:text-primary transition-colors mb-8" />
-          
-          <div className="space-y-6">
-             <div>
-                <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-3 font-bold">Instrument Engine</span>
-                <select 
-                   value={activeInstrument} 
-                   onChange={(e) => handleInstrumentChange(e.target.value as InstrumentType)}
-                   className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-xs font-mono uppercase tracking-widest text-on-surface border border-outline-variant/10 focus:border-primary/40 transition-all outline-none"
-                >
-                   <option value="piano">Concert Piano</option>
-                   <option value="harmonium">Reed Harmonium</option>
-                   <option value="sitar">Sitar (WIP)</option>
-                </select>
-             </div>
-             <div>
-                <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-3 font-bold">Input Method</span>
-                <select 
-                   value={keyboardLayout} 
-                   onChange={(e) => setKeyboardLayout(e.target.value as KeyboardLayout)}
-                   className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-xs font-mono uppercase tracking-widest text-on-surface border border-outline-variant/10 focus:border-primary/40 transition-all outline-none"
-                >
-                   <option value="Piano">Chromatic Piano</option>
-                   <option value="Harmonium">Classic Harmonium</option>
-                   <option value="Swara">Swara Boards</option>
-                </select>
-             </div>
+          <input
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+            className="w-full bg-transparent font-display text-2xl font-light text-on-surface focus:outline-none focus:text-primary transition-colors mb-8"
+          />
+          <div className="space-y-4">
+            <div>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-3 font-bold">Input Method</span>
+              <select
+                value={keyboardLayout}
+                onChange={(e) => setKeyboardLayout(e.target.value as KeyboardLayout)}
+                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-xs font-mono uppercase tracking-widest text-on-surface border border-outline-variant/10 focus:border-primary/40 transition-all outline-none"
+              >
+                <option value="SwaPad">Swara Pad</option>
+                <option value="Piano">Chromatic Piano</option>
+                <option value="Harmonium">Classic Harmonium</option>
+                <option value="Swara">Swara Boards</option>
+              </select>
+            </div>
+
+            {/* Tala selector */}
+            <div>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-2 font-bold">Tala</span>
+              <select
+                value={selectedTala.name}
+                onChange={(e) => {
+                  const t = TALAS.find(t => t.name === e.target.value) ?? DEFAULT_TALA
+                  setSelectedTala(t)
+                  handleLoopLengthChange(Math.min(32, Math.max(8, t.matras)) as any)
+                }}
+                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-xs font-mono uppercase tracking-widest text-on-surface border border-outline-variant/10 focus:border-primary/40 transition-all outline-none"
+              >
+                {TALAS.map(t => (
+                  <option key={t.name} value={t.name}>{t.name} ({t.matras} matras)</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Laya presets */}
+            <div>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-2 font-bold">Laya</span>
+              <div className="flex gap-1.5">
+                {(['vilambit', 'madhya', 'drut'] as const).map(lay => {
+                  const [lo, hi] = selectedTala.laya[lay]
+                  const midBpm   = Math.round((lo + hi) / 2)
+                  return (
+                    <button
+                      key={lay}
+                      onClick={() => { setLaySetting(lay); setBpm(midBpm) }}
+                      className={`flex-1 py-2 rounded-xl font-mono text-[7px] uppercase tracking-wider font-bold transition-all border ${
+                        laySetting === lay
+                          ? 'bg-primary/20 text-primary border-primary/30'
+                          : 'bg-surface-container-low text-on-surface-variant/40 border-outline-variant/10 hover:border-primary/20 hover:text-on-surface'
+                      }`}
+                      title={`${lo}–${hi} BPM`}
+                    >
+                      {lay}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-12 scroll-thin">
-           <section>
-              <div className="font-mono text-[9px] uppercase tracking-widest text-primary/60 mb-6 font-bold">Studio Tracks</div>
-              <div className="space-y-4">
-                 {layers.map(layer => (
-                   <button
-                     key={layer.id}
-                     onClick={() => setActiveLayerId(layer.id)}
-                     className={`w-full flex items-center justify-between p-5 rounded-2xl transition-all border ${
-                       activeLayerId === layer.id ? 'bg-surface-container-high border-primary/40 shadow-glow' : 'bg-surface-lowest border-outline-variant/5 hover:border-outline-variant/20'
-                     }`}
-                   >
-                     <div className="flex items-center gap-4">
-                       <span className="material-symbols-outlined !text-xl opacity-40">{layer.type === 'melody' ? 'music_note' : 'equalizer'}</span>
-                       <span className="font-sans text-xs font-medium uppercase tracking-widest opacity-80">{layer.name}</span>
-                     </div>
-                     <div className={`w-2 h-2 rounded-full ${activeLayerId === layer.id ? 'bg-primary animate-pulse' : 'bg-outline-variant/20'}`} />
-                   </button>
-                 ))}
-              </div>
-           </section>
+        <div className="flex-1 overflow-y-auto scroll-thin">
+          {/* ── Track Manager ── */}
+          <div className="p-6 border-b border-outline-variant/10">
+            <div className="flex items-center justify-between mb-4">
+              <span className="font-mono text-[9px] uppercase tracking-widest text-primary/60 font-bold">Tracks</span>
+              <button
+                onClick={() => setShowAddTrack(v => !v)}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                  showAddTrack ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant/60 hover:text-primary border border-outline-variant/10'
+                }`}
+                title="Add Track"
+              >
+                <span className="material-symbols-outlined !text-base">{showAddTrack ? 'close' : 'add'}</span>
+              </button>
+            </div>
 
-           <section>
-              <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 mb-6 font-bold">Raga Selection</div>
-              <div className="relative group mb-4">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined !text-xl text-on-surface-variant/40">search</span>
-                <input placeholder="Find foundation..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-surface-container-low rounded-xl py-3 pl-10 pr-4 text-xs font-sans border border-outline-variant/10" />
+            {/* Add Track panel */}
+            {showAddTrack && (
+              <div className="mb-4 p-4 rounded-2xl bg-surface-container-low/50 border border-outline-variant/10">
+                <p className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 mb-3">Choose track type</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.keys(TRACK_META) as TrackType[]).map(type => {
+                    const meta = TRACK_META[type]
+                    const c = colors(meta.colorIdx)
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => addTrack(type)}
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/10 hover:border-primary/30 transition-all group"
+                      >
+                        <span className={`material-symbols-outlined !text-lg ${c.text} opacity-70 group-hover:opacity-100`}>{meta.icon}</span>
+                        <span className="font-mono text-[7px] uppercase tracking-widest text-on-surface-variant/50 group-hover:text-on-surface">{meta.defaultName}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-              <div className="h-64 overflow-y-auto scroller-none space-y-1 pr-2">
-                 {ragas.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(raga => (
-                   <button key={raga.id} onClick={() => setSelectedRaga(raga)} className={`w-full text-left px-4 py-2.5 rounded-lg text-xs font-medium transition-all ${selectedRaga?.id === raga.id ? 'bg-primary/20 text-primary border border-primary/20' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'}`}>
-                     {raga.name}
-                   </button>
-                 ))}
+            )}
+
+            {/* Track list */}
+            <div className="space-y-2">
+              {tracks.map(track => {
+                const c = colors(track.colorIdx)
+                const isActive = activeTrackId === track.id
+                return (
+                  <div
+                    key={track.id}
+                    className={`rounded-xl border transition-all ${
+                      isActive ? `${c.fill} shadow-sm` : 'border-outline-variant/5 bg-surface-lowest hover:border-outline-variant/15'
+                    }`}
+                  >
+                    {/* Main row */}
+                    <div className="flex items-center gap-2 px-3 py-2.5">
+                      {/* Color dot + icon */}
+                      <button onClick={() => setActiveTrackId(track.id)} className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${c.dot} ${isActive ? 'animate-pulse' : 'opacity-40'}`} />
+                        <span className={`material-symbols-outlined !text-base flex-shrink-0 ${isActive ? c.text : 'text-on-surface-variant/40'}`}>
+                          {TRACK_META[track.type].icon}
+                        </span>
+                        {renamingId === track.id ? (
+                          <input
+                            autoFocus
+                            defaultValue={track.name}
+                            onBlur={(e) => { updateTrack(track.id, { name: e.target.value || track.name }); setRenamingId(null) }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                            className="flex-1 bg-transparent text-xs font-medium font-sans outline-none border-b border-primary/40"
+                            onClick={e => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span
+                            className={`flex-1 text-xs font-medium font-sans truncate text-left ${isActive ? c.text : 'text-on-surface-variant/60'}`}
+                            onDoubleClick={() => setRenamingId(track.id)}
+                            title="Double-click to rename"
+                          >
+                            {track.name}
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Controls */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => toggleMute(track.id)}
+                          title="Mute"
+                          className={`w-6 h-6 rounded-md font-mono text-[8px] font-bold transition-all ${
+                            track.muted ? 'bg-error/20 text-error border border-error/30' : 'text-on-surface-variant/30 hover:text-on-surface border border-transparent'
+                          }`}
+                        >
+                          M
+                        </button>
+                        <button
+                          onClick={() => toggleSolo(track.id)}
+                          title="Solo"
+                          className={`w-6 h-6 rounded-md font-mono text-[8px] font-bold transition-all ${
+                            track.soloed ? 'bg-secondary/20 text-secondary border border-secondary/30' : 'text-on-surface-variant/30 hover:text-on-surface border border-transparent'
+                          }`}
+                        >
+                          S
+                        </button>
+                        {tracks.length > 1 && (
+                          <button
+                            onClick={() => removeTrack(track.id)}
+                            title="Remove track"
+                            className="w-6 h-6 rounded-md text-on-surface-variant/20 hover:text-error transition-all flex items-center justify-center"
+                          >
+                            <span className="material-symbols-outlined !text-sm">remove</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Volume slider (only for active track) */}
+                    {isActive && (
+                      <div className="px-3 pb-2.5 flex items-center gap-2">
+                        <span className="material-symbols-outlined !text-xs text-on-surface-variant/30">volume_up</span>
+                        <input
+                          type="range" min={-40} max={0} step={1} value={track.volume}
+                          onChange={(e) => updateTrack(track.id, { volume: Number(e.target.value) })}
+                          className="flex-1 h-0.5 accent-primary cursor-pointer"
+                        />
+                        <span className="font-mono text-[7px] text-on-surface-variant/30 w-8 text-right">{track.volume}dB</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── Raga Selection ── */}
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 font-bold">Raga</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setRagaConstrained(v => !v)}
+                  title={ragaConstrained ? 'Raga constraint ON — only raga notes accepted' : 'Raga constraint OFF'}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[7px] uppercase tracking-widest font-bold transition-all ${
+                    ragaConstrained
+                      ? 'bg-secondary/20 text-secondary border border-secondary/30'
+                      : 'bg-surface-container-low text-on-surface-variant/30 border border-outline-variant/5 hover:border-secondary/20'
+                  }`}
+                >
+                  <span className="material-symbols-outlined !text-[10px]">{ragaConstrained ? 'lock' : 'lock_open'}</span>
+                  {ragaConstrained ? 'Locked' : 'Free'}
+                </button>
+                <span className={`font-mono text-[8px] uppercase tracking-widest px-2 py-1 rounded-full border font-bold ${
+                  activeTradition === 'carnatic' ? 'text-secondary border-secondary/30 bg-secondary/10' : 'text-primary border-primary/30 bg-primary/10'
+                }`}>
+                  {activeTradition}
+                </span>
               </div>
-           </section>
+            </div>
+            <div className="relative mb-3">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined !text-base text-on-surface-variant/30">search</span>
+              <input
+                placeholder="Find raga..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-surface-container-low rounded-xl py-2.5 pl-9 pr-4 text-xs font-sans border border-outline-variant/10 outline-none focus:border-primary/30"
+              />
+            </div>
+            <div className="h-52 overflow-y-auto scroller-none space-y-1">
+              {ragasLoading ? (
+                [1,2,3,4].map(i => <div key={i} className="h-8 rounded-lg bg-surface-container-high/50 animate-pulse mb-1" />)
+              ) : ragasError ? (
+                <div className="py-6 text-center">
+                  <span className="material-symbols-outlined !text-xl text-error/40 block mb-2">wifi_off</span>
+                  <p className="font-mono text-[8px] uppercase tracking-widest text-error/60 mb-2">Failed to load</p>
+                  <button onClick={loadRagas} className="font-mono text-[8px] uppercase tracking-widest text-primary/60 hover:text-primary border border-primary/20 px-3 py-1 rounded-lg transition-all">Retry</button>
+                </div>
+              ) : (() => {
+                const filtered = ragas.filter(r => {
+                  const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase())
+                  const matchTradition = !r.tradition || r.tradition.toLowerCase() === activeTradition
+                  return matchSearch && matchTradition
+                })
+                if (!filtered.length) return <div className="py-6 text-center opacity-40"><p className="font-mono text-[8px] uppercase tracking-widest">No ragas found</p></div>
+                return filtered.map(raga => (
+                  <button
+                    key={raga.id}
+                    onClick={() => { setSelectedRaga(raga); setCurrentRagaId(raga.id) }}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                      selectedRaga?.id === raga.id ? 'bg-primary/20 text-primary border border-primary/20' : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high border border-transparent'
+                    }`}
+                  >
+                    {raga.name}
+                  </button>
+                ))
+              })()}
+            </div>
+          </div>
         </div>
       </aside>
 
-      {/* Main Workspace */}
+      {/* ── Main Workspace ────────────────────────────────────────────────────── */}
       <main className="flex-1 relative flex flex-col bg-surface overflow-hidden">
-        {/* Header HUD Capsule */}
-        <div className="h-20 px-12 flex justify-between items-center border-b border-outline-variant/5 bg-surface/40 backdrop-blur-md">
-           <div className="px-6 py-2 rounded-full bg-surface-container-high border border-outline-variant/10 flex items-center gap-4">
-              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-primary/60 font-bold">Active Resonance</span>
-              <span className="font-display text-lg font-light text-on-surface tracking-wide uppercase">{selectedRaga?.name || 'Searching...'}</span>
-           </div>
 
-           <div className="flex items-center gap-8">
-              <div className="flex flex-col items-end">
-                <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Master Tempo</span>
-                <span className="font-mono text-xl font-light text-primary tracking-tighter">120.0 <span className="text-[10px] text-on-surface-variant/40">BPM</span></span>
-              </div>
-              <button className="px-6 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all">Save Project</button>
-           </div>
+        {/* HUD */}
+        <div className="h-20 px-10 flex justify-between items-center border-b border-outline-variant/5 bg-surface/40 backdrop-blur-md flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="px-5 py-2 rounded-full bg-surface-container-high border border-outline-variant/10 flex items-center gap-3">
+              <span className="font-mono text-[8px] uppercase tracking-[0.2em] text-primary/60 font-bold">Active Resonance</span>
+              <span className="font-display text-base font-light text-on-surface tracking-wide uppercase">
+                {selectedRaga?.name || (ragasLoading ? 'Loading...' : 'Select a Raga')}
+              </span>
+            </div>
+            <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 flex items-center gap-2">
+              <span className="font-mono text-[8px] uppercase tracking-widest text-white/40 font-bold">{activeTradition}</span>
+              <div className="w-px h-3 bg-white/10" />
+              <span className="font-mono text-[8px] uppercase tracking-widest text-primary/70 font-bold">{activeInstrument}</span>
+              {activeInstrument === 'tambura' && droneActive && <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse ml-1" />}
+            </div>
+            {/* Phrase detection badges */}
+            <div className="flex gap-2">
+              {detectedPhrases.map((phrase, i) => (
+                <div key={i} className="px-3 py-1.5 rounded-full bg-secondary/10 border border-secondary/20 flex items-center gap-1.5 animate-glow">
+                  <span className="material-symbols-outlined !text-xs text-secondary">verified</span>
+                  <span className="font-mono text-[8px] uppercase tracking-widest text-secondary font-bold whitespace-nowrap">{phrase.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="flex flex-col items-end">
+              <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Tempo</span>
+              <span className="font-mono text-lg font-light text-primary">{bpm} <span className="text-[9px] text-on-surface-variant/40">BPM</span></span>
+            </div>
+            <button onClick={handleSaveProject} className="px-5 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95">
+              Save
+            </button>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-12 space-y-12 scroll-thin">
-           {/* Visual Keyboard Segment */}
-           <section className="animate-slide-up">
-              <Piano 
-                layout={keyboardLayout}
-                activeRagaNotes={selectedRaga?.aroha || []} 
-                onNoteClick={(note, freq) => {
-                  // Link piano click to selected step in sequencer
-                  if (activeStep !== -1) {
-                    handleToggleStep(activeStep, { label: note, frequency: freq })
-                  }
-                }}
-              />
-           </section>
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-auto p-10 space-y-14 scroll-thin">
 
-           {/* Sequencer Grid */}
-           <section className="max-w-6xl mx-auto">
-              <div className="flex items-center justify-between mb-8 border-b border-outline-variant/5 pb-4">
-                 <div className="flex items-center gap-4">
-                    <div className="w-2 h-2 rounded-full bg-primary" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-on-surface font-bold">Pulse Sequencer</span>
-                 </div>
-                 <div className="font-mono text-[10px] text-on-surface-variant/40 uppercase tracking-widest">16 Steps / {activeLayer.name}</div>
+          {/* ── Step Sequencer ── */}
+          <section className="animate-slide-up">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined !text-base">grid_on</span>
+                </div>
+                <div>
+                  <h3 className="font-display text-lg font-light text-on-surface tracking-tight uppercase">Step Sequencer</h3>
+                  <p className="font-mono text-[7px] uppercase tracking-widest text-on-surface-variant/30 font-bold">
+                    Select step → press key to record · Shift+click filled step to cycle velocity
+                  </p>
+                </div>
               </div>
+              <div className="flex items-center gap-3">
+                {/* Loop length */}
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-container-low border border-outline-variant/10">
+                  {LOOP_OPTIONS.map(len => (
+                    <button
+                      key={len}
+                      onClick={() => handleLoopLengthChange(len as any)}
+                      className={`px-3 py-1 rounded-lg font-mono text-[8px] font-bold transition-all ${
+                        loopLength === len ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant/40 hover:text-on-surface'
+                      }`}
+                    >
+                      {len}
+                    </button>
+                  ))}
+                </div>
+                <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">
+                  {activeStep >= 0 && !isPlaying ? `Step ${activeStep + 1}` : isPlaying ? '▶' : ''}
+                </span>
+              </div>
+            </div>
 
-              <div className="grid grid-cols-16 gap-3">
-                 {new Array(STEPS).fill(0).map((_, i) => {
-                   const step = activeLayer.sequence[i]
-                   const isActive = step !== null
-                   const isPlayhead = activeStep === i
-                   
-                   return (
-                     <div key={i} className="flex flex-col gap-3">
-                        <button
-                          className={`w-full aspect-square rounded-2xl transition-all border flex flex-col items-center justify-center gap-2 group ${
-                            isActive 
-                              ? 'bg-primary border-primary shadow-glow scale-105' 
-                              : isPlayhead 
-                                ? 'bg-surface-container-highest border-primary/40' 
-                                : 'bg-surface-lowest border-outline-variant/10 hover:border-outline-variant/30'
+            <div className="rounded-[20px] bg-surface-lowest border border-outline-variant/10 p-5">
+              {/* Tala-aware beat markers */}
+              {(() => {
+                const cells = expandTala(selectedTala)
+                // Only show up to loopLength cells; pad if tala < loopLength
+                const displayCells = Array.from({ length: loopLength }, (_, i) => cells[i % cells.length])
+                return (
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-28 flex-shrink-0" />
+                    <div className="flex-1" style={{ display: 'grid', gridTemplateColumns: `repeat(${loopLength}, minmax(0,1fr))`, gap: '3px' }}>
+                      {displayCells.map((cell, i) => (
+                        <div
+                          key={i}
+                          className={`text-center font-mono text-[6px] leading-tight ${
+                            cell.isSam
+                              ? 'text-amber-400 font-black'
+                              : cell.isFirstInVibhag && cell.type === 'khali'
+                                ? 'text-on-surface-variant/30 font-bold'
+                                : cell.isFirstInVibhag
+                                  ? 'text-primary/60 font-bold'
+                                  : 'text-on-surface-variant/15'
                           }`}
+                          title={cell.isSam ? 'Sam (X)' : cell.isFirstInVibhag ? cell.type === 'khali' ? 'Khali (0)' : `Tali ${cell.label}` : ''}
                         >
-                           {isActive && <span className="font-mono text-[9px] font-bold text-white uppercase">{step.label || 'Note'}</span>}
-                           {isPlayhead && !isActive && <div className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse" />}
-                        </button>
-                        <div className={`h-1 mx-auto rounded-full transition-all ${isPlayhead ? 'w-full bg-primary' : 'w-2 bg-outline-variant/10'}`} />
-                     </div>
-                   )
-                 })}
+                          {cell.isSam ? 'X' : cell.isFirstInVibhag ? cell.type === 'khali' ? '0' : cell.label : '·'}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Track rows */}
+              {tracks.map(track => {
+                const c = colors(track.colorIdx)
+                const isActiveTrack = activeTrackId === track.id
+                const hasSolo = tracks.some(t => t.soloed)
+                const isAudible = !track.muted && (!hasSolo || track.soloed)
+                return (
+                  <div key={track.id} className={`flex items-center gap-2 py-1 ${!isAudible ? 'opacity-30' : ''}`}>
+                    {/* Track label */}
+                    <button
+                      onClick={() => setActiveTrackId(track.id)}
+                      className={`w-28 flex-shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all text-left ${
+                        isActiveTrack ? `${c.fill} border` : 'hover:bg-surface-container-high/30'
+                      }`}
+                    >
+                      <span className={`material-symbols-outlined !text-xs ${isActiveTrack ? c.text : 'text-on-surface-variant/30'}`}>
+                        {TRACK_META[track.type].icon}
+                      </span>
+                      <span className={`font-mono text-[8px] uppercase tracking-widest truncate ${isActiveTrack ? c.text : 'text-on-surface-variant/30'} font-bold`}>
+                        {track.name}
+                      </span>
+                    </button>
+
+                    {/* Step cells */}
+                    <div className="flex-1" style={{ display: 'grid', gridTemplateColumns: `repeat(${loopLength}, minmax(0,1fr))`, gap: '3px' }}>
+                      {track.sequence.map((event, stepIdx) => {
+                        const isActiveStep = activeStep === stepIdx && isPlaying
+                        const isSelected = activeStep === stepIdx && !isPlaying && isActiveTrack
+                        const hasNote = !!event
+                        const velPct = hasNote ? Math.round((event!.velocity ?? 0.8) * 100) : 0
+                        const isBeat = stepIdx % 4 === 0
+                        return (
+                          <button
+                            key={stepIdx}
+                            onClickCapture={(e) => {
+                              if (isPlaying) return
+                              if (e.shiftKey && hasNote) {
+                                cycleVelocity(stepIdx, track.id)
+                                return
+                              }
+                              setActiveTrackId(track.id)
+                              if (hasNote) {
+                                handleToggleStep(stepIdx, event!, track.id)
+                                if (activeStep === stepIdx && isActiveTrack) setActiveStep(-1)
+                              } else {
+                                setActiveStep(activeStep === stepIdx && isActiveTrack ? -1 : stepIdx)
+                              }
+                            }}
+                            title={
+                              hasNote
+                                ? `${track.type === 'melody' ? event!.label : event!.stroke} (vel ${velPct}%) · Shift+click to cycle velocity`
+                                : `Record to step ${stepIdx + 1}`
+                            }
+                            className={`relative h-8 rounded-md font-mono text-[7px] font-bold transition-all border flex items-end justify-center pb-0.5 overflow-hidden ${
+                              isActiveStep
+                                ? `${c.active} border-transparent shadow-glow`
+                                : isSelected
+                                ? `border-primary/70 bg-primary/10 text-primary ring-1 ring-primary/20`
+                                : hasNote
+                                ? isActiveTrack
+                                  ? `${c.fill} ${c.text}`
+                                  : 'bg-surface-container-high border-outline-variant/20 text-on-surface/50'
+                                : isBeat
+                                ? 'bg-surface-container-low/50 border-outline-variant/10 text-transparent hover:border-primary/15'
+                                : 'bg-surface-container-low/20 border-outline-variant/5 text-transparent hover:border-outline-variant/10'
+                            }`}
+                          >
+                            {/* Velocity fill bar */}
+                            {hasNote && !isActiveStep && (
+                              <div
+                                className={`absolute bottom-0 left-0 right-0 opacity-40 rounded-b-md ${isActiveTrack ? c.dot : 'bg-white'}`}
+                                style={{ height: `${velPct}%` }}
+                              />
+                            )}
+                            <span className="relative z-10">
+                              {hasNote ? (track.type === 'melody' ? event!.label : event!.stroke) : null}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* ── Input section: Piano for melodic tracks, DrumPad for rhythm ── */}
+          {(() => {
+            const activeTrack = tracks.find(t => t.id === activeTrackId)
+            const isRhythmTrack = activeTrack?.type === 'rhythm'
+
+            if (isRhythmTrack) {
+              return (
+                <section className="animate-slide-up max-w-4xl mx-auto">
+                  {/* Context hint */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className={`w-2 h-2 rounded-full ${activeStep >= 0 ? 'bg-primary animate-pulse' : 'bg-outline-variant/30'}`} />
+                    <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
+                      {activeStep >= 0
+                        ? `Step ${activeStep + 1} selected — press a key or click a pad to record`
+                        : 'Select a step in the grid above, then press a key to record'}
+                    </span>
+                  </div>
+                  <DrumPad
+                    keyboardActive={true}
+                    onStroke={(stroke) => {
+                      if (activeStep === -1) return
+                      handleToggleStep(activeStep, { label: stroke, stroke, velocity: 0.8 })
+                    }}
+                  />
+                </section>
+              )
+            }
+
+            // Derive raga grammar for Piano visual encoding
+            const ragaAroha   = selectedRaga?.aroha   || []
+            const ragaAvaroha = selectedRaga?.avaroha || []
+            const allRagaNotes = [...ragaAroha, ...ragaAvaroha]
+
+            const onNoteRecord = (note: string, freq: number) => {
+              if (activeStep === -1) return
+              if (ragaValidNotes && !(ragaValidNotes as string[]).includes(note)) return
+              handleToggleStep(activeStep, { label: note, frequency: freq, velocity: 0.8 })
+            }
+
+            return (
+              <section className="animate-slide-up">
+                {/* Context hint */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`w-2 h-2 rounded-full ${activeStep >= 0 ? 'bg-primary animate-pulse' : 'bg-outline-variant/30'}`} />
+                  <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
+                    {activeStep >= 0
+                      ? `Step ${activeStep + 1} selected — ${keyboardLayout === 'SwaPad' ? 'tap a swara' : 'press a key'} to record`
+                      : 'Select a step in the grid above to start recording'}
+                  </span>
+                </div>
+
+                {keyboardLayout === 'SwaPad' ? (
+                  <SwaPad
+                    activeRagaNotes={allRagaNotes}
+                    ragaConstrained={ragaConstrained}
+                    vadiNote={selectedRaga?.vadi}
+                    onSwara={(label, freq) => onNoteRecord(label, freq)}
+                  />
+                ) : (
+                  <Piano
+                    layout={keyboardLayout === 'Piano' ? 'Piano' : keyboardLayout === 'Harmonium' ? 'Harmonium' : 'Swara'}
+                    activeRagaNotes={allRagaNotes}
+                    externalActiveNote={activeSwara || ''}
+                    vadiNote={selectedRaga?.vadi}
+                    samvadiNote={selectedRaga?.samvadi}
+                    onNoteClick={onNoteRecord}
+                  />
+                )}
+
+                {ragaConstrained && selectedRaga && (
+                  <div className="mt-3 flex items-center gap-2 justify-center">
+                    <span className="material-symbols-outlined !text-sm text-secondary/60">lock</span>
+                    <span className="font-mono text-[8px] uppercase tracking-widest text-secondary/60">
+                      Raga constraint active — only {selectedRaga.name} notes accepted
+                    </span>
+                  </div>
+                )}
+              </section>
+            )
+          })()}
+
+          {/* ── Melodic Guide ── */}
+          <section className="animate-slide-up max-w-4xl mx-auto border-t border-outline-variant/5 pt-14">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
+                  <span className="material-symbols-outlined">menu_book</span>
+                </div>
+                <div>
+                  <h3 className="font-display text-2xl font-light text-on-surface tracking-tight uppercase">Melodic Guide</h3>
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 font-bold">Characteristic Phrases (Pakads)</p>
+                </div>
               </div>
-           </section>
+              {selectedRaga?.aroha && selectedRaga?.avaroha && (
+                <button
+                  onClick={handlePlayBlueprint}
+                  disabled={!isStarted}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-mono text-[10px] uppercase tracking-widest font-bold transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
+                    isBlueprintPlaying ? 'bg-secondary text-on-secondary animate-pulse shadow-glow' : 'bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20'
+                  }`}
+                >
+                  <span className="material-symbols-outlined !text-base">{isBlueprintPlaying ? 'stop' : 'play_arrow'}</span>
+                  {isBlueprintPlaying ? 'Stop' : 'Play Blueprint'}
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {selectedRaga?.raga_phrases && (selectedRaga.raga_phrases as any).length > 0 ? (
+                (selectedRaga.raga_phrases as any).map((phrase: any, i: number) => (
+                  <div key={i} className="p-6 rounded-3xl bg-surface-container-low/40 border border-outline-variant/10 hover:border-secondary/20 transition-all group/guide">
+                    <div className="flex justify-between items-start mb-4">
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-secondary font-bold">{phrase.label}</span>
+                      <span className="material-symbols-outlined !text-lg text-secondary/0 group-hover/guide:text-secondary/40 transition-all">info</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {phrase.sequence.map((s: string, j: number) => (
+                        <span key={j} className="font-label text-sm text-on-surface/80">
+                          {s}{j < phrase.sequence.length - 1 ? ' - ' : ''}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-2 p-12 rounded-[32px] border border-dashed border-outline-variant/10 text-center opacity-40">
+                  <p className="font-sans text-sm font-light italic">No signature phrases archived for this foundation yet.</p>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
 
-        {/* Playback Rail */}
-        <div className="h-28 glass-panel mx-8 mb-8 rounded-[40px] border border-outline-variant/20 flex items-center justify-between px-16 shadow-2xl">
-           <div className="flex items-center gap-12">
-              <button 
-                onClick={() => setIsPlaying(!isPlaying)}
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
-                  isPlaying ? 'bg-primary text-on-primary shadow-glow' : 'bg-surface-container-high border border-outline-variant/10 text-on-surface hover:text-primary'
-                }`}
-              >
-                 <span className="material-symbols-outlined !text-4xl">{isPlaying ? 'square' : 'play_arrow'}</span>
-              </button>
-              
-              <div className="flex flex-col">
-                 <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 mb-1">Time Signature</span>
-                 <span className="font-mono text-xl font-light text-on-surface">16 / 4 <span className="text-[10px] opacity-40 italic">Matra</span></span>
-              </div>
-           </div>
+        {/* ── Playback Rail ── */}
+        <div className="h-28 glass-panel mx-8 mb-8 rounded-[40px] border border-outline-variant/20 flex items-center justify-between px-12 shadow-2xl flex-shrink-0">
+          <div className="flex items-center gap-8">
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                isPlaying ? 'bg-primary text-on-primary shadow-glow' : 'bg-surface-container-high border border-outline-variant/10 text-on-surface hover:text-primary'
+              }`}
+            >
+              <span className="material-symbols-outlined !text-4xl">{isPlaying ? 'square' : 'play_arrow'}</span>
+            </button>
+            <button
+              onClick={() => { const next = !droneActive; setDroneActive(next); audioEngine?.toggleDrone(next) }}
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                droneActive ? 'bg-secondary text-on-secondary shadow-glow' : 'bg-surface-container-high border border-outline-variant/10 text-on-surface hover:text-secondary'
+              }`}
+              title="Toggle Drone"
+            >
+              <span className="material-symbols-outlined !text-2xl">graphic_eq</span>
+            </button>
+          </div>
 
-           <div className="flex-1 flex justify-center gap-12 border-x border-outline-variant/10 mx-16 px-16">
-              <div className="flex flex-col gap-2 w-48">
-                 <div className="flex justify-between font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">
-                   <span>Main Vol</span>
-                   <span className="text-primary">-0.0 DB</span>
-                 </div>
-                 <div className="h-1 bg-surface-container-low rounded-full overflow-hidden">
-                    <div className="h-full w-[80%] bg-primary shadow-glow" />
-                 </div>
+          {/* Center sliders */}
+          <div className="flex-1 flex justify-center gap-8 border-x border-outline-variant/10 mx-10 px-10">
+            <div className="flex flex-col gap-1.5 w-36">
+              <div className="flex justify-between font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
+                <span>Volume</span><span className="text-primary">{volume} dB</span>
               </div>
-           </div>
+              <input type="range" min={-40} max={0} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); audioEngine?.setVolume(v) }} className="w-full h-1 accent-primary cursor-pointer" />
+            </div>
+            <div className="flex flex-col gap-1.5 w-36">
+              <div className="flex justify-between font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
+                <span>Tempo</span><span className="text-primary">{bpm} BPM</span>
+              </div>
+              <input type="range" min={60} max={180} value={bpm} onChange={(e) => { const v = Number(e.target.value); setBpm(v); Tone.getTransport().bpm.value = v }} className="w-full h-1 accent-primary cursor-pointer" />
+            </div>
+            <div className="flex flex-col gap-1.5 w-36">
+              <div className="flex justify-between font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
+                <span>Swing</span><span className="text-primary">{Math.round(swingAmount * 200)}%</span>
+              </div>
+              <input type="range" min={0} max={50} value={Math.round(swingAmount * 100)} onChange={(e) => setSwingAmount(Number(e.target.value) / 100)} className="w-full h-1 accent-primary cursor-pointer" />
+            </div>
+          </div>
 
-           <button className="flex items-center gap-3 px-8 py-3.5 bg-primary text-on-primary rounded-2xl font-mono text-[10px] uppercase tracking-widest font-bold shadow-glow hover:scale-105 active:scale-95 transition-all">
-              <span>Rec Master</span>
-              <span className="material-symbols-outlined !text-xl animate-pulse">fiber_manual_record</span>
-           </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportMidi}
+              disabled={isExportingMidi}
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl font-mono text-[10px] uppercase tracking-widest font-bold border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span>{isExportingMidi ? 'Exporting...' : 'Export MIDI'}</span>
+              <span className="material-symbols-outlined !text-lg">download</span>
+            </button>
+            <button
+              onClick={handleToggleRecording}
+              className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-mono text-[10px] uppercase tracking-widest font-bold shadow-glow hover:scale-105 active:scale-95 transition-all ${
+                isRecording ? 'bg-secondary text-on-secondary animate-pulse' : 'bg-primary text-on-primary'
+              }`}
+            >
+              <span>{isRecording ? 'Stop Rec' : 'Rec'}</span>
+              <span className="material-symbols-outlined !text-lg">fiber_manual_record</span>
+            </button>
+          </div>
         </div>
       </main>
 
@@ -326,12 +1107,14 @@ function StudioContent() {
 
 export default function StudioPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-surface-lowest flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-      </div>
-    }>
-      <StudioContent />
-    </Suspense>
+    <CompositionProvider>
+      <Suspense fallback={
+        <div className="min-h-screen bg-surface-lowest flex items-center justify-center">
+          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+        </div>
+      }>
+        <StudioContent />
+      </Suspense>
+    </CompositionProvider>
   )
 }
