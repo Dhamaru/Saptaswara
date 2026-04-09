@@ -12,8 +12,11 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative z-10 text-center max-w-5xl mx-auto mt-20 mb-32 animate-fade-in">
-        <div className="inline-block px-4 py-1.5 mb-8 rounded-full bg-surface-container-high/40 border border-outline-variant/10 backdrop-blur-md">
-          <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-primary/80">Aroha & Avaroha</span>
+        <div className="inline-flex items-center gap-4 px-6 py-2 mb-12 rounded-full bg-surface-container-high/40 border border-outline-variant/10 backdrop-blur-md shadow-glow">
+          <div className="w-8 h-8 rounded-lg overflow-hidden border border-primary/20">
+            <img src="/logo.png" alt="Saptaswara Logo" className="w-full h-full object-cover scale-150" />
+          </div>
+          <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-primary/80 font-bold">Studio Engine v1.0</span>
         </div>
         
         <h1 className="font-display text-7x1 md:text-9xl font-light text-on-surface tracking-tighter leading-[0.9] mb-10 text-glow">
@@ -22,8 +25,20 @@ export default function LandingPage() {
         </h1>
         
         <p className="font-sans text-lg md:text-xl text-on-surface-variant/70 max-w-2xl mx-auto font-light leading-relaxed mb-16 text-balance">
-          Step into the Resonant Void. A high-fidelity studio environment where the mathematical precision of Indian classical scales meets modern synthesis.
+          Master the art of Indian Classical Music. A high-fidelity studio where traditional Ragas and Talas meet modern digital synthesis.
         </p>
+
+        {/* The Saptaswara Constellation - Traditional Notes Visualization */}
+        <div className="flex items-center justify-center gap-4 mb-20">
+          {['सा', 'रे', 'ग', 'म', 'प', 'ध', 'नी'].map((swara, i) => (
+            <div key={i} className="group relative flex flex-col items-center gap-4">
+              <div className="w-12 h-12 rounded-full border border-primary/20 flex items-center justify-center bg-surface-container-high/20 backdrop-blur-md group-hover:border-primary group-hover:shadow-glow transition-all">
+                <span className="font-display text-lg text-primary/60 group-hover:text-primary transition-colors">{swara}</span>
+              </div>
+              <div className="w-0.5 h-8 bg-gradient-to-b from-primary/40 to-transparent" />
+            </div>
+          ))}
+        </div>
 
         <div className="flex flex-col sm:row items-center justify-center gap-6">
           <Link 
@@ -37,7 +52,7 @@ export default function LandingPage() {
             </span>
           </Link>
           <Link 
-            href="/explore" 
+            href="/library" 
             className="px-12 py-5 bg-surface-container-high/40 border border-outline-variant/20 rounded-2xl font-medium text-on-surface hover:bg-surface-container-high transition-all"
           >
             Explore Library
@@ -53,15 +68,23 @@ export default function LandingPage() {
               <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-200" />
            </div>
            
-           <div className="relative z-20 h-full flex flex-col justify-between">
-             <div>
-               <span className="font-mono text-[10px] uppercase tracking-widest text-primary mb-6 block font-semibold opacity-60">Intelligent Engine</span>
-               <h3 className="font-display text-5xl font-light text-on-surface mb-4 leading-tight">Harmonic <br/> constraints.</h3>
-             </div>
-             <p className="text-on-surface-variant font-light max-w-sm text-lg leading-relaxed opacity-80">
-               Every note you play is dynamically mapped to the underlying raga structure in real-time.
-             </p>
-           </div>
+            <div className="relative z-20 h-full flex flex-col justify-between">
+              <div>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-primary mb-6 block font-semibold opacity-60">Raga Intelligence</span>
+                <h3 className="font-display text-5xl font-light text-on-surface mb-2 leading-tight">Melodic <br/> DNA.</h3>
+              </div>
+              <div className="flex items-center gap-4 py-4 overflow-hidden mask-fade-edges">
+                 {['सा', 'रे', 'ग', 'म', 'प', 'ध', 'नी'].map((s, j) => (
+                   <div key={j} className="flex flex-col items-center gap-2 group/swara">
+                     <div className="w-1.5 h-12 bg-primary/20 rounded-full group-hover/swara:bg-primary group-hover/swara:shadow-glow transition-all" />
+                     <span className="font-mono text-[9px] text-on-surface-variant/40 group-hover/swara:text-primary transition-colors">{s}</span>
+                   </div>
+                 ))}
+              </div>
+              <p className="text-on-surface-variant font-light max-w-sm text-lg leading-relaxed opacity-80">
+                Explore a library of 120+ traditional Ragas. Every note you play is dynamically mapped to verify musical authenticity.
+              </p>
+            </div>
         </div>
         
         <div className="group relative h-80 bg-surface-lowest rounded-[40px] border border-outline-variant/5 hover:border-outline-variant/20 transition-all p-12 flex flex-col justify-between overflow-hidden shadow-2xl">
@@ -70,8 +93,8 @@ export default function LandingPage() {
            </div>
            
            <div className="relative z-20">
-             <span className="material-symbols-outlined text-primary mb-6 !text-4xl opacity-80">piano</span>
-             <h3 className="font-display text-3xl font-light text-on-surface mb-2">Microtonal Tuning.</h3>
+             <span className="material-symbols-outlined text-primary mb-6 !text-4xl opacity-80">shaman</span>
+             <h3 className="font-display text-3xl font-light text-on-surface mb-2">Tala Engine.</h3>
            </div>
            
            <div className="relative z-20 flex flex-col items-end mt-auto">

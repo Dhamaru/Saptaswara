@@ -8,7 +8,7 @@ export const RagaEngine = {
    * Resolves a swara name to its frequency in the context of a raga.
    * If hz_map is present, uses it. Otherwise calculates from hz_sa and semitones.
    */
-  resolveNote(swara: string, raga: any): number | null {
+  resolveNote(swara: string, raga: any): number {
     if (raga.hz_map && raga.hz_map[swara]) {
       return raga.hz_map[swara];
     }
@@ -21,7 +21,7 @@ export const RagaEngine = {
       }
     }
     
-    return null;
+    return 0;
   },
 
   /**
@@ -37,5 +37,31 @@ export const RagaEngine = {
   isValidSequence(sequence: string[], raga: any): boolean {
     const scale = new Set([...(raga.notes || raga.aroha || []), ...(raga.avaroha || [])]);
     return sequence.every(s => scale.has(s));
+  },
+  /**
+   * Returns phrases associated with the raga.
+   */
+  getPhrases(raga: Raga): { label: string; sequence: Swara[] }[] {
+    return raga.phrases || [];
+  },
+
+  /**
+   * Checks if a given sequence contains any known characteristic phrases of the raga.
+   */
+  detectPhrases(sequence: string[], raga: Raga): { label: string; offset: number }[] {
+    const found: { label: string; offset: number }[] = [];
+    const phrases = raga.phrases || [];
+    
+    const sSeq = sequence.join(',');
+    phrases.forEach(p => {
+      if (!Array.isArray(p.sequence) || p.sequence.length === 0) return;
+      const pSeq = p.sequence.join(',');
+      const index = sSeq.indexOf(pSeq);
+      if (index !== -1) {
+        found.push({ label: p.label, offset: index });
+      }
+    });
+    
+    return found;
   }
 };

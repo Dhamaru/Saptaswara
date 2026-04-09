@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -34,25 +35,69 @@ export function Assistant({ ragaContext }: AssistantProps) {
 
   const handleSend = async () => {
     if (!input.trim()) return
-    
+
     const userMsg: Message = { role: 'user', content: input }
     setMessages(prev => [...prev, userMsg])
     setInput('')
     setIsTyping(true)
 
     try {
+      const { data: { session } } = await createClient().auth.getSession()
+      if (!session) {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Please sign in to use the assistant.' }])
+        return
+      }
+
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, userMsg],
-          ragaContext
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ messages: [...messages, userMsg], ragaContext }),
       })
-      const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.content }])
+
+      if (!res.ok) {
+        const fallback = res.status === 401 ? 'Session expired. Please sign in again.' : 'Assistant unavailable. Please try again.'
+        setMessages(prev => [...prev, { role: 'assistant', content: fallback }])
+        return
+      }
+
+      // Append an empty assistant bubble to stream into
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let assistantMessage = ''
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          for (const line of chunk.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6).trim()
+            if (data === '[DONE]') break
+            assistantMessage += data
+            setMessages(prev => {
+              const updated = [...prev]
+              updated[updated.length - 1] = { role: 'assistant', content: assistantMessage }
+              return updated
+            })
+          }
+        }
+      } catch {
+        setMessages(prev => {
+          const updated = [...prev]
+          updated[updated.length - 1] = { role: 'assistant', content: assistantMessage || 'Stream interrupted. Please try again.' }
+          return updated
+        })
+      }
     } catch (err) {
       console.error('Assistant error:', err)
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
     } finally {
       setIsTyping(false)
     }
@@ -87,22 +132,22 @@ export function Assistant({ ragaContext }: AssistantProps) {
               </div>
            </div>
            
-           <div className="flex items-center gap-4">
-              <button 
+           <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsFocused(!isFocused)}
+                className="material-symbols-outlined text-on-surface-variant/20 hover:text-primary transition-colors !text-xl"
+                title={isFocused ? 'Collapse' : 'Expand'}
+              >
+                {isFocused ? 'close_fullscreen' : 'open_in_full'}
+              </button>
+              <button
                 onClick={() => setIsMinimized(true)}
-                className="material-symbols-outlined text-on-surface-variant/40 hover:text-primary transition-colors !text-xl"
+                className="material-symbols-outlined text-on-surface-variant/40 hover:text-error transition-colors !text-xl"
+                title="Minimize"
               >
                 close
               </button>
-              <h4 className="font-display text-lg font-light text-on-surface leading-tight">Assistant</h4>
            </div>
-           
-           <button 
-             onClick={() => setIsFocused(!isFocused)}
-             className="material-symbols-outlined text-on-surface-variant/20 hover:text-primary transition-colors !text-xl"
-           >
-             {isFocused ? 'close_fullscreen' : 'open_in_full'}
-           </button>
         </div>
 
         {/* Chat Thread */}
@@ -133,7 +178,11 @@ export function Assistant({ ragaContext }: AssistantProps) {
         {/* Suggestion Chips */}
         <div className="px-8 py-4 flex gap-2 overflow-x-auto scroller-none border-t border-outline-variant/5">
            {['Scale Theory', 'Morning Ragas', 'Generate Pattern'].map(chip => (
-             <button key={chip} className="whitespace-nowrap px-4 py-2 rounded-xl bg-surface-container-low/40 border border-outline-variant/5 text-[10px] font-mono uppercase tracking-widest text-on-surface-variant/60 hover:text-primary hover:border-primary/20 transition-all">
+             <button
+               key={chip}
+               onClick={() => { setInput(chip); }}
+               className="whitespace-nowrap px-4 py-2 rounded-xl bg-surface-container-low/40 border border-outline-variant/5 text-[10px] font-mono uppercase tracking-widest text-on-surface-variant/60 hover:text-primary hover:border-primary/20 transition-all"
+             >
                 {chip}
              </button>
            ))}
@@ -153,7 +202,7 @@ export function Assistant({ ragaContext }: AssistantProps) {
                 onClick={handleSend}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-glow"
               >
-                <span className="material-symbols-outlined !text-xl">mic</span>
+                <span className="material-symbols-outlined !text-xl">send</span>
               </button>
            </div>
         </div>

@@ -34,13 +34,25 @@ export default function RagaCard({ raga, onClick }: RagaCardProps) {
 
       <div className="relative z-10 p-10 h-full flex flex-col justify-between">
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-primary/60 font-semibold">
-              {raga.time_of_day || 'Universal'}
-            </span>
-            <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">
-              {raga.thaat || 'Classic'}
-            </span>
+          <div className="flex flex-col gap-2 mb-4">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-primary/60 font-semibold">
+                {raga.time_of_day || 'Universal'}
+              </span>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">
+                {raga.thaat || 'Classic'}
+              </span>
+            </div>
+            <div className="flex gap-2 items-center">
+              <span className={`font-mono text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-sm font-bold ${raga.tradition?.toLowerCase() === 'carnatic' ? 'bg-secondary/20 text-secondary' : 'bg-primary/20 text-primary'}`}>
+                {raga.tradition || 'HINDUSTANI'}
+              </span>
+              {raga.melakarta_number && (
+                <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
+                  M#{raga.melakarta_number}
+                </span>
+              )}
+            </div>
           </div>
           <h3 className="font-display text-4xl font-light text-on-surface tracking-tight group-hover:text-primary transition-colors leading-tight">
             {raga.name}

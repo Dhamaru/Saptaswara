@@ -1,15 +1,42 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAnonClient } from '@supabase/supabase-js'
+
+/**
+ * Try cookie auth first (server SSR client); fall back to Bearer token.
+ * Returns null if both fail.
+ */
+async function resolveUser(req: Request) {
+  // 1. Cookie-based auth (works for browser navigation)
+  const supabase = await createClient()
+  const { data: { user: cookieUser } } = await supabase.auth.getUser()
+  if (cookieUser) return { user: cookieUser, supabase }
+
+  // 2. Bearer token fallback (works for fetch() from client components)
+  const authHeader = req.headers.get('Authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
+  if (!token) return null
+
+  // Inject Bearer token at client init so all subsequent DB queries
+  // carry the JWT and RLS policies evaluate against the correct user.
+  const anonClient = createAnonClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  )
+  const { data: { user: tokenUser }, error } = await anonClient.auth.getUser()
+  if (error || !tokenUser) return null
+  return { user: tokenUser, supabase: anonClient }
+}
 
 // GET: List all projects for the authenticated user
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
+    const resolved = await resolveUser(req)
+    if (!resolved) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { user, supabase } = resolved
 
     const { data, error } = await supabase
       .from('projects')
@@ -20,19 +47,19 @@ export async function GET() {
     if (error) throw error
     return NextResponse.json(data)
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Projects GET error:', error)
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
   }
 }
 
 // POST: Create or update a project
 export async function POST(req: Request) {
   try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
+    const resolved = await resolveUser(req)
+    if (!resolved) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { user, supabase } = resolved
 
     const body = await req.json()
     const { projectId, title, raga_id, bpm, sequence } = body
@@ -89,19 +116,19 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ id: currentPid, success: true })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Projects POST error:', error)
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
   }
 }
 
 // DELETE: Delete a project
 export async function DELETE(req: Request) {
   try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
+    const resolved = await resolveUser(req)
+    if (!resolved) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { user, supabase } = resolved
 
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
@@ -116,6 +143,7 @@ export async function DELETE(req: Request) {
     if (error) throw error
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Projects DELETE error:', error)
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
   }
 }

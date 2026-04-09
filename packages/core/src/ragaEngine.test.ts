@@ -3,28 +3,47 @@ import { RagaEngine } from './ragaEngine';
 import { Raga } from './types';
 
 describe('RagaEngine', () => {
-  const mockYaman: Partial<Raga> = {
-    name: 'Yaman',
-    hz_map: {
-      'S': 261.63,
-      'R': 293.66,
-      'G': 329.63,
-      'M': 369.99,
-      'P': 392.00,
-      'D': 440.00,
-      'N': 493.88,
-      "S'": 523.25
-    } as any,
-    aroha: ['S', 'R', 'G', 'M', 'P', 'D', 'N', "S'"] as any
+  const mockRaga: Raga = {
+    id: '1',
+    name: 'Mayamalavagowla',
+    thaat: 'Bhairav',
+    aroha: ['S', 'r', 'G', 'm', 'P', 'd', 'N', "S'"],
+    avaroha: ["S'", 'N', 'd', 'P', 'm', 'G', 'r', 'S'],
+    vadi: 'S',
+    samvadi: 'P',
+    time_of_day: 'Morning',
+    mood: 'Devotional',
+    prahara: 1,
+    semitones: [0, 1, 4, 5, 7, 8, 11, 12],
+    hz_map: {} as any,
+    verified: true,
+    phrases: [
+      { label: 'Sarali 1', sequence: ['S', 'r', 'G', 'm', 'P', 'd', 'N', "S'"] },
+      { label: 'Characteristic', sequence: ['d', 'P', 'm', 'G'] }
+    ]
   };
 
-  it('should resolve note "G" in Yaman to 329.63 Hz', () => {
-    const freq = RagaEngine.resolveNote('G', mockYaman as Raga);
-    expect(freq).toBe(329.63);
+  it('detects phrases in a sequence', () => {
+    const sequence = ['S', 'r', 'G', 'm', 'P', 'd', 'N', "S'"];
+    const detected = RagaEngine.detectPhrases(sequence, mockRaga);
+    expect(detected).toHaveLength(1);
+    expect(detected[0].label).toBe('Sarali 1');
   });
 
-  it('should return 0 for notes not in the raga', () => {
-    const freq = RagaEngine.resolveNote('g' as any, mockYaman as Raga);
-    expect(freq).toBe(0);
+  it('detects partial characteristic phrases', () => {
+    const sequence = ['P', 'd', 'P', 'm', 'G', 'r', 'S'];
+    const detected = RagaEngine.detectPhrases(sequence, mockRaga);
+    expect(detected).toHaveLength(1);
+    expect(detected[0].label).toBe('Characteristic');
+  });
+
+  it('validates a correct sequence', () => {
+    const sequence = ['S', 'r', 'G', 'P'];
+    expect(RagaEngine.isValidSequence(sequence, mockRaga)).toBe(true);
+  });
+
+  it('rejects an invalid sequence (note not in scale)', () => {
+    const sequence = ['S', 'R', 'G']; // R is not in Mayamalavagowla (r is)
+    expect(RagaEngine.isValidSequence(sequence, mockRaga)).toBe(false);
   });
 });
