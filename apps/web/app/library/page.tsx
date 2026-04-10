@@ -60,19 +60,19 @@ export default function LibraryPage() {
 
   return (
     // Root: full height flex row — sidebar is always in flow, animated via width
-    <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-background">
+    <div className="flex h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] overflow-hidden bg-background">
 
       {/* ── Main library area ─────────────────────────────────────────────── */}
       <main className="flex-1 min-w-0 overflow-y-auto scroll-thin">
-        <div className="px-12 py-16">
+        <div className="px-4 md:px-12 py-8 md:py-16">
 
           {/* Header */}
-          <header className="mb-16">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-primary mb-6 opacity-60">Raga Library</div>
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10">
+          <header className="mb-8 md:mb-16">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-primary mb-4 md:mb-6 opacity-60">Raga Library</div>
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 md:gap-10">
               <div className="max-w-xl">
-                <h1 className="font-display text-7xl font-light text-on-surface tracking-tight mb-6">Explore.</h1>
-                <p className="font-sans text-lg text-on-surface-variant font-light leading-relaxed opacity-70">
+                <h1 className="font-display text-5xl md:text-7xl font-light text-on-surface tracking-tight mb-4 md:mb-6">Explore.</h1>
+                <p className="font-sans text-sm md:text-lg text-on-surface-variant font-light leading-relaxed opacity-70">
                   Navigate the geometric structures of melodic time. Select a raga to explore its intervals, moods, and fundamental swaras.
                 </p>
               </div>
@@ -175,16 +175,11 @@ export default function LibraryPage() {
         </div>
       </main>
 
-      {/* ── Detail sidebar ─────────────────────────────────────────────────── */}
-      {/* Always in flex flow — width animates 0 ↔ 440px so content pushes left, never overlaps */}
-      <aside
-        className={`flex-shrink-0 bg-surface-lowest border-l border-outline-variant/10 flex flex-col overflow-hidden transition-all duration-500 ease-in-out ${
-          selectedRaga ? 'w-[440px]' : 'w-0 border-l-0'
-        }`}
-      >
+      {/* ── Detail panel — full-screen overlay on mobile, side panel on desktop ── */}
+      {selectedRaga && (
+        <div className="fixed inset-0 z-50 md:relative md:inset-auto md:z-auto md:flex-shrink-0 md:w-[440px] bg-surface-lowest border-l border-outline-variant/10 flex flex-col overflow-hidden transition-all duration-500 ease-in-out">
         {selectedRaga && (
-          // Inner scroll container — flex column with sticky footer
-          <div className="w-[440px] flex flex-col h-full overflow-hidden">
+          <div className="w-full md:w-[440px] flex flex-col h-full overflow-hidden">
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto scroll-thin">
@@ -346,7 +341,8 @@ export default function LibraryPage() {
             </div>
           </div>
         )}
-      </aside>
+        </div>
+      )}
     </div>
   )
 }
