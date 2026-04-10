@@ -32,7 +32,7 @@ export default function RagaCard({ raga, onClick }: RagaCardProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-surface-lowest via-surface-lowest/40 to-transparent" />
       </div>
 
-      <div className="relative z-10 p-10 h-full flex flex-col justify-between">
+      <div className="relative z-10 p-6 md:p-10 h-full flex flex-col justify-between">
         <div>
           <div className="flex flex-col gap-2 mb-4">
             <div className="flex items-center justify-between">

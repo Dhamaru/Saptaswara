@@ -13,8 +13,8 @@ export default function Navbar() {
 
   const navLinks = [
     { name: 'Naad', href: '/studio' },
-    { name: 'Raag', href: '/library' },
-    { name: 'Riyaj', href: '/journal' },
+    { name: 'Ragam', href: '/library' },
+    { name: 'Sadhana', href: '/journal' },
   ]
 
   const [user, setUser] = React.useState<any>(null)

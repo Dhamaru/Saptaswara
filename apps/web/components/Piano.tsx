@@ -226,9 +226,9 @@ export default function Piano({
 
   // ── Piano / Harmonium layout ──────────────────────────────────────────────
   return (
-    <div className="w-full bg-black/60 rounded-[48px] border border-white/10 p-12 flex flex-col items-center justify-start gap-12 overflow-hidden shadow-[0_0_100px_rgba(var(--primary-rgb),0.05)] backdrop-blur-3xl">
+    <div className="w-full bg-black/60 rounded-[28px] md:rounded-[48px] border border-white/10 p-4 md:p-8 lg:p-12 flex flex-col items-center justify-start gap-6 md:gap-10 overflow-hidden shadow-[0_0_100px_rgba(var(--primary-rgb),0.05)] backdrop-blur-3xl">
       {/* DAW-Style HUD */}
-      <div className="flex flex-wrap justify-center items-center gap-6 px-10 py-3 rounded-full bg-white/5 border border-white/10 backdrop-blur-2xl shadow-xl z-50">
+      <div className="flex flex-wrap justify-center items-center gap-3 md:gap-6 px-4 md:px-10 py-2.5 md:py-3 rounded-full bg-white/5 border border-white/10 backdrop-blur-2xl shadow-xl z-50">
         <div className="flex items-center gap-3">
           <div
             className={`w-2 h-2 rounded-full ${
@@ -303,8 +303,9 @@ export default function Piano({
         </button>
       </div>
 
-      {/* Keyboard */}
-      <div className="relative flex p-2 bg-[#050505] rounded-[28px] border border-white/5 shadow-2xl">
+      {/* Keyboard — scrollable on narrow screens */}
+      <div className="w-full overflow-x-auto pb-2 scroll-thin">
+      <div className="relative flex p-2 bg-[#050505] rounded-[28px] border border-white/5 shadow-2xl mx-auto" style={{ width: 'fit-content' }}>
         {octaves.map(octave => (
           <div key={octave} className="relative flex w-[448px] h-80 shrink-0">
             {/* White Keys */}
@@ -444,6 +445,7 @@ export default function Piano({
           </div>
         ))}
       </div>
+      </div>{/* end scroll wrapper */}
 
       {/* Footer metadata */}
       <div className="flex gap-12 font-mono text-[8px] uppercase tracking-[0.2em] text-white/20">

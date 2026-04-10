@@ -233,7 +233,7 @@ export default function JournalPage() {
                          </span>
                       </div>
                       
-                      <h2 className="font-display text-6xl md:text-[80px] font-light text-on-surface tracking-tighter leading-none">
+                      <h2 className="font-display text-4xl sm:text-6xl md:text-[80px] font-light text-on-surface tracking-tighter leading-none">
                          {recommendation.name.replace(' (Additional)', '').replace(' (J)', '')}
                       </h2>
                       
