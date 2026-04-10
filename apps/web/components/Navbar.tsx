@@ -12,9 +12,9 @@ export default function Navbar() {
   const { isPlaying, setIsPlaying, triggerSave } = usePlayback()
   
   const navLinks = [
-    { name: 'Workspace', href: '/studio' },
-    { name: 'Library', href: '/library' },
-    { name: 'Journal', href: '/journal' },
+    { name: 'Naad', href: '/studio' },
+    { name: 'Raag', href: '/library' },
+    { name: 'Riyaj', href: '/journal' },
   ]
 
   const [user, setUser] = React.useState<any>(null)
