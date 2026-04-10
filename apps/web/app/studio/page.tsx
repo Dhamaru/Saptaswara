@@ -121,6 +121,8 @@ function StudioContent() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
 
   // ── Project state ────────────────────────────────────────────────────────────
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
   const [projectId, setProjectId] = useState<string | null>(projectIdFromUrl)
   const [projectName, setProjectName] = useState('Untitled Composition')
   const [detectedPhrases, setDetectedPhrases] = useState<any[]>([])
@@ -442,7 +444,30 @@ function StudioContent() {
       )}
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
-      <aside className="w-80 bg-surface-lowest border-r border-outline-variant/10 flex flex-col overflow-hidden">
+      <aside className={`relative flex-shrink-0 bg-surface-lowest border-r border-outline-variant/10 flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-80' : 'w-12'}`}>
+
+        {/* Collapse toggle */}
+        <button
+          onClick={() => setSidebarOpen(v => !v)}
+          title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          className="absolute top-4 right-3 z-10 w-6 h-6 rounded-md flex items-center justify-center text-on-surface-variant/30 hover:text-primary hover:bg-white/5 transition-all"
+        >
+          <span className="material-symbols-outlined !text-base">
+            {sidebarOpen ? 'chevron_left' : 'chevron_right'}
+          </span>
+        </button>
+
+        {/* Collapsed icon strip */}
+        {!sidebarOpen && (
+          <div className="flex flex-col items-center pt-14 gap-5 text-on-surface-variant/30">
+            <span className="material-symbols-outlined !text-lg" title="Project">edit_note</span>
+            <span className="material-symbols-outlined !text-lg" title="Tracks">layers</span>
+            <span className="material-symbols-outlined !text-lg" title="Raga">music_note</span>
+          </div>
+        )}
+
+        {/* Full sidebar content — hidden when collapsed */}
+        <div className={`flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         {/* Project header */}
         <div className="p-8 border-b border-outline-variant/10 flex-shrink-0">
           <div className="font-mono text-[10px] uppercase tracking-widest text-primary mb-2 font-bold opacity-60">Project</div>
@@ -704,6 +729,7 @@ function StudioContent() {
             </div>
           </div>
         </div>
+        </div>{/* end full sidebar content */}
       </aside>
 
       {/* ── Main Workspace ────────────────────────────────────────────────────── */}
