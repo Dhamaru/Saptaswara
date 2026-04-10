@@ -1257,7 +1257,19 @@ function StudioContent() {
         </div>
       </main>
 
-      <Assistant ragaContext={selectedRaga} />
+      <Assistant
+        ragaContext={selectedRaga}
+        studioContext={(() => {
+          const active = tracks.find(t => t.id === activeTrackId)
+          if (!active) return undefined
+          const steps = active.sequence
+            .map((s, i) => s ? `step${i + 1}:${typeof s === 'object' && 'note' in s ? (s as any).note : s}` : null)
+            .filter(Boolean)
+          return steps.length
+            ? `Track "${active.name}" (${active.type}), ${active.sequence.length} steps, BPM ${bpm}: [${steps.join(', ')}]`
+            : undefined
+        })()}
+      />
     </div>
   )
 }

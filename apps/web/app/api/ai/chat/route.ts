@@ -5,18 +5,46 @@ import { checkRateLimit } from '@/lib/rateLimit'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
-const SYSTEM_PROMPT = `
-You are Saptaswara, a premium Raga-Guided AI Musical Assistant.
-Your goal is to assist composers in creating Hindustani classical music accurately.
+const SYSTEM_PROMPT = `You are Saptaswara, a premium Raga-Guided AI Musical Assistant specialized in Indian Classical Music.
 
 Rules:
-1. When a Raga is provided in the context, always respect its Aroha (ascent) and Avaroha (descent).
-2. Use swara names (Sa, Re, ga, Ga, ma, Ma, Pa, dha, Dha, ni, Ni).
-3. Provide melodic patterns (palaas) or phrases (chalan) that are characteristic of the Raga.
-4. If asked to generate a melody, provide a simple sequence of swaras.
-5. Keep your tone poetic, focused on "resonance," and professionally musical.
-6. Do not mention that you are an AI. You are a "Neural Resonance Engine."
-`
+1. When a Raga is provided, always respect its Aroha (ascent) and Avaroha (descent) strictly.
+2. Use swara names: Sa Re ga Ga ma Ma Pa dha Dha ni Ni (lowercase = komal, uppercase = shuddha, Ma = tivra).
+3. Provide melodic patterns (paltas), characteristic phrases (chalan), or compositions (bandish) grounded in the raga grammar.
+4. If asked to generate a melody, provide a swara sequence with rhythm hints (e.g., "Sa Re Ga Ma | Pa Dha Ni Sa'").
+5. If the user shares what they've composed (sequencer grid), analyse it against the raga and give honest feedback.
+6. Keep tone poetic yet precise — you are a "Neural Resonance Engine," not a generic chatbot.
+7. When suggesting practice, refer to the user's practice logs if provided.
+8. Format swara patterns inside backtick-fenced blocks: \`Sa Re Ga Ma Pa\``
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+async function getRagaContext(query: string): Promise<string> {
+  try {
+    const embedModel = genAI.getGenerativeModel({ model: 'models/gemini-embedding-001' })
+    const embeddingResult = await embedModel.embedContent({
+      content: { role: 'user', parts: [{ text: query }] },
+      taskType: 'RETRIEVAL_QUERY',
+      outputDimensionality: 768,
+    } as any)
+    const embedding = embeddingResult.embedding.values
+
+    const { data: matches, error } = await supabaseAdmin.rpc('match_ragas', {
+      query_embedding: embedding,
+      match_threshold: 0.45,
+      match_count: 3,
+    })
+
+    if (error || !matches?.length) return ''
+    return matches.map((m: any) => m.content).join('\n\n')
+  } catch {
+    // Vector search is best-effort — proceed without it on failure
+    return ''
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -37,23 +65,63 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
 
-    const { messages, ragaContext } = await req.json()
+    const { messages, ragaContext, studioContext } = await req.json()
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: 'messages must be a non-empty array' }, { status: 400 })
     }
 
+    // Validate messages
+    for (const m of messages) {
+      if (!m || typeof m.content !== 'string' || !['user', 'assistant'].includes(m.role)) {
+        return NextResponse.json({ error: 'Invalid message format' }, { status: 400 })
+      }
+    }
+
+    const lastUserMessage = messages[messages.length - 1].content
+
+    // RAG: pull relevant raga knowledge for the current query
+    const ragVectorContext = await getRagaContext(lastUserMessage)
+
+    // Build raga session context
     const ragaInfo = ragaContext
-      ? `Current Raga: ${ragaContext.name}. Aroha: ${ragaContext.aroha?.join(' ')}. Avaroha: ${ragaContext.avaroha?.join(' ')}.`
-      : "No specific raga selected yet."
+      ? [
+          `Active Raga: ${ragaContext.name}`,
+          ragaContext.aroha ? `Aroha: ${ragaContext.aroha.join(' – ')}` : null,
+          ragaContext.avaroha ? `Avaroha: ${ragaContext.avaroha.join(' – ')}` : null,
+          ragaContext.vadi ? `Vadi (primary note): ${ragaContext.vadi}` : null,
+          ragaContext.samvadi ? `Samvadi: ${ragaContext.samvadi}` : null,
+          ragaContext.mood ? `Mood: ${ragaContext.mood}` : null,
+          ragaContext.time_of_day ? `Time of day: ${ragaContext.time_of_day}` : null,
+        ].filter(Boolean).join('\n')
+      : 'No raga selected yet.'
 
-    const model = genAI.getGenerativeModel({ model: 'models/gemini-flash-latest' })
+    // Build studio grid context
+    const studioInfo = studioContext
+      ? `Current sequencer pattern:\n${studioContext}`
+      : null
 
-    const contextPrompt = `${SYSTEM_PROMPT}\n\nContext: ${ragaInfo}\n\nUser: ${messages[messages.length - 1].content}`
+    const systemContext = [
+      SYSTEM_PROMPT,
+      '\n--- SESSION CONTEXT ---',
+      ragaInfo,
+      studioInfo ? `\n--- STUDIO GRID ---\n${studioInfo}` : null,
+      ragVectorContext ? `\n--- RAGA KNOWLEDGE BASE ---\n${ragVectorContext}` : null,
+    ].filter(Boolean).join('\n')
 
-    // generateContentStream rejects here if the API call itself fails (e.g. quota),
-    // which is caught by the outer try/catch and returned as a 500.
-    const result = await model.generateContentStream(contextPrompt)
+    const model = genAI.getGenerativeModel({
+      model: 'models/gemini-2.0-flash',
+      systemInstruction: systemContext,
+    })
+
+    // Build proper multi-turn history (all but last message)
+    const history = messages.slice(0, -1).map((m: any) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }))
+
+    const chat = model.startChat({ history })
+    const result = await chat.sendMessageStream(lastUserMessage)
 
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
@@ -83,7 +151,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('AI Error:', error)
     return NextResponse.json(
-      { error: 'Resonance disrupted. Please try again.', content: "My cognitive resonance was briefly interrupted. Could you repeat that?" },
+      { error: 'Resonance disrupted. Please try again.' },
       { status: 500 }
     )
   }

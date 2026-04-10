@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { Assistant } from '@/components/Assistant'
 
 function getCurrentTimePeriod() {
   const hour = new Date().getHours()
@@ -388,6 +389,26 @@ export default function JournalPage() {
            </div>
         </section>
       </main>
+
+      {/* Raga Assistant — context-aware coaching based on today's recommendation */}
+      <Assistant
+        ragaContext={recommendation
+          ? {
+              name: recommendation.name?.replace(' (Additional)', '').replace(' (J)', ''),
+              aroha: recommendation.aroha,
+              avaroha: recommendation.avaroha,
+              vadi: recommendation.vadi,
+              samvadi: recommendation.samvadi,
+              mood: recommendation.mood,
+              time_of_day: timePeriod,
+            }
+          : undefined
+        }
+        studioContext={dbLogs.length > 0
+          ? `Recent practice sessions: ${dbLogs.slice(0, 3).map(l => `${l.raga} (${l.intensity}, ${l.log_date})`).join('; ')}`
+          : undefined
+        }
+      />
     </div>
   )
 }
