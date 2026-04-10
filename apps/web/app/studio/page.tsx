@@ -395,6 +395,80 @@ function StudioContent() {
     }
   }
 
+  // ── Global keyboard navigation ────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName
+      // Don't steal keys from inputs, textareas, or selects
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
+      switch (e.key) {
+        case 'ArrowRight': {
+          e.preventDefault()
+          setActiveStep(prev => {
+            const next = prev < 0 ? 0 : (prev + 1) % loopRef.current
+            return next
+          })
+          break
+        }
+        case 'ArrowLeft': {
+          e.preventDefault()
+          setActiveStep(prev => {
+            if (prev < 0) return loopRef.current - 1
+            return (prev - 1 + loopRef.current) % loopRef.current
+          })
+          break
+        }
+        case 'ArrowDown': {
+          e.preventDefault()
+          setTracks(prev => {
+            const idx = prev.findIndex(t => t.id === activeTrackId)
+            const next = prev[(idx + 1) % prev.length]
+            setActiveTrackId(next.id)
+            return prev
+          })
+          break
+        }
+        case 'ArrowUp': {
+          e.preventDefault()
+          setTracks(prev => {
+            const idx = prev.findIndex(t => t.id === activeTrackId)
+            const next = prev[(idx - 1 + prev.length) % prev.length]
+            setActiveTrackId(next.id)
+            return prev
+          })
+          break
+        }
+        case 'Delete':
+        case 'Backspace': {
+          e.preventDefault()
+          setActiveStep(prev => {
+            if (prev < 0) return prev
+            setTracks(ts => ts.map(t => {
+              if (t.id !== activeTrackId) return t
+              const seq = [...t.sequence]
+              seq[prev] = null
+              return { ...t, sequence: seq }
+            }))
+            return prev
+          })
+          break
+        }
+        case 'Escape': {
+          setActiveStep(-1)
+          break
+        }
+        case ' ': {
+          e.preventDefault()
+          setIsPlaying(!isPlaying)
+          break
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeTrackId, setIsPlaying])
+
   // ── Save project ──────────────────────────────────────────────────────────────
   const handleSaveProject = async () => {
     if (!user) { alert('Authentication required to save projects.'); return }
@@ -712,12 +786,38 @@ function StudioContent() {
             </div>
             <div className="relative mb-3">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined !text-base text-on-surface-variant/30">search</span>
-              <input
-                placeholder="Find raga..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-surface-container-low rounded-xl py-2.5 pl-9 pr-4 text-xs font-sans border border-outline-variant/10 outline-none focus:border-primary/30"
-              />
+              {(() => {
+                const filteredForNav = ragas.filter(r => {
+                  const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase())
+                  const matchTradition = !r.tradition || r.tradition.toLowerCase() === activeTradition
+                  return matchSearch && matchTradition
+                })
+                return (
+                  <input
+                    placeholder="Find raga..."
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value) }}
+                    onKeyDown={(e) => {
+                      if (!filteredForNav.length) return
+                      const idx = filteredForNav.findIndex(r => r.id === selectedRaga?.id)
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        const next = filteredForNav[Math.min(idx + 1, filteredForNav.length - 1)]
+                        if (next) { setSelectedRaga(next); setCurrentRagaId(next.id) }
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault()
+                        const next = filteredForNav[Math.max(idx - 1, 0)]
+                        if (next) { setSelectedRaga(next); setCurrentRagaId(next.id) }
+                      } else if (e.key === 'Enter' && filteredForNav.length > 0) {
+                        e.preventDefault()
+                        const pick = idx < 0 ? filteredForNav[0] : filteredForNav[idx]
+                        setSelectedRaga(pick); setCurrentRagaId(pick.id)
+                      }
+                    }}
+                    className="w-full bg-surface-container-low rounded-xl py-2.5 pl-9 pr-4 text-xs font-sans border border-outline-variant/10 outline-none focus:border-primary/30"
+                  />
+                )
+              })()}
             </div>
             <div className="h-52 overflow-y-auto scroller-none space-y-1">
               {ragasLoading ? (
