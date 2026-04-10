@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import AuthListener from '@/components/AuthListener'
 import { PlaybackProvider } from '@/context/PlaybackContext'
 import { ToastProvider } from '@/components/Toast'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 const manrope = Manrope({ 
   subsets: ['latin'],
@@ -65,6 +66,7 @@ export default function RootLayout({
           </main>
           </ToastProvider>
         </PlaybackProvider>
+        <SpeedInsights />
       </body>
     </html>
   )
