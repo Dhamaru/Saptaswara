@@ -213,7 +213,7 @@ export class AudioEngine {
       case 'piano': {
         const piano = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'triangle' },
-          envelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 1.5 },
+          envelope: { attack: 0.005, decay: 0.25, sustain: 0.15, release: 0.7 },
         })
         piano.volume.value = -6
         piano.connect(gain)
@@ -227,18 +227,21 @@ export class AudioEngine {
       // ── Carnatic ──────────────────────────────────────────────────────────
 
       case 'veena': {
-        // PluckSynth; LFO modulates PitchShift wet for subtle pitch wobble
-        const pluck      = new Tone.PluckSynth({ resonance: 0.9, dampening: 0.1 })
-        const pitchShift = new Tone.PitchShift(0)
-        const lfo        = new Tone.LFO({ frequency: 5, min: 0, max: 0.25, type: 'sine' })
-        lfo.connect(pitchShift.wet)
-        lfo.start()
-        pluck.connect(pitchShift)
-        pitchShift.connect(gain)
+        // PolySynth with pluck-like envelope + Freeverb (synchronous) for resonance
+        const veenaSynth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: 'triangle4' },
+          envelope: { attack: 0.01, decay: 0.6, sustain: 0.15, release: 1.0 },
+        })
+        const chorus = new Tone.Chorus({ frequency: 5, delayTime: 2.5, depth: 0.35, wet: 0.4 })
+        const fverb  = new Tone.Freeverb({ roomSize: 0.5, dampening: 4000, wet: 0.25 })
+        veenaSynth.volume.value = 4
+        veenaSynth.connect(chorus)
+        chorus.connect(fverb)
+        fverb.connect(gain)
         return {
-          node: pluck,
-          aux: [pitchShift, lfo],
-          playFn: (f, _d, t) => pluck.triggerAttack(f, t),
+          node: veenaSynth,
+          aux: [chorus, fverb],
+          playFn: (f, d, t, v) => veenaSynth.triggerAttackRelease(f, d ?? '4n', t, v),
         }
       }
 
@@ -246,7 +249,7 @@ export class AudioEngine {
         // FMSynth + quiet NoiseSynth layer for breathiness
         const fm    = new Tone.FMSynth({
           modulationIndex: 8,
-          envelope: { attack: 0.08, decay: 0.1, sustain: 0.7, release: 1 },
+          envelope: { attack: 0.08, decay: 0.1, sustain: 0.7, release: 0.6 },
         })
         const noise = new Tone.NoiseSynth({
           envelope: { attack: 0.08, decay: 0.1, sustain: 0.02, release: 0.1 },
@@ -272,20 +275,28 @@ export class AudioEngine {
       }
 
       case 'tambura': {
-        // AMSynth for individual note playback; drone handled by buildTamburaDrone()
-        const am = new Tone.AMSynth({
-          harmonicity: 3.999,
-          oscillator: { type: 'sawtooth' },
-          envelope: { attack: 0.02, decay: 4, sustain: 0.1, release: 2 },
-          modulation: { type: 'sawtooth' },
-          modulationEnvelope: { attack: 0.1, decay: 1, sustain: 0.8, release: 0.5 },
-        } as any)
-        am.volume.value = -12
-        am.connect(gain)
+        // Rich overtone blend for tambura-like plucked drone sound
+        const primary = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: 'sawtooth4' },
+          envelope: { attack: 0.05, decay: 1.5, sustain: 0.2, release: 1.5 },
+        })
+        const warm = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: 'triangle' },
+          envelope: { attack: 0.05, decay: 0.8, sustain: 0.1, release: 1.0 },
+        })
+        warm.volume.value = -8
+        primary.volume.value = -2
+        const fverb = new Tone.Freeverb({ roomSize: 0.7, dampening: 3000, wet: 0.4 })
+        primary.connect(fverb)
+        warm.connect(fverb)
+        fverb.connect(gain)
         return {
-          node: am,
-          aux: [],
-          playFn: (f, d, t, v) => am.triggerAttackRelease(f, d, t, v),
+          node: primary,
+          aux: [warm, fverb],
+          playFn: (f, d, t, v) => {
+            primary.triggerAttackRelease(f, d ?? '2n', t, v)
+            warm.triggerAttackRelease(f, d ?? '2n', t, v)
+          },
         }
       }
 
@@ -295,11 +306,11 @@ export class AudioEngine {
         // Two sawtooth Synths, second detuned +8 cents for reed chorus
         const primary = new Tone.Synth({
           oscillator: { type: 'sawtooth' },
-          envelope: { attack: 0.04, decay: 0.1, sustain: 0.8, release: 1 },
+          envelope: { attack: 0.04, decay: 0.1, sustain: 0.8, release: 0.5 },
         } as any)
         const chorus = new Tone.Synth({
           oscillator: { type: 'sawtooth' },
-          envelope: { attack: 0.04, decay: 0.1, sustain: 0.8, release: 1 },
+          envelope: { attack: 0.04, decay: 0.1, sustain: 0.8, release: 0.5 },
         } as any)
         chorus.detune.value = 8
         primary.connect(gain)
@@ -315,17 +326,18 @@ export class AudioEngine {
       }
 
       case 'sarangi': {
-        // FMSynth with high modulation + Reverb (1.5 s) for sympathetic resonance
-        const fm     = new Tone.FMSynth({
+        // FMSynth with high modulation + Freeverb for sympathetic resonance
+        const fm    = new Tone.FMSynth({
           harmonicity: 3, modulationIndex: 15,
-          envelope: { attack: 0.15, decay: 0.2, sustain: 0.6, release: 2 },
+          envelope: { attack: 0.12, decay: 0.2, sustain: 0.6, release: 0.8 },
         })
-        const reverb = new Tone.Reverb({ decay: 1.5 })
-        fm.connect(reverb)
-        reverb.connect(gain)
+        fm.volume.value = 4
+        const fverb = new Tone.Freeverb({ roomSize: 0.4, dampening: 5000, wet: 0.25 })
+        fm.connect(fverb)
+        fverb.connect(gain)
         return {
           node: fm,
-          aux: [reverb],
+          aux: [fverb],
           playFn: (f, d, t, v) => fm.triggerAttackRelease(f, d, t, v),
         }
       }
@@ -338,24 +350,26 @@ export class AudioEngine {
       }
 
       case 'sitar': {
-        // PluckSynth + PitchShift shimmer for sympathetic strings
-        const pluck      = new Tone.PluckSynth({ resonance: 0.95, dampening: 0.08 })
-        const pitchShift = new Tone.PitchShift({ pitch: 12, windowSize: 0.03 })
-        pitchShift.wet.value = 0.15
-        pluck.connect(gain)
-        pluck.connect(pitchShift)
-        pitchShift.connect(gain)
+        // PolySynth with sharp attack + Chorus shimmer for sympathetic string texture
+        const sitarSynth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: 'sawtooth2' },
+          envelope: { attack: 0.005, decay: 0.5, sustain: 0.2, release: 0.7 },
+        })
+        const chorus = new Tone.Chorus({ frequency: 2.5, delayTime: 3.5, depth: 0.4, wet: 0.3 })
+        sitarSynth.volume.value = 2
+        sitarSynth.connect(chorus)
+        chorus.connect(gain)
         return {
-          node: pluck,
-          aux: [pitchShift],
-          playFn: (f, _d, t) => pluck.triggerAttack(f, t),
+          node: sitarSynth,
+          aux: [chorus],
+          playFn: (f, d, t, v) => sitarSynth.triggerAttackRelease(f, d ?? '4n', t, v),
         }
       }
 
       default: {
         const synth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'sine' },
-          envelope: { attack: 0.1, decay: 0.2, sustain: 0.8, release: 1.5 },
+          envelope: { attack: 0.05, decay: 0.2, sustain: 0.7, release: 0.8 },
         })
         synth.connect(gain)
         return {

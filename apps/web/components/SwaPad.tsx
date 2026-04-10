@@ -160,8 +160,9 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
         </div>
       </div>
 
-      {/* Swara pads */}
-      <div className="grid grid-cols-7 gap-2">
+      {/* Swara pads — horizontal scroll on mobile, 7-col grid on wider screens */}
+      <div className="overflow-x-auto pb-1 -mx-1 px-1 scroll-thin">
+      <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(7, minmax(52px, 1fr))', minWidth: '380px' }}>
         {BASE_SWARAS.map(swara => {
           const variant   = getVariant(swara)
           const isHeld    = heldSwara === swara
@@ -252,6 +253,7 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
           )
         })}
       </div>
+      </div>{/* end scroll wrapper */}
 
       {/* Current variant display */}
       <div className="flex items-center justify-center gap-2 flex-wrap pt-1 border-t border-outline-variant/5">

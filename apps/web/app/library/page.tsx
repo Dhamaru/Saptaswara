@@ -126,12 +126,12 @@ export default function LibraryPage() {
                 {/* Tradition filter */}
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30 w-16 flex-shrink-0">Tradition</span>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
                     {TRADITION_FILTERS.map(f => (
                       <button
                         key={f}
                         onClick={() => setActiveTradition(f)}
-                        className={`px-4 py-1.5 rounded-full font-mono text-[9px] uppercase tracking-widest transition-all ${
+                        className={`px-4 py-1.5 rounded-full font-mono text-[9px] uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${
                           activeTradition === f
                             ? 'bg-secondary/20 text-secondary border border-secondary/30 shadow-glow'
                             : 'bg-surface-container-low/20 text-on-surface-variant/40 border border-outline-variant/5 hover:border-outline-variant/20'
@@ -146,12 +146,12 @@ export default function LibraryPage() {
                 {/* Time filter */}
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30 w-16 flex-shrink-0">Time</span>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
                     {TIME_FILTERS.map(f => (
                       <button
                         key={f}
                         onClick={() => setActiveFilter(f)}
-                        className={`px-4 py-1.5 rounded-full font-mono text-[9px] uppercase tracking-widest transition-all ${
+                        className={`px-4 py-1.5 rounded-full font-mono text-[9px] uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${
                           activeFilter === f
                             ? 'bg-primary/20 text-primary border border-primary/30 shadow-glow'
                             : 'bg-surface-container-low/20 text-on-surface-variant/40 border border-outline-variant/5 hover:border-outline-variant/20'
