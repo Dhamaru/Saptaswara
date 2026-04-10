@@ -145,6 +145,8 @@ function StudioContent() {
   const [ragasError, setRagasError] = useState(false)
   const [isBlueprintPlaying, setIsBlueprintPlaying] = useState(false)
   const [isExportingMidi, setIsExportingMidi] = useState(false)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [saveModalTitle, setSaveModalTitle] = useState('')
 
   const supabaseClient = createClient()
 
@@ -208,8 +210,16 @@ function StudioContent() {
         }
       }
 
+      let token = accessToken
+      // If no bearer token in state (cookie-auth login), try fetching from session
+      if (!token) {
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        token = session?.access_token ?? null
+        if (token) setAccessToken(token)
+      }
+
       setUser(activeUser)
-      setAccessToken(activeSession?.access_token ?? null)
+      setAccessToken(token)
       await loadRagas()
     }
     init()
@@ -406,10 +416,17 @@ function StudioContent() {
   const handleExportMidi = async () => {
     setIsExportingMidi(true)
     try {
-      if (!accessToken) { alert('Please sign in to export MIDI.'); return }
+      // Resolve token from state or live session (handles cookie-auth users)
+      let token = accessToken
+      if (!token) {
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        token = session?.access_token ?? null
+        if (token) setAccessToken(token)
+      }
+      if (!token) { alert('Please sign in to export MIDI.'); return }
       const res = await fetch('/api/export/midi', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ composition: { layers: tracks, bpm, name: projectName } }),
       })
       if (!res.ok) {
@@ -422,7 +439,9 @@ function StudioContent() {
       const a = document.createElement('a')
       a.href = url
       a.download = `${projectName || 'composition'}.mid`
+      document.body.appendChild(a)
       a.click()
+      document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (err) {
       console.error('MIDI export error:', err)
@@ -507,20 +526,33 @@ function StudioContent() {
   }, [activeTrackId, setIsPlaying])
 
   // ── Save project ──────────────────────────────────────────────────────────────
-  const handleSaveProject = async () => {
-    if (!user) { alert('Authentication required to save projects.'); return }
+  const handleSaveProject = async (titleOverride?: string) => {
+    if (!user || user.id === 'guest-user') { alert('Please sign in to save projects.'); return }
+    const saveTitle = titleOverride || projectName
     try {
+      // Resolve token (handles cookie-auth users)
+      let token = accessToken
+      if (!token) {
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        token = session?.access_token ?? null
+        if (token) setAccessToken(token)
+      }
       const melodyTrack = tracks.find(t => t.type === 'melody') || tracks[0]
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ projectId, title: projectName, raga_id: selectedRaga?.id, bpm, sequence: melodyTrack.sequence }),
+        body: JSON.stringify({ projectId, title: saveTitle, raga_id: selectedRaga?.id, bpm, sequence: melodyTrack.sequence }),
       })
       const data = await res.json()
-      if (data.id) { setProjectId(data.id); alert('Project saved!') }
+      if (data.id) { 
+        setProjectId(data.id)
+        setProjectName(saveTitle)
+        setShowSaveModal(false)
+        alert('Project saved!')
+      }
     } catch (err) {
       console.error('Save error:', err)
       alert('Failed to save project.')
@@ -537,6 +569,41 @@ function StudioContent() {
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] overflow-hidden bg-background">
+
+      {/* Save project modal */}
+      {showSaveModal && (
+        <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-6">
+          <div className="w-full max-w-md bg-surface-lowest rounded-[32px] border border-outline-variant/10 p-10 shadow-2xl">
+            <h2 className="font-display text-3xl font-light text-on-surface mb-2">Save Composition</h2>
+            <p className="font-sans text-sm text-on-surface-variant/60 mb-8">Give your composition a name to save it to your projects.</p>
+            <input
+              id="save-title-input"
+              type="text"
+              value={saveModalTitle}
+              onChange={e => setSaveModalTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && saveModalTitle.trim()) handleSaveProject(saveModalTitle.trim()) }}
+              placeholder="e.g. Bhairavi Evening Loop"
+              autoFocus
+              className="w-full bg-surface-container-low rounded-xl py-3.5 px-4 text-sm font-sans text-on-surface border border-outline-variant/10 focus:border-primary/40 focus:outline-none transition-colors mb-6 placeholder:text-on-surface-variant/20"
+            />
+            <div className="flex gap-3">
+              <button
+                id="save-confirm-btn"
+                onClick={() => { if (saveModalTitle.trim()) handleSaveProject(saveModalTitle.trim()) }}
+                className="flex-1 py-3.5 bg-gradient-to-r from-primary to-primary/80 rounded-2xl font-medium text-white shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setShowSaveModal(false)}
+                className="px-6 py-3.5 bg-surface-container-low rounded-2xl font-medium text-on-surface-variant hover:bg-surface-container-high transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Audio init gate */}
       {!isStarted && (
@@ -948,7 +1015,11 @@ function StudioContent() {
               <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Tempo</span>
               <span className="font-mono text-lg font-light text-primary">{bpm} <span className="text-[9px] text-on-surface-variant/40">BPM</span></span>
             </div>
-            <button onClick={handleSaveProject} className="px-3 md:px-5 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95">
+            <button 
+              id="save-project-btn"
+              onClick={() => { setSaveModalTitle(projectName); setShowSaveModal(true) }} 
+              className="px-3 md:px-5 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95"
+            >
               Save
             </button>
           </div>

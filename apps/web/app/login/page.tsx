@@ -29,7 +29,7 @@ export default function LoginPage() {
     }
 
     // Force hard navigation to ensure cookies are sent to middleware
-    window.location.href = '/studio'
+    window.location.href = '/dashboard'
   }
 
   return (
