@@ -5,9 +5,10 @@ import Image from 'next/image'
 interface RagaCardProps {
   raga: any
   onClick?: () => void
+  isSelected?: boolean
 }
 
-export default function RagaCard({ raga, onClick }: RagaCardProps) {
+export default function RagaCard({ raga, onClick, isSelected }: RagaCardProps) {
   // Map time-of-day to generated assets
   const getAtmosphere = (time: string) => {
     const t = time?.toLowerCase() || ''
@@ -19,7 +20,11 @@ export default function RagaCard({ raga, onClick }: RagaCardProps) {
   return (
     <button 
       onClick={onClick}
-      className="group relative h-80 w-full bg-surface-lowest rounded-[32px] overflow-hidden border border-outline-variant/5 hover:border-primary/40 transition-all shadow-2xl text-left"
+      className={`group relative h-80 w-full bg-surface-lowest rounded-[32px] overflow-hidden border transition-all shadow-2xl text-left ${
+        isSelected 
+          ? 'border-primary shadow-glow-sm scale-[1.02] ring-2 ring-primary/20' 
+          : 'border-outline-variant/5 hover:border-primary/40'
+      }`}
     >
       {/* Immersive Background */}
       <div className="absolute inset-0 z-0">

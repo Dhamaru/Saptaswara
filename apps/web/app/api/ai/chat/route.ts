@@ -28,7 +28,6 @@ async function getRagaContext(query: string): Promise<string> {
     const embeddingResult = await embedModel.embedContent({
       content: { role: 'user', parts: [{ text: query }] },
       taskType: 'RETRIEVAL_QUERY',
-      outputDimensionality: 768,
     } as any)
     const embedding = embeddingResult.embedding.values
 
@@ -64,6 +63,8 @@ export async function POST(req: Request) {
     if (!checkRateLimit(userData.user.id)) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
+
+
 
     const { messages, ragaContext, studioContext } = await req.json()
 
@@ -110,14 +111,18 @@ export async function POST(req: Request) {
     ].filter(Boolean).join('\n')
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: systemContext,
+      model: 'gemini-flash-latest',
+      systemInstruction: {
+        role: 'system',
+        parts: [{ text: systemContext }],
+      },
     })
 
     // Build proper multi-turn history (all but last message)
     // Filter out empty-content messages (streaming artifacts) to avoid API errors
-    const history = messages
-      .slice(0, -1)
+    // Find the first user message: Gemini history must start with a "user" turn.
+    const firstUserIndex = messages.findIndex((m: any) => m.role === 'user')
+    const history = (firstUserIndex === -1 ? [] : messages.slice(firstUserIndex, -1))
       .filter((m: any) => m.content && m.content.trim().length > 0)
       .map((m: any) => ({
         role: m.role === 'assistant' ? 'model' : 'user',

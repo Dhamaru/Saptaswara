@@ -70,6 +70,15 @@ export class AudioEngine {
   private _tradition: TraditionType = 'hindustani'
 
   constructor() {
+    // Only light metadata setup in constructor to avoid blocking main thread on script load
+    this._instrument = 'harmonium'
+    this._tradition = 'hindustani'
+  }
+
+  /** Initialize expensive Tone.js nodes on first start */
+  private async ensureInitialized() {
+    if (this.synth) return // Already initialized
+
     Tone.Destination.volume.value = 5
 
     // polySynths[0] — melody fallback
@@ -103,6 +112,7 @@ export class AudioEngine {
   async start() {
     if (this.isStarted) return
     try {
+      await this.ensureInitialized() // Ensure nodes exist before starting transport
       await Tone.start()
       await Tone.context.resume()
       Tone.Destination.volume.value = 0

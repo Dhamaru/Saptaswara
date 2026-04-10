@@ -4,14 +4,29 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import * as Tone from 'tone'
 import { createClient } from '@/lib/supabase/client'
 import { audioEngine } from '@/lib/audio'
-import { Assistant } from '@/components/Assistant'
-import Piano from '@/components/Piano'
-import DrumPad from '@/components/DrumPad'
-import SwaPad from '@/components/SwaPad'
+import dynamic from 'next/dynamic'
 import type { Raga } from '@saptaswara/core'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { usePlayback } from '@/context/PlaybackContext'
+
+// Lazy-load heavy components
+const Assistant = dynamic(() => import('@/components/Assistant').then(mod => mod.Assistant), { 
+  ssr: false,
+  loading: () => <div className="h-40 bg-white/5 animate-pulse rounded-2xl" /> 
+})
+const Piano = dynamic(() => import('@/components/Piano'), { 
+  ssr: false,
+  loading: () => <div className="h-64 bg-black/60 animate-pulse rounded-[48px]" />
+})
+const DrumPad = dynamic(() => import('@/components/DrumPad'), { 
+  ssr: false,
+  loading: () => <div className="h-64 bg-black/40 animate-pulse rounded-[32px]" />
+})
+const SwaPad = dynamic(() => import('@/components/SwaPad'), { 
+  ssr: false,
+  loading: () => <div className="h-64 bg-violet-900/10 animate-pulse rounded-[32px]" />
+})
 import { RagaEngine } from '@saptaswara/core'
 import { CompositionProvider, useComposition } from '@/context/CompositionContext'
 import { TALAS, DEFAULT_TALA, expandTala } from '@/lib/talas'
@@ -88,7 +103,7 @@ function StudioContent() {
   useEffect(() => { document.title = 'Saptaswara Studio' }, [])
 
   const { isPlaying, setIsPlaying, isRecording, setIsRecording, currentRagaId, setCurrentRagaId, saveTriggered } = usePlayback()
-  const { state: comp } = useComposition()
+  const { state: comp, dispatch } = useComposition()
   const { activeInstrument, activeTradition } = comp
 
   // ── Core state ──────────────────────────────────────────────────────────────
@@ -777,11 +792,23 @@ function StudioContent() {
                   <span className="material-symbols-outlined !text-[10px]">{ragaConstrained ? 'lock' : 'lock_open'}</span>
                   {ragaConstrained ? 'Locked' : 'Free'}
                 </button>
-                <span className={`font-mono text-[8px] uppercase tracking-widest px-2 py-1 rounded-full border font-bold ${
-                  activeTradition === 'carnatic' ? 'text-secondary border-secondary/30 bg-secondary/10' : 'text-primary border-primary/30 bg-primary/10'
-                }`}>
-                  {activeTradition}
-                </span>
+                <div className="flex p-0.5 rounded-full bg-surface-container-low border border-outline-variant/10">
+                  {(['hindustani', 'carnatic'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => dispatch({ type: 'SET_TRADITION', value: t })}
+                      className={`px-2 py-0.5 rounded-full font-mono text-[7px] uppercase tracking-widest font-bold transition-all ${
+                        activeTradition === t
+                          ? t === 'carnatic'
+                            ? 'bg-secondary text-on-secondary shadow-sm'
+                            : 'bg-primary text-on-primary shadow-sm'
+                          : 'text-on-surface-variant/40 hover:text-on-surface'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="relative mb-3">
@@ -839,10 +866,15 @@ function StudioContent() {
                   <button
                     key={raga.id}
                     onClick={() => { setSelectedRaga(raga); setCurrentRagaId(raga.id) }}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                      selectedRaga?.id === raga.id ? 'bg-primary/20 text-primary border border-primary/20' : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high border border-transparent'
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all relative overflow-hidden ${
+                      selectedRaga?.id === raga.id 
+                        ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_15px_-3px_rgba(var(--primary-rgb),0.3)]' 
+                        : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high border border-transparent'
                     }`}
                   >
+                    {selectedRaga?.id === raga.id && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-primary rounded-r-full" />
+                    )}
                     {raga.name}
                   </button>
                 ))
