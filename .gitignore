@@ -1,6 +1,7 @@
 # Env files
 .env
 .env.local
+.env.test
 
 # Dependencies
 node_modules/
@@ -19,6 +20,8 @@ tools/data/ragajungle_raw/
 
 # System files
 .DS_Store
+supabase/.branches/
+supabase/.temp/
 
 # Logs
 *.log
