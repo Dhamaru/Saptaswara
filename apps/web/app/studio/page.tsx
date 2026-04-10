@@ -425,7 +425,7 @@ function StudioContent() {
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-background">
+    <div className="flex h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] overflow-hidden bg-background">
 
       {/* Audio init gate */}
       {!isStarted && (
@@ -443,31 +443,52 @@ function StudioContent() {
         </div>
       )}
 
-      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
-      <aside className={`relative flex-shrink-0 bg-surface-lowest border-r border-outline-variant/10 flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-80' : 'w-12'}`}>
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-        {/* Collapse toggle */}
+      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
+      <aside className={`
+        fixed md:relative z-50 md:z-auto inset-y-0 left-0
+        flex-shrink-0 bg-surface-lowest border-r border-outline-variant/10 flex flex-col overflow-hidden
+        transition-all duration-300 ease-in-out
+        ${sidebarOpen ? 'w-80 translate-x-0' : 'md:w-12 w-80 -translate-x-full md:translate-x-0'}
+      `}>
+
+        {/* Collapse toggle — desktop only */}
         <button
           onClick={() => setSidebarOpen(v => !v)}
           title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-          className="absolute top-4 right-3 z-10 w-6 h-6 rounded-md flex items-center justify-center text-on-surface-variant/30 hover:text-primary hover:bg-white/5 transition-all"
+          className="hidden md:flex absolute top-4 right-3 z-10 w-6 h-6 rounded-md items-center justify-center text-on-surface-variant/30 hover:text-primary hover:bg-white/5 transition-all"
         >
           <span className="material-symbols-outlined !text-base">
             {sidebarOpen ? 'chevron_left' : 'chevron_right'}
           </span>
         </button>
 
-        {/* Collapsed icon strip */}
+        {/* Mobile close button */}
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="md:hidden absolute top-4 right-3 z-10 w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant/40 hover:text-on-surface transition-all"
+        >
+          <span className="material-symbols-outlined !text-base">close</span>
+        </button>
+
+        {/* Collapsed icon strip — desktop only */}
         {!sidebarOpen && (
-          <div className="flex flex-col items-center pt-14 gap-5 text-on-surface-variant/30">
+          <div className="hidden md:flex flex-col items-center pt-14 gap-5 text-on-surface-variant/30">
             <span className="material-symbols-outlined !text-lg" title="Project">edit_note</span>
             <span className="material-symbols-outlined !text-lg" title="Tracks">layers</span>
             <span className="material-symbols-outlined !text-lg" title="Raga">music_note</span>
           </div>
         )}
 
-        {/* Full sidebar content — hidden when collapsed */}
-        <div className={`flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        {/* Full sidebar content */}
+        <div className={`flex flex-col flex-1 overflow-hidden transition-opacity duration-200 ${sidebarOpen ? 'opacity-100' : 'md:opacity-0 md:pointer-events-none opacity-100'}`}>
         {/* Project header */}
         <div className="p-8 border-b border-outline-variant/10 flex-shrink-0">
           <div className="font-mono text-[10px] uppercase tracking-widest text-primary mb-2 font-bold opacity-60">Project</div>
@@ -733,25 +754,33 @@ function StudioContent() {
       </aside>
 
       {/* ── Main Workspace ────────────────────────────────────────────────────── */}
-      <main className="flex-1 relative flex flex-col bg-surface overflow-hidden">
+      <main className="flex-1 relative flex flex-col bg-surface overflow-hidden min-w-0">
 
         {/* HUD */}
-        <div className="h-20 px-10 flex justify-between items-center border-b border-outline-variant/5 bg-surface/40 backdrop-blur-md flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="px-5 py-2 rounded-full bg-surface-container-high border border-outline-variant/10 flex items-center gap-3">
-              <span className="font-mono text-[8px] uppercase tracking-[0.2em] text-primary/60 font-bold">Active Resonance</span>
-              <span className="font-display text-base font-light text-on-surface tracking-wide uppercase">
-                {selectedRaga?.name || (ragasLoading ? 'Loading...' : 'Select a Raga')}
+        <div className="h-14 md:h-20 px-3 md:px-10 flex justify-between items-center border-b border-outline-variant/5 bg-surface/40 backdrop-blur-md flex-shrink-0 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Mobile sidebar open button */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant/40 hover:text-primary hover:bg-white/5 transition-all flex-shrink-0 border border-outline-variant/10"
+            >
+              <span className="material-symbols-outlined !text-base">menu</span>
+            </button>
+
+            <div className="px-3 md:px-5 py-1.5 md:py-2 rounded-full bg-surface-container-high border border-outline-variant/10 flex items-center gap-2 min-w-0">
+              <span className="font-mono text-[7px] md:text-[8px] uppercase tracking-[0.2em] text-primary/60 font-bold hidden sm:block">Active Resonance</span>
+              <span className="font-display text-sm md:text-base font-light text-on-surface tracking-wide uppercase truncate">
+                {selectedRaga?.name || (ragasLoading ? '...' : 'Select a Raga')}
               </span>
             </div>
-            <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 flex items-center gap-2">
+            <div className="hidden sm:flex px-3 py-1.5 rounded-full bg-white/5 border border-white/10 items-center gap-2 flex-shrink-0">
               <span className="font-mono text-[8px] uppercase tracking-widest text-white/40 font-bold">{activeTradition}</span>
               <div className="w-px h-3 bg-white/10" />
               <span className="font-mono text-[8px] uppercase tracking-widest text-primary/70 font-bold">{activeInstrument}</span>
               {activeInstrument === 'tambura' && droneActive && <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse ml-1" />}
             </div>
-            {/* Phrase detection badges */}
-            <div className="flex gap-2">
+            {/* Phrase detection badges — desktop only */}
+            <div className="hidden lg:flex gap-2">
               {detectedPhrases.map((phrase, i) => (
                 <div key={i} className="px-3 py-1.5 rounded-full bg-secondary/10 border border-secondary/20 flex items-center gap-1.5 animate-glow">
                   <span className="material-symbols-outlined !text-xs text-secondary">verified</span>
@@ -760,19 +789,19 @@ function StudioContent() {
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="flex flex-col items-end">
+          <div className="flex items-center gap-3 md:gap-6 flex-shrink-0">
+            <div className="hidden sm:flex flex-col items-end">
               <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Tempo</span>
               <span className="font-mono text-lg font-light text-primary">{bpm} <span className="text-[9px] text-on-surface-variant/40">BPM</span></span>
             </div>
-            <button onClick={handleSaveProject} className="px-5 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95">
+            <button onClick={handleSaveProject} className="px-3 md:px-5 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95">
               Save
             </button>
           </div>
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-auto p-10 space-y-14 scroll-thin">
+        <div className="flex-1 overflow-auto p-4 md:p-10 space-y-8 md:space-y-14 scroll-thin">
 
           {/* ── Step Sequencer ── */}
           <section className="animate-slide-up">
@@ -809,7 +838,8 @@ function StudioContent() {
               </div>
             </div>
 
-            <div className="rounded-[20px] bg-surface-lowest border border-outline-variant/10 p-5">
+            <div className="rounded-[20px] bg-surface-lowest border border-outline-variant/10 p-3 md:p-5 overflow-x-auto">
+              <div className="min-w-[480px]">
               {/* Tala-aware beat markers */}
               {(() => {
                 const cells = expandTala(selectedTala)
@@ -925,6 +955,7 @@ function StudioContent() {
                   </div>
                 )
               })}
+            </div>{/* end min-w-[480px] */}
             </div>
           </section>
 
