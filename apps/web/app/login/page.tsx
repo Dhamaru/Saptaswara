@@ -2,17 +2,22 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const [email, setEmail] = useState('')
 
   useEffect(() => { document.title = 'Sign in — Saptaswara' }, [])
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(
+    searchParams.get('error') === 'confirmation_failed'
+      ? 'The confirmation link has expired. Please sign up again.'
+      : null
+  )
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {

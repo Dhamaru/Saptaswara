@@ -77,13 +77,14 @@ interface Track {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-let _uid = 3
-const uid = () => String(++_uid)
+// Static IDs for base layers to ensure consistency across SSR and client hydration
+const INITIAL_ID_MELODY = 'layer-melody-1'
+const INITIAL_ID_RHYTHM = 'layer-rhythm-1'
 
 function makeTrack(type: TrackType, loopLen: number, overrides: Partial<Track> = {}): Track {
   const meta = TRACK_META[type]
   return {
-    id: uid(),
+    id: overrides.id || `layer-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     type,
     name: meta.defaultName,
     sequence: new Array(loopLen).fill(null),
@@ -100,14 +101,31 @@ function StudioContent() {
   const searchParams = useSearchParams()
   const projectIdFromUrl = searchParams.get('project_id')
 
-  useEffect(() => { document.title = 'Saptaswara Studio' }, [])
+  useEffect(() => { 
+    document.title = 'Saptaswara Studio'
+    setMounted(true)
+  }, [])
 
   const { isPlaying, setIsPlaying, isRecording, setIsRecording, currentRagaId, setCurrentRagaId, saveTriggered } = usePlayback()
   const { state: comp, dispatch } = useComposition()
   const { activeInstrument, activeTradition } = comp
 
   // ── Core state ──────────────────────────────────────────────────────────────
+  const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState<any>(null)
+  
+  // Track state initialized with static IDs for hydration safety
+  const [tracks, setTracks] = useState<Track[]>([
+    makeTrack('melody', 16, { id: INITIAL_ID_MELODY, name: 'Melody', colorIdx: 0 }),
+    makeTrack('rhythm', 16, { id: INITIAL_ID_RHYTHM, name: 'Tabla',  colorIdx: 1 }),
+  ])
+  const [activeTrackId, setActiveTrackId] = useState(INITIAL_ID_MELODY)
+  const [showAddTrack, setShowAddTrack] = useState(false)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+
+  // ── Project state ────────────────────────────────────────────────────────────
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [ragas, setRagas] = useState<Raga[]>([])
   const [selectedRaga, setSelectedRaga] = useState<Raga | null>(null)
@@ -125,18 +143,6 @@ function StudioContent() {
   const [ragaConstrained, setRagaConstrained] = useState(false)
   const [selectedTala, setSelectedTala] = useState<Tala>(DEFAULT_TALA)
   const [laySetting, setLaySetting] = useState<'vilambit' | 'madhya' | 'drut'>('madhya')
-
-  // ── Track state ─────────────────────────────────────────────────────────────
-  const [tracks, setTracks] = useState<Track[]>([
-    makeTrack('melody', 16, { id: '1', name: 'Melody', colorIdx: 0 }),
-    makeTrack('rhythm', 16, { id: '2', name: 'Tabla',  colorIdx: 1 }),
-  ])
-  const [activeTrackId, setActiveTrackId] = useState('1')
-  const [showAddTrack, setShowAddTrack] = useState(false)
-  const [renamingId, setRenamingId] = useState<string | null>(null)
-
-  // ── Project state ────────────────────────────────────────────────────────────
-  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const [projectId, setProjectId] = useState<string | null>(projectIdFromUrl)
   const [projectName, setProjectName] = useState('Untitled Composition')
@@ -567,6 +573,14 @@ function StudioContent() {
   const colors = (idx: number) => TRACK_COLORS[idx % TRACK_COLORS.length]
 
   // ── Render ────────────────────────────────────────────────────────────────────
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-surface-lowest flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] overflow-hidden bg-background">
 
