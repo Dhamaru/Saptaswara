@@ -23,6 +23,7 @@ export default function LibraryPage() {
   const [activeTradition, setActiveTradition] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedRaga, setSelectedRaga] = useState<any | null>(null)
+  const [focusedIdx, setFocusedIdx] = useState(-1)
 
   const fetchRagas = async () => {
     setFetchError(null)
@@ -42,6 +43,9 @@ export default function LibraryPage() {
 
   useEffect(() => { fetchRagas() }, [])
 
+  // Reset focused index when filters change
+  useEffect(() => { setFocusedIdx(-1) }, [searchQuery, activeFilter, activeTradition])
+
   const filteredRagas = ragas.filter(r => {
     const ragaTradition = r.tradition?.toUpperCase() || 'HINDUSTANI'
     const matchesTradition = activeTradition === 'ALL' || ragaTradition === activeTradition
@@ -50,6 +54,36 @@ export default function LibraryPage() {
                           r.mood?.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesTradition && matchesFilter && matchesSearch
   })
+
+  // Keyboard navigation for raga grid — placed after filteredRagas declaration
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
+      if (e.key === 'Escape') {
+        setSelectedRaga(null)
+        setFocusedIdx(-1)
+        return
+      }
+
+      if (!filteredRagas.length) return
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        e.preventDefault()
+        setFocusedIdx(prev => Math.min(prev + 1, filteredRagas.length - 1))
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setFocusedIdx(prev => Math.max(prev - 1, 0))
+      } else if (e.key === 'Enter' && focusedIdx >= 0) {
+        e.preventDefault()
+        const raga = filteredRagas[focusedIdx]
+        setSelectedRaga((prev: any) => prev?.id === raga.id ? null : raga)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [filteredRagas, focusedIdx])
 
   const atmosphereImg = (time_of_day: string | null) => {
     const t = time_of_day?.toLowerCase() || ''
@@ -157,12 +191,17 @@ export default function LibraryPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-              {filteredRagas.map(raga => (
-                <RagaCard
+              {filteredRagas.map((raga, idx) => (
+                <div
                   key={raga.id}
-                  raga={raga}
-                  onClick={() => setSelectedRaga((prev: any) => prev?.id === raga.id ? null : raga)}
-                />
+                  className={`rounded-[32px] transition-all duration-150 ${focusedIdx === idx ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''}`}
+                  onMouseEnter={() => setFocusedIdx(idx)}
+                >
+                  <RagaCard
+                    raga={raga}
+                    onClick={() => { setSelectedRaga((prev: any) => prev?.id === raga.id ? null : raga); setFocusedIdx(idx) }}
+                  />
+                </div>
               ))}
               {filteredRagas.length === 0 && (
                 <div className="col-span-full py-24 text-center text-on-surface-variant/40">
