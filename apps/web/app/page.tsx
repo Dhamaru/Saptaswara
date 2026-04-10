@@ -93,8 +93,12 @@ export default function LandingPage() {
            </div>
            
            <div className="relative z-20">
-             <span className="material-symbols-outlined text-primary mb-4 md:mb-6 !text-3xl md:!text-4xl opacity-80">shaman</span>
-             <h3 className="font-display text-2xl md:text-3xl font-light text-on-surface mb-2">Tala Engine.</h3>
+             <div className="flex items-center gap-3 mb-4 md:mb-6">
+               <span className="material-symbols-outlined text-primary !text-3xl md:!text-4xl opacity-80">shaman</span>
+               <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary/60 font-bold">SHA</span>
+             </div>
+             <h3 className="font-display text-2xl md:text-3xl font-light text-on-surface mb-1">Tala Engine.</h3>
+             <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/40">Saptaswara Hybrid Architecture</p>
            </div>
 
            <div className="relative z-20 flex flex-col items-end mt-auto">

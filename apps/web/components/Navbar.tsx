@@ -14,7 +14,7 @@ export default function Navbar() {
   const navLinks = [
     { name: 'Naad', href: '/studio' },
     { name: 'Ragam', href: '/library' },
-    { name: 'Sadhana', href: '/journal' },
+    { name: 'Saadhana', href: '/journal' },
   ]
 
   const [user, setUser] = React.useState<any>(null)

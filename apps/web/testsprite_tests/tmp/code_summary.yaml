@@ -1,62 +1,143 @@
 version: "2"
-type: frontend
+type: backend
 tech_stack:
-  - TypeScript
-  - Next.js 16 (App Router)
-  - Tone.js (Audio Engine)
-  - Supabase (Auth and Database)
-  - Vanilla CSS
-routes:
-  - path: /
-    file: apps/web/app/page.tsx
-    auth_required: false
-    description: Landing page
-  - path: /studio
-    file: apps/web/app/studio/page.tsx
-    auth_required: false
-    description: Core music studio with sequencer and AI assistant
-  - path: /dashboard
-    file: apps/web/app/dashboard/page.tsx
-    auth_required: true
-    description: User projects dashboard
-  - path: /library
-    file: apps/web/app/library/page.tsx
-    auth_required: false
-    description: Raga database explorer
-  - path: /login
-    file: apps/web/app/login/page.tsx
-    auth_required: false
-    description: Authentication page
+  - language: TypeScript
+  - framework: Next.js 16 (App Router, API Routes)
+  - database: Supabase (PostgreSQL with RLS)
+  - auth: Supabase Auth (JWT / Cookie-based SSR)
+  - ai: Google Generative AI (gemini-flash-latest)
+  - other: Tone.js, midi-writer-js, Zod validation
+
 features:
-  - name: Raga Guided Studio
-    description: Interact with traditional ragas using polyphonic instruments and a step sequencer.
+  - name: AI Chat API
+    description: RAG-augmented Indian classical music assistant using Gemini
     files:
-      - apps/web/app/studio/page.tsx
-      - apps/web/components/Piano.tsx
-      - apps/web/components/DrumPad.tsx
-      - apps/web/lib/audio.ts
-    entry_route: /studio
-    user_interactions:
-      - Click on a raga card to load its notes
-      - Play the virtual piano or drum pads
-      - Toggle steps on the sequencer grid
-      - Change instruments (Piano, Veena, Sitar, etc.)
-    api_calls:
-      - method: GET
-        endpoint: /api/projects
-  - name: AI Assistant
-    description: Chat with an AI trained in Indian Classical Music for guidance.
-    files:
-      - apps/web/components/Assistant.tsx
-      - apps/web/app/api/ai/chat/route.ts
-    entry_route: /studio
-    user_interactions:
-      - Type a musical question in the chat assistant
-      - Receive streaming swara-aware responses
-    api_calls:
+      - app/api/ai/chat/route.ts
+    endpoints:
       - method: POST
-        endpoint: /api/ai/chat
+        path: /api/ai/chat
+        description: Send a user message and stream AI response using raga context
+        auth_required: true
+        request_schema:
+          body:
+            messages: array
+            ragaContext: object (optional)
+            studioContext: string (optional)
+        response_schema:
+          "200": text/event-stream (streamed SSE)
+          "401": Unauthorized
+          "400": Invalid message format
+          "429": Rate limit exceeded
+          "500": Server error
+    depends_on:
+      - Authentication
+
+  - name: Projects API
+    description: CRUD operations for user compositions/projects
+    files:
+      - app/api/projects/route.ts
+    endpoints:
+      - method: GET
+        path: /api/projects
+        description: List all projects for the authenticated user
+        auth_required: true
+        response_schema:
+          "200": Project[]
+          "401": Unauthorized
+      - method: POST
+        path: /api/projects
+        description: Create or update a project and its layer sequence
+        auth_required: true
+        request_schema:
+          body:
+            projectId: string (optional, for update)
+            title: string
+            raga_id: string
+            bpm: number
+            sequence: array
+        response_schema:
+          "200": "{ id: string, success: true }"
+          "401": Unauthorized
+          "500": Server error
+      - method: DELETE
+        path: /api/projects
+        description: Delete a project by ID (owner only)
+        auth_required: true
+        request_schema:
+          query:
+            id: string
+        response_schema:
+          "200": "{ success: true }"
+          "400": Missing id
+          "401": Unauthorized
+    depends_on:
+      - Authentication
+
+  - name: MIDI Export API
+    description: Convert studio composition to a MIDI file for download
+    files:
+      - app/api/export/midi/route.ts
+    endpoints:
+      - method: POST
+        path: /api/export/midi
+        description: Export the current studio composition as a .mid file
+        auth_required: true
+        request_schema:
+          body:
+            composition:
+              layers: array (min 1)
+              bpm: number (60-200)
+              name: string
+        response_schema:
+          "200": audio/midi binary
+          "400": Validation error
+          "401": Unauthorized
+          "500": MIDI generation error
+    depends_on:
+      - Authentication
+
+  - name: Authentication
+    description: Supabase JWT and cookie-based auth for all protected routes
+    files:
+      - lib/supabase/middleware.ts
+      - lib/supabase/client.ts
+      - lib/supabase/server.ts
+      - app/api/projects/route.ts
+      - app/api/ai/chat/route.ts
+      - app/api/export/midi/route.ts
+    endpoints: []
+    depends_on: []
+
+  - name: Journal API
+    description: User journal/notes for raga practice sessions
+    files:
+      - app/api/journal/route.ts
+    endpoints:
+      - method: GET
+        path: /api/journal
+        description: Fetch journal entries for authenticated user
+        auth_required: true
+        response_schema:
+          "200": JournalEntry[]
+          "401": Unauthorized
+      - method: POST
+        path: /api/journal
+        description: Create a new journal entry
+        auth_required: true
+        request_schema:
+          body:
+            content: string
+            raga_id: string (optional)
+        response_schema:
+          "200": JournalEntry
+          "401": Unauthorized
+    depends_on:
+      - Authentication
+
 known_limitations:
-  - issue: Audio context initialization requires first user click
-    location: apps/web/lib/audio.ts
-    impact: No sound until first interaction
+  - issue: Guest mode bypass allows unauthenticated access to protected routes in development only (NODE_ENV=development + guest=true param)
+    location: lib/supabase/middleware.ts
+    impact: Dev/test only — production is fully protected
+  - issue: Rate limiting is in-memory (not persistent across restarts)
+    location: lib/rateLimit.ts
+    impact: Rate limits reset on server restart

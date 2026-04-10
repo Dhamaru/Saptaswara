@@ -1,24 +1,31 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-function LoginForm() {
+export default function LoginPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const supabase = createClient()
   const [email, setEmail] = useState('')
-
-  useEffect(() => { document.title = 'Sign in — Saptaswara' }, [])
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(
-    searchParams.get('error') === 'confirmation_failed'
-      ? 'The confirmation link has expired. Please sign up again.'
-      : null
-  )
+  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const [success, setSuccess] = useState<string | null>(null)
+
+  useEffect(() => {
+    document.title = 'Sign in — Saptaswara'
+    // Read query params client-side to avoid useSearchParams + Suspense requirement
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('error') === 'confirmation_failed') {
+      setError('The confirmation link has expired. Please sign up again.')
+    }
+    if (params.get('reset') === 'success') {
+      setSuccess('Password updated. Sign in with your new password.')
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -80,9 +87,14 @@ function LoginForm() {
             </div>
 
             <div className="space-y-2">
-              <label className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 font-bold block">
-                Password
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 font-bold block">
+                  Password
+                </label>
+                <Link href="/forgot-password" className="font-mono text-[9px] uppercase tracking-widest text-primary/50 hover:text-primary/80 transition-colors">
+                  Forgot?
+                </Link>
+              </div>
               <input
                 type="password"
                 required
@@ -92,6 +104,13 @@ function LoginForm() {
                 className="w-full bg-surface-container-low rounded-xl py-3.5 px-4 text-sm font-sans text-on-surface border border-outline-variant/10 focus:border-primary/40 focus:outline-none transition-colors placeholder:text-on-surface-variant/20"
               />
             </div>
+
+            {success && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20">
+                <span className="material-symbols-outlined !text-base text-primary/80">check_circle</span>
+                <span className="font-sans text-xs text-primary/80">{success}</span>
+              </div>
+            )}
 
             {error && (
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-error/10 border border-error/20">
@@ -132,10 +151,3 @@ function LoginForm() {
   )
 }
 
-export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
-  )
-}

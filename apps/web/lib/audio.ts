@@ -776,11 +776,11 @@ export class AudioEngine {
     this.stopAll()
     try { Tone.getTransport().cancel() } catch { /* ignore */ }
     try { Tone.getTransport().stop() } catch { /* ignore */ }
-    try { this.sampler.dispose() } catch { /* ignore */ }
-    try { this.synth.dispose() } catch { /* ignore */ }
-    try { this.percussion.dispose() } catch { /* ignore */ }
-    try { this.timbreNode?.dispose() } catch { /* ignore */ }
-    this.timbreAux.forEach(n => { try { n.dispose() } catch { /* ignore */ } })
+    try { this.sampler?.dispose() } catch { /* ignore */ }
+    try { this.synth?.dispose() } catch { /* ignore */ }
+    try { this.percussion?.dispose() } catch { /* ignore */ }
+    try { (this.timbreNode as any)?.dispose?.() } catch { /* ignore */ }
+    this.timbreAux?.forEach(n => { try { n.dispose() } catch { /* ignore */ } })
     try { this.timbreGain?.dispose() } catch { /* ignore */ }
     try { this.percLow?.dispose() } catch { /* ignore */ }
     try { this.percHigh?.dispose() } catch { /* ignore */ }
@@ -792,15 +792,15 @@ export class AudioEngine {
   }
 
   stopAll() {
-    this.sampler.releaseAll()
-    this.synth.releaseAll()
+    try { this.sampler?.releaseAll() } catch { /* ignore */ }
+    try { this.synth?.releaseAll() } catch { /* ignore */ }
     try { (this.timbreNode as any)?.releaseAll?.() } catch { /* ignore */ }
     try { (this.percLow as any)?.releaseAll?.() } catch { /* ignore */ }
     try { (this.percHigh as any)?.releaseAll?.() } catch { /* ignore */ }
-    this.percussion.releaseAll()
+    try { this.percussion?.releaseAll() } catch { /* ignore */ }
     if (this.drone) { 
-      this.tamburaSeq?.stop()
-      ;(this.drone as any)?.releaseAll?.()
+      try { this.tamburaSeq?.stop() } catch { /* ignore */ }
+      try { (this.drone as any)?.releaseAll?.() } catch { /* ignore */ }
       this.droneStarted = false 
     }
   }
@@ -825,6 +825,13 @@ export function getAudioEngine(): AudioEngine | null {
 
 /** @deprecated Use getAudioEngine() instead */
 export const audioEngine = typeof window !== 'undefined' ? (() => {
-  if (!_instance) _instance = new AudioEngine()
+  if (!_instance) {
+    try {
+      _instance = new AudioEngine()
+    } catch (e) {
+      console.error('AudioEngine: Failed to create instance:', e)
+      return null
+    }
+  }
   return _instance
 })() : null

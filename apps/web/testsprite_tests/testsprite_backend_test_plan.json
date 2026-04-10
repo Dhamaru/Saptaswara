@@ -1,0 +1,23 @@
+[
+  {
+    "id": "TC001",
+    "title": "get_projects_api_should_return_user_projects_list",
+    "description": "Verify that the GET /api/projects endpoint returns the list of user projects correctly when called with a valid Bearer token. Use Authorization header: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjkyYjIyYjdkLWZmM2UtNDVlYS1iYjFhLWJlYTY5NmJlNmViNiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2ZreWNsdmVvdGpqdmJhaXNmdmp0LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIzMmY5NzM3NC0xNDQ2LTQ5MjYtODgwMi01NWZjNzU5MDQ3NDkiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc1ODE0MTk4LCJpYXQiOjE3NzU4MTA1OTgsImVtYWlsIjoia2FzaXZhc2kyMDA1QGdtYWlsLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzc1ODEwNTk4fV0sInNlc3Npb25faWQiOiJkMDI0OTcyMy00ZWU2LTRlZGEtODZjOC01NGIzY2ZlM2JkNzUiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.JRZAqrvfVcM_yB9G6Dg--rqIuL-kDSl6rmc196Z7ytarIqXtZBP8MZPjKrj-hbg8PEKwEOY9bOgBoUPVmIGcgg. Expect HTTP 200 and a JSON array response."
+  },
+  {
+    "id": "TC002",
+    "title": "post_api_ai_chat_should_return_streaming_raga_aware_responses",
+    "description": "Verify POST /api/ai/chat returns a streaming SSE response for raga-related questions. Use Authorization header: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjkyYjIyYjdkLWZmM2UtNDVlYS1iYjFhLWJlYTY5NmJlNmViNiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2ZreWNsdmVvdGpqdmJhaXNmdmp0LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIzMmY5NzM3NC0xNDQ2LTQ5MjYtODgwMi01NWZjNzU5MDQ3NDkiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc1ODE0MTk4LCJpYXQiOjE3NzU4MTA1OTgsImVtYWlsIjoia2FzaXZhc2kyMDA1QGdtYWlsLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzc1ODEwNTk4fV0sInNlc3Npb25faWQiOiJkMDI0OTcyMy00ZWU2LTRlZGEtODZjOC01NGIzY2ZlM2JkNzUiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.JRZAqrvfVcM_yB9G6Dg--rqIuL-kDSl6rmc196Z7ytarIqXtZBP8MZPjKrj-hbg8PEKwEOY9bOgBoUPVmIGcgg. Send body: {\"messages\":[{\"role\":\"user\",\"content\":\"What are the key characteristics of Bhairavi raga?\"}]}. Expect HTTP 200 and a text/event-stream response containing data: lines with raga content."
+  },
+  {
+    "id": "TC003",
+    "title": "post_api_export_midi_should_download_valid_midi_file",
+    "description": "Verify POST /api/export/midi generates and returns a valid .mid binary. Use Authorization: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjkyYjIyYjdkLWZmM2UtNDVlYS1iYjFhLWJlYTY5NmJlNmViNiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2ZreWNsdmVvdGpqdmJhaXNmdmp0LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIzMmY5NzM3NC0xNDQ2LTQ5MjYtODgwMi01NWZjNzU5MDQ3NDkiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc1ODE0MTk4LCJpYXQiOjE3NzU4MTA1OTgsImVtYWlsIjoia2FzaXZhc2kyMDA1QGdtYWlsLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzc1ODEwNTk4fV0sInNlc3Npb25faWQiOiJkMDI0OTcyMy00ZWU2LTRlZGEtODZjOC01NGIzY2ZlM2JkNzUiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.JRZAqrvfVcM_yB9G6Dg--rqIuL-kDSl6rmc196Z7ytarIqXtZBP8MZPjKrj-hbg8PEKwEOY9bOgBoUPVmIGcgg. Send body: {\"composition\":{\"layers\":[{\"id\":\"1\",\"type\":\"melody\",\"name\":\"Main\",\"sequence\":[{\"frequency\":261.63}]}],\"bpm\":120,\"name\":\"Test Export\"}}. Expect HTTP 200 with Content-Type audio/midi.",
+    "id": "TC003"
+  },
+  {
+    "id": "TC004",
+    "title": "get_api_projects_should_return_401_without_auth",
+    "description": "Verify that GET /api/projects returns 401 Unauthorized when called without an Authorization header. No auth header should be sent. Expect HTTP 401 and an error message in the JSON response."
+  }
+]

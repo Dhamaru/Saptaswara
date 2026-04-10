@@ -31,6 +31,8 @@ import { RagaEngine } from '@saptaswara/core'
 import { CompositionProvider, useComposition } from '@/context/CompositionContext'
 import { TALAS, DEFAULT_TALA, expandTala } from '@/lib/talas'
 import type { Tala } from '@saptaswara/core'
+import { Guidebook } from '@/components/Guidebook'
+import { LearnerGuide } from '@/components/LearnerGuide'
 
 // ── Track system ──────────────────────────────────────────────────────────────
 type TrackType = 'melody' | 'rhythm' | 'vocal' | 'bass' | 'drone' | 'pad'
@@ -153,6 +155,8 @@ function StudioContent() {
   const [isExportingMidi, setIsExportingMidi] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [saveModalTitle, setSaveModalTitle] = useState('')
+  const [showGuide, setShowGuide] = useState(false)
+  const [showLearnGuide, setShowLearnGuide] = useState(false)
 
   const supabaseClient = createClient()
 
@@ -518,6 +522,11 @@ function StudioContent() {
         }
         case 'Escape': {
           setActiveStep(-1)
+          break
+        }
+        case '?': {
+          e.preventDefault()
+          setShowGuide(v => !v)
           break
         }
         case ' ': {
@@ -1029,12 +1038,27 @@ function StudioContent() {
               <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Tempo</span>
               <span className="font-mono text-lg font-light text-primary">{bpm} <span className="text-[9px] text-on-surface-variant/40">BPM</span></span>
             </div>
-            <button 
+            <button
               id="save-project-btn"
-              onClick={() => { setSaveModalTitle(projectName); setShowSaveModal(true) }} 
+              onClick={() => { setSaveModalTitle(projectName); setShowSaveModal(true) }}
               className="px-3 md:px-5 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95"
             >
               Save
+            </button>
+            <button
+              onClick={() => setShowLearnGuide(v => !v)}
+              title="Open Learner's Guide"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-secondary/20 bg-secondary/5 font-mono text-[9px] uppercase tracking-widest text-secondary/70 hover:text-secondary hover:border-secondary/40 hover:bg-secondary/10 transition-all active:scale-95"
+            >
+              <span className="material-symbols-outlined !text-sm">school</span>
+              Learn
+            </button>
+            <button
+              onClick={() => setShowGuide(v => !v)}
+              title="Open Studio Guide (?)"
+              className="w-8 h-8 rounded-xl border border-outline-variant/15 bg-surface-container-high/40 flex items-center justify-center font-mono text-xs font-bold text-on-surface-variant/50 hover:text-primary hover:border-primary/30 transition-all active:scale-95"
+            >
+              ?
             </button>
           </div>
         </div>
@@ -1395,6 +1419,9 @@ function StudioContent() {
           </div>
         </div>
       </main>
+
+      <Guidebook open={showGuide} onClose={() => setShowGuide(false)} />
+      <LearnerGuide open={showLearnGuide} onClose={() => setShowLearnGuide(false)} />
 
       <Assistant
         ragaContext={selectedRaga}

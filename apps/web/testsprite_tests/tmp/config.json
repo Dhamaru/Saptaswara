@@ -7,12 +7,12 @@
     "projectName": "web",
     "projectPath": "/home/dhamarunath/Desktop/Saptaswara/apps/web",
     "testIds": [],
-    "additionalInstruction": "Use credentials kasivasi2005@gmail.com / D@mbro123 for all login and signup flows. Test the Studio page functionality including instrument switching, raga selection, AI assistant chat, and audio playback initialization.",
+    "additionalInstruction": "Use credentials kasivasi2005@gmail.com / D@mbro123 for all login and signup flows. Test all 15 frontend cases including Studio interactions, raga library browsing, AI assistant, MIDI export, and authentication flows.",
     "serverMode": "development",
     "envs": {
-      "API_KEY": "sk-user-a81bxGDFpPNc8C1Ma1oXY9YNloPDopagPqPziz5QFOcAOL3bemIhtGiqnRRWISSlXOFaJqt6WMjEgWa8WzcrOZ7bdZsyG9erIRu4KfJAS_oGoTmEvlyeoNYWx8LsngeTMnE"
+      "API_KEY": "sk-user-A6zI-hQNaiAb3xYC75zTLj6eU4nl4rungXJsop7MpU93rDVWQ2Z_9kTv_98RK7mcw0gR8qV7y4kxtO1lCqUyCssuQ_THyvBoDHO1KhjDu8TIv1RMgXw6BeL-0IGtFrX04RY"
     }
   },
-  "serverPort": 39245,
-  "proxy": "http://1c9b410a-c77a-412f-9923-30359b7c15e2:U4FI9T01XKafwhBY2HdyXHsspLwZFrVx@tun.testsprite.com:8080"
+  "serverPort": 42507,
+  "proxy": "http://0a91eb23-a1fa-41bf-b01e-431b4fd716b0:Tdkot6SOjuw8xvrNlGo6Bu7Dv2nph3Nr@tun.testsprite.com:8080"
 }

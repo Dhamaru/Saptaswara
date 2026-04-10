@@ -33,25 +33,16 @@ async def run_test():
         # -> Navigate to http://localhost:3000
         await page.goto("http://localhost:3000")
         
-        # -> Click the 'Explore Raags' link to open the library page.
+        # -> Click the 'Explore Raags' link to open the raga library so I can scroll the raga list and open a raga's details.
         frame = context.pages[-1]
         # Click element
         elem = frame.locator('xpath=/html/body/main/div/section/div[3]/a[2]').nth(0)
         await asyncio.sleep(3); await elem.click()
         
-        # -> Click the 'Explore Raags' link (interactive element index 363) to open the library page and wait for the UI to update.
+        # -> Click a raga card to open its details panel and verify aroha/avaroha and other metadata are displayed (open card at index 20121).
         frame = context.pages[-1]
         # Click element
-        elem = frame.locator('xpath=/html/body/main/div/section/div[3]/a[2]').nth(0)
-        await asyncio.sleep(3); await elem.click()
-        
-        # -> Navigate directly to /library (use exact path) to open the raga library page and let the UI settle.
-        await page.goto("http://localhost:3000/library")
-        
-        # -> Open a raga card from the library (Bowli) to view its details and metadata (aroha/avaroha etc.).
-        frame = context.pages[-1]
-        # Click element
-        elem = frame.locator('xpath=/html/body/main/div/main/div/div/div[62]/button').nth(0)
+        elem = frame.locator('xpath=/html/body/main/div/main/div/div/div[9]/button').nth(0)
         await asyncio.sleep(3); await elem.click()
         
         # --> Test passed — verified by AI agent

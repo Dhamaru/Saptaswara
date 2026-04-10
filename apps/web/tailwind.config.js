@@ -54,6 +54,7 @@ module.exports = {
         'float': 'float 6s ease-in-out infinite',
         'glow-pulse': 'glow-pulse 3s ease-in-out infinite',
         'slide-up': 'slide-up 0.5s ease-out',
+        'slide-in-right': 'slide-in-right 0.3s ease-out',
         'fade-in': 'fade-in 0.6s ease-out',
         'shimmer': 'shimmer 2s linear infinite',
       },
@@ -77,6 +78,10 @@ module.exports = {
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
+        },
+        'slide-in-right': {
+          '0%': { opacity: '0', transform: 'translateX(40px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
         },
       },
     },

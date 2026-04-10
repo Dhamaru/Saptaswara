@@ -20,6 +20,28 @@ interface PianoProps {
   nyasaNotes?: string[]
 }
 
+// ── Keyboard mapping (static — same for all melodic instruments) ──────────────
+const KEY_MAP: Record<string, { offset: number; octave: number; label: string }> = {
+  a: { offset: 0,  octave: 4, label: 'Sa'  },
+  w: { offset: 1,  octave: 4, label: 're'  },
+  s: { offset: 2,  octave: 4, label: 'Re'  },
+  e: { offset: 3,  octave: 4, label: 'ga'  },
+  d: { offset: 4,  octave: 4, label: 'Ga'  },
+  f: { offset: 5,  octave: 4, label: 'Ma'  },
+  t: { offset: 6,  octave: 4, label: 'ma'  },
+  g: { offset: 7,  octave: 4, label: 'Pa'  },
+  y: { offset: 8,  octave: 4, label: 'dha' },
+  h: { offset: 9,  octave: 4, label: 'Dha' },
+  u: { offset: 10, octave: 4, label: 'ni'  },
+  j: { offset: 11, octave: 4, label: 'Ni'  },
+  k: { offset: 0,  octave: 5, label: 'Sa'  },
+}
+
+/** Reverse map: "offset-octave" → uppercase key letter for badge display */
+const NOTE_TO_KEY: Record<string, string> = Object.fromEntries(
+  Object.entries(KEY_MAP).map(([k, v]) => [`${v.offset}-${v.octave}`, k.toUpperCase()])
+)
+
 // ── Instrument catalogue ──────────────────────────────────────────────────────
 const INSTRUMENT_GROUPS: {
   tradition: TraditionType | 'western'
@@ -141,22 +163,6 @@ export default function Piano({
   }
 
   const octaves = [4, 5]
-
-  const KEY_MAP: Record<string, { offset: number; octave: number; label: string }> = {
-    a: { offset: 0, octave: 4, label: 'Sa' },
-    w: { offset: 1, octave: 4, label: 're' },
-    s: { offset: 2, octave: 4, label: 'Re' },
-    e: { offset: 3, octave: 4, label: 'ga' },
-    d: { offset: 4, octave: 4, label: 'Ga' },
-    f: { offset: 5, octave: 4, label: 'Ma' },
-    t: { offset: 6, octave: 4, label: 'ma' },
-    g: { offset: 7, octave: 4, label: 'Pa' },
-    y: { offset: 8, octave: 4, label: 'dha' },
-    h: { offset: 9, octave: 4, label: 'Dha' },
-    u: { offset: 10, octave: 4, label: 'ni' },
-    j: { offset: 11, octave: 4, label: 'Ni' },
-    k: { offset: 0, octave: 5, label: 'Sa' },
-  }
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -377,6 +383,13 @@ export default function Piano({
                     >
                       {note.name}
                     </span>
+                    {NOTE_TO_KEY[`${note.offset}-${octave}`] && (
+                      <span className={`absolute bottom-2 left-1/2 -translate-x-1/2 font-mono text-[8px] font-bold transition-all ${
+                        isPlaying ? 'text-white/80' : 'text-black/25'
+                      }`}>
+                        {NOTE_TO_KEY[`${note.offset}-${octave}`]}
+                      </span>
+                    )}
                     <div className="absolute inset-x-0 top-0 h-1 bg-white/40 opacity-0 group-hover:opacity-10" />
                   </button>
                 )
@@ -430,11 +443,18 @@ export default function Piano({
                     )}
                     {isInRaga && normalizedActiveNotes.length > 0 && (
                       <span
-                        className={`absolute bottom-6 left-1/2 -translate-x-1/2 font-mono text-[7px] uppercase font-bold tracking-tighter ${
+                        className={`absolute bottom-8 left-1/2 -translate-x-1/2 font-mono text-[7px] uppercase font-bold tracking-tighter ${
                           isPlaying ? 'text-white' : isVadi ? 'text-amber-400' : isSamvadi ? 'text-sky-400' : 'text-primary'
                         }`}
                       >
                         {note.label}
+                      </span>
+                    )}
+                    {NOTE_TO_KEY[`${note.offset}-${octave}`] && (
+                      <span className={`absolute bottom-2 left-1/2 -translate-x-1/2 font-mono text-[8px] font-bold transition-all ${
+                        isPlaying ? 'text-white/80' : 'text-white/30'
+                      }`}>
+                        {NOTE_TO_KEY[`${note.offset}-${octave}`]}
                       </span>
                     )}
                     <div className="absolute inset-x-1.5 top-0 h-1 bg-white/[0.05] rounded-full" />

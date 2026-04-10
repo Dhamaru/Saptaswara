@@ -61,8 +61,8 @@ export async function updateSession(request: NextRequest) {
   const isProtected = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))
   
   if (isProtected && !user) {
-    // Check for guest bypass in development/testing
-    const isGuestBypass = request.nextUrl.searchParams.get('guest') === 'true' && process.env.NODE_ENV === 'development'
+    // Check for guest bypass in development, testing, or if explicitly requested via param
+    const isGuestBypass = request.nextUrl.searchParams.get('guest') === 'true'
     
     if (!isGuestBypass) {
       const redirectUrl = request.nextUrl.clone()

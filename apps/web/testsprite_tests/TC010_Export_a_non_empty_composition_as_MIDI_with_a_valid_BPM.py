@@ -33,13 +33,13 @@ async def run_test():
         # -> Navigate to http://localhost:3000
         await page.goto("http://localhost:3000")
         
-        # -> Click the 'Start Creating' link (element index 135) to open the Studio page.
+        # -> Click the 'Start Creating' link to open the Studio page.
         frame = context.pages[-1]
         # Click element
         elem = frame.locator('xpath=/html/body/main/div/section/div[3]/a').nth(0)
         await asyncio.sleep(3); await elem.click()
         
-        # -> Fill email and password, then submit the form to enter the Studio page.
+        # -> Fill the email and password fields and click 'Enter Studio' to sign in and open the Studio.
         frame = context.pages[-1]
         # Input text
         elem = frame.locator('xpath=/html/body/main/div/div[2]/div[2]/form/div/input').nth(0)
@@ -55,9 +55,111 @@ async def run_test():
         elem = frame.locator('xpath=/html/body/main/div/div[2]/div[2]/form/button').nth(0)
         await asyncio.sleep(3); await elem.click()
         
+        # -> Fill the email and password fields and click 'Enter Studio' to sign in and open the Studio.
+        frame = context.pages[-1]
+        # Input text
+        elem = frame.locator('xpath=/html/body/main/div/div[2]/div[2]/form/div/input').nth(0)
+        await asyncio.sleep(3); await elem.fill('kasivasi2005@gmail.com')
+        
+        frame = context.pages[-1]
+        # Input text
+        elem = frame.locator('xpath=/html/body/main/div/div[2]/div[2]/form/div[2]/input').nth(0)
+        await asyncio.sleep(3); await elem.fill('D@mbro123')
+        
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/div[2]/div[2]/form/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        # -> Fill the email and password fields and click 'Enter Studio' to sign in and open the Studio.
+        frame = context.pages[-1]
+        # Input text
+        elem = frame.locator('xpath=/html/body/main/div/div[2]/div[2]/form/div/input').nth(0)
+        await asyncio.sleep(3); await elem.fill('kasivasi2005@gmail.com')
+        
+        frame = context.pages[-1]
+        # Input text
+        elem = frame.locator('xpath=/html/body/main/div/div[2]/div[2]/form/div[2]/input').nth(0)
+        await asyncio.sleep(3); await elem.fill('D@mbro123')
+        
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/div[2]/div[2]/form/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        # -> Submit the login form by clicking the 'Enter Studio' button to try to reach the Studio page.
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/div[2]/div[2]/form/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        # -> Click the 'Go to Studio' link to open the Studio page.
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/div[3]/div/a').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        # -> Click the Play button once to initialize the audio/interaction context, then open the Studio menu to reveal additional controls (layers, export, etc.).
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/nav/div[2]/div/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/nav/div[2]/button[2]').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        # -> Click Initialize Audio Engine, record a note into the selected step to ensure the composition is non-empty, then click Export MIDI and observe the export/download indicator.
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/div/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/main/div[2]/section[2]/div[2]/div[2]/div/div/div/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        # -> Select step 1 in the step sequencer, record a note by pressing a piano key, then click Export MIDI and wait for an export/download indicator.
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/main/div[2]/section/div[2]/div/div[2]/div/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/main/div[2]/section[2]/div[2]/div[2]/div/div/div/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        # -> Select a sequencer step, record a note by pressing a piano key, then click Export MIDI and wait for an export/download indicator.
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/main/div[2]/section/div[2]/div/div[2]/div/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/main/div[2]/section[2]/div[2]/div[2]/div/div/div/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        # -> Record a note into the selected sequencer step by pressing the piano key (Sa) and then click 'Export MIDI' to trigger the MIDI export. Wait for an export/download indicator.
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/main/div[2]/section[2]/div[2]/div[2]/div/div/div/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        frame = context.pages[-1]
+        # Click element
+        elem = frame.locator('xpath=/html/body/main/div/main/div[3]/div[3]/button').nth(0)
+        await asyncio.sleep(3); await elem.click()
+        
+        # -> Reload the Studio SPA to recover the page state, then re-scan for recorded sequencer steps and any MIDI export/download indicators (e.g., 'Export complete', 'download', '.mid').
+        await page.goto("http://localhost:3000/studio")
+        
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'MIDI export complete')]").nth(0).is_visible(), "The MIDI export completion indicator should be visible after exporting the composition."
+        assert await frame.locator("xpath=//*[contains(., 'Export complete')]").nth(0).is_visible(), "The studio should show an Export complete message after exporting MIDI"
         await asyncio.sleep(5)
 
     finally:

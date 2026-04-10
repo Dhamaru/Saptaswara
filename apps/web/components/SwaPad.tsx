@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { audioEngine } from '@/lib/audio'
 import { swaraToFrequency } from '@/lib/musicalMath'
 
@@ -9,6 +9,14 @@ import { swaraToFrequency } from '@/lib/musicalMath'
 /** The 7 base swaras in order */
 const BASE_SWARAS = ['Sa', 'Re', 'Ga', 'Ma', 'Pa', 'Dha', 'Ni'] as const
 type BaseSwara = typeof BASE_SWARAS[number]
+
+/** Keyboard key for each swara (A–J home row) */
+const SWAPAD_KEY_MAP: Record<BaseSwara, string> = {
+  Sa: 'a', Re: 's', Ga: 'd', Ma: 'f', Pa: 'g', Dha: 'h', Ni: 'j',
+}
+const SWAPAD_KEY_TO_SWARA: Record<string, BaseSwara> = Object.fromEntries(
+  (Object.entries(SWAPAD_KEY_MAP) as [BaseSwara, string][]).map(([s, k]) => [k, s])
+)
 
 /** Which base swaras can be komal (flat) */
 const KOMAL_CAPABLE = new Set<BaseSwara>(['Re', 'Ga', 'Dha', 'Ni'])
@@ -110,6 +118,26 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
     setHeldSwara(null)
   }, [getVariant, register])
 
+  // Keyboard shortcuts: A–J home row → Sa Re Ga Ma Pa Dha Ni
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.repeat) return
+      const swara = SWAPAD_KEY_TO_SWARA[e.key.toLowerCase()]
+      if (swara) { e.preventDefault(); handleAttack(swara) }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      const swara = SWAPAD_KEY_TO_SWARA[e.key.toLowerCase()]
+      if (swara && heldSwara === swara) handleRelease(swara)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [handleAttack, handleRelease, heldSwara])
+
   const toggleKomal = (swara: BaseSwara) => {
     if (!KOMAL_CAPABLE.has(swara)) return
     setKomalSet(prev => {
@@ -138,7 +166,7 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
         <div>
           <h3 className="font-display text-xl font-light text-on-surface">Swara Pad</h3>
           <p className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 mt-0.5">
-            Hold to sustain · Toggle ♭ / ♯ below each swara
+            Hold to sustain · Keys A–J · Toggle ♭ / ♯ below each swara
           </p>
         </div>
 
@@ -190,6 +218,11 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
                 {isVadi && (
                   <div className="absolute inset-0 rounded-2xl border-2 border-amber-400/60 pointer-events-none" />
                 )}
+
+                {/* Keyboard key badge */}
+                <span className={`absolute top-2 left-2 font-mono text-[8px] font-bold opacity-40 ${isHeld ? 'text-white' : c.text}`}>
+                  {SWAPAD_KEY_MAP[swara].toUpperCase()}
+                </span>
 
                 {/* Variant badge */}
                 {(isKomal || isTivra) && (

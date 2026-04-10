@@ -33,7 +33,7 @@ async def run_test():
         # -> Navigate to http://localhost:3000
         await page.goto("http://localhost:3000")
         
-        # -> Navigate to /dashboard and verify the app redirects to the login page and that the login form is displayed.
+        # -> Navigate to /dashboard and observe whether the app redirects to the login page and shows the login form.
         await page.goto("http://localhost:3000/dashboard")
         
         # --> Test passed — verified by AI agent
