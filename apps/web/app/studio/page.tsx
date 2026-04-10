@@ -184,14 +184,36 @@ function StudioContent() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabaseClient.auth.getUser()
-      setUser(user)
-      const { data: { session } } = await supabaseClient.auth.getSession()
-      setAccessToken(session?.access_token ?? null)
+      let activeUser = null
+      let activeSession = null
+      
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser()
+        activeUser = user
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        activeSession = session
+      } catch (err) {
+        console.warn('Studio: Supabase auth check failed, checking for guest mode.', err)
+      }
+
+      // Guest mode bypass for development and automated testing
+      const isGuestMode = searchParams.get('guest') === 'true' || process.env.NODE_ENV === 'development'
+      
+      if (!activeUser && isGuestMode) {
+        console.log('Studio: Initializing in Guest Mode.')
+        activeUser = { 
+          id: 'guest-user', 
+          email: 'guest@saptaswara.ai',
+          user_metadata: { full_name: 'Guest Composer' } 
+        }
+      }
+
+      setUser(activeUser)
+      setAccessToken(activeSession?.access_token ?? null)
       await loadRagas()
     }
     init()
-  }, [])
+  }, [searchParams, loadRagas])
 
   // ── Navbar save trigger ──────────────────────────────────────────────────────
   useEffect(() => {

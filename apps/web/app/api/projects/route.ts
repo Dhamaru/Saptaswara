@@ -25,7 +25,17 @@ async function resolveUser(req: Request) {
     { global: { headers: { Authorization: `Bearer ${token}` } } }
   )
   const { data: { user: tokenUser }, error } = await anonClient.auth.getUser()
-  if (error || !tokenUser) return null
+  if (error || !tokenUser) {
+    // Guest bypass for development/testing
+    const { searchParams } = new URL(req.url)
+    if ((searchParams.get('guest') === 'true' || req.headers.get('x-guest-auth') === 'true') && process.env.NODE_ENV === 'development') {
+      return { 
+        user: { id: 'guest-user', email: 'guest@saptaswara.ai' } as any, 
+        supabase: anonClient 
+      }
+    }
+    return null
+  }
   return { user: tokenUser, supabase: anonClient }
 }
 

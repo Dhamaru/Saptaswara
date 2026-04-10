@@ -56,11 +56,20 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
     const { data: userData, error: authError } = await authClient.auth.getUser(token)
-    if (authError || !userData?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    
+    let activeUser = userData?.user
+    
+    if (authError || !activeUser) {
+      // Guest bypass for development/testing
+      const isGuestBypass = req.headers.get('x-guest-auth') === 'true' && process.env.NODE_ENV === 'development'
+      if (isGuestBypass) {
+        activeUser = { id: 'guest-user', email: 'guest@saptaswara.ai' } as any
+      } else {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
     }
 
-    if (!checkRateLimit(userData.user.id)) {
+    if (activeUser && !checkRateLimit(activeUser.id)) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
 

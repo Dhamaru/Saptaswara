@@ -61,9 +61,14 @@ export async function updateSession(request: NextRequest) {
   const isProtected = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))
   
   if (isProtected && !user) {
-    const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = '/login'
-    return NextResponse.redirect(redirectUrl)
+    // Check for guest bypass in development/testing
+    const isGuestBypass = request.nextUrl.searchParams.get('guest') === 'true' && process.env.NODE_ENV === 'development'
+    
+    if (!isGuestBypass) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/login'
+      return NextResponse.redirect(redirectUrl)
+    }
   }
 
   return response

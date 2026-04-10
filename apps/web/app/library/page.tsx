@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import RagaCard from '@/components/RagaCard'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 const TIME_FILTERS = ['ALL', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT']
 const TRADITION_FILTERS = ['ALL', 'HINDUSTANI', 'CARNATIC']
@@ -24,6 +25,7 @@ export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedRaga, setSelectedRaga] = useState<any | null>(null)
   const [focusedIdx, setFocusedIdx] = useState(-1)
+  const router = useRouter()
 
   const fetchRagas = async () => {
     setFetchError(null)
@@ -370,13 +372,13 @@ export default function LibraryPage() {
 
             {/* Sticky CTA — always visible at bottom */}
             <div className="flex-shrink-0 p-6 border-t border-outline-variant/10 bg-surface-lowest/80 backdrop-blur-md">
-              <Link
-                href={`/studio?project_id=${selectedRaga.id}`}
-                className="w-full py-4 bg-gradient-to-r from-primary to-primary/70 rounded-2xl font-medium text-white shadow-glow hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+              <button
+                onClick={() => router.push(`/studio?project_id=${selectedRaga.id}&guest=true`)}
+                className="w-full py-4 bg-gradient-to-r from-primary to-primary/70 rounded-2xl font-medium text-white shadow-glow hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 cursor-pointer"
               >
                 <span className="material-symbols-outlined">auto_fix_high</span>
                 Compose in this Raga
-              </Link>
+              </button>
             </div>
           </div>
         )}

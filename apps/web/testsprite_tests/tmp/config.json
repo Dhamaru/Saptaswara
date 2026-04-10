@@ -1,7 +1,18 @@
 {
-  "status": "init",
-  "scope": "codebase",
+  "status": "commited",
   "type": "frontend",
-  "localEndpoint": "http://localhost:3000/",
-  "serverPort": 45469
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "web",
+    "projectPath": "/home/dhamarunath/Desktop/Saptaswara/apps/web",
+    "testIds": [],
+    "additionalInstruction": "Use credentials kasivasi2005@gmail.com / D@mbro123 for all login and signup flows. Test the Studio page functionality including instrument switching, raga selection, AI assistant chat, and audio playback initialization.",
+    "serverMode": "development",
+    "envs": {
+      "API_KEY": "sk-user-a81bxGDFpPNc8C1Ma1oXY9YNloPDopagPqPziz5QFOcAOL3bemIhtGiqnRRWISSlXOFaJqt6WMjEgWa8WzcrOZ7bdZsyG9erIRu4KfJAS_oGoTmEvlyeoNYWx8LsngeTMnE"
+    }
+  },
+  "serverPort": 39245,
+  "proxy": "http://1c9b410a-c77a-412f-9923-30359b7c15e2:U4FI9T01XKafwhBY2HdyXHsspLwZFrVx@tun.testsprite.com:8080"
 }
