@@ -428,7 +428,7 @@ export class AudioEngine {
     
     // Create the cyclical sequence (Pa - Sa - Sa - Sa_low)
     // We update the 'substance' (frequencies) in toggleDrone
-    this.tamburaSeq = new Tone.Sequence((time, freq) => {
+    this.tamburaSeq = new Tone.Sequence<number>((time, freq) => {
       if (this.droneType === 'am' && this.drone) {
         (this.drone as Tone.PolySynth).triggerAttackRelease(freq, '2n', time)
       }
