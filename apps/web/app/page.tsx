@@ -112,18 +112,18 @@ export default function LandingPage() {
       </div>
 
       {/* Performance Statistics Row */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-3 gap-3 md:gap-8 mb-16 md:mb-32 opacity-80 px-4">
-         <div className="flex flex-col gap-1 p-4 md:p-8 rounded-2xl md:rounded-3xl bg-surface-container-lowest/20 border border-outline-variant/5">
-            <span className="font-mono text-[8px] md:text-[9px] uppercase tracking-widest text-on-surface-variant/60">Sample Rate</span>
-            <span className="font-display text-xl md:text-3xl font-light text-on-surface">96.0 khz</span>
+      <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-3 gap-2 md:gap-8 mb-16 md:mb-32 opacity-80 px-4">
+         <div className="flex flex-col gap-1 p-3 md:p-8 rounded-xl md:rounded-3xl bg-surface-container-lowest/20 border border-outline-variant/5">
+            <span className="font-mono text-[7px] md:text-[9px] uppercase tracking-widest text-on-surface-variant/60 truncate">Sample Rate</span>
+            <span className="font-display text-sm sm:text-xl md:text-3xl font-light text-on-surface">96 khz</span>
          </div>
-         <div className="flex flex-col gap-1 p-4 md:p-8 rounded-2xl md:rounded-3xl bg-surface-container-lowest/20 border border-outline-variant/5">
-            <span className="font-mono text-[8px] md:text-[9px] uppercase tracking-widest text-on-surface-variant/60">Logic Engine</span>
-            <span className="font-display text-xl md:text-3xl font-light text-on-surface">L-S1.0</span>
+         <div className="flex flex-col gap-1 p-3 md:p-8 rounded-xl md:rounded-3xl bg-surface-container-lowest/20 border border-outline-variant/5">
+            <span className="font-mono text-[7px] md:text-[9px] uppercase tracking-widest text-on-surface-variant/60 truncate">Engine</span>
+            <span className="font-display text-sm sm:text-xl md:text-3xl font-light text-on-surface">L-S1.0</span>
          </div>
-         <div className="flex flex-col gap-1 p-4 md:p-8 rounded-2xl md:rounded-3xl bg-surface-container-lowest/20 border border-outline-variant/5">
-            <span className="font-mono text-[8px] md:text-[9px] uppercase tracking-widest text-on-surface-variant/60">Latency</span>
-            <span className="font-display text-xl md:text-3xl font-light text-on-surface">24 ms</span>
+         <div className="flex flex-col gap-1 p-3 md:p-8 rounded-xl md:rounded-3xl bg-surface-container-lowest/20 border border-outline-variant/5">
+            <span className="font-mono text-[7px] md:text-[9px] uppercase tracking-widest text-on-surface-variant/60 truncate">Latency</span>
+            <span className="font-display text-sm sm:text-xl md:text-3xl font-light text-on-surface">24 ms</span>
          </div>
       </div>
     </div>

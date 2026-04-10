@@ -50,8 +50,15 @@
     @apply bg-outline-variant/20 rounded-full hover:bg-outline-variant/40 transition-colors;
   }
 
-  .scroller-none::-webkit-scrollbar {
+  .scroller-none::-webkit-scrollbar,
+  .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Also hide scrollbar via standard property */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 }
 

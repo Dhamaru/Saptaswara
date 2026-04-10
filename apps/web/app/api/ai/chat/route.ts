@@ -110,15 +110,19 @@ export async function POST(req: Request) {
     ].filter(Boolean).join('\n')
 
     const model = genAI.getGenerativeModel({
-      model: 'models/gemini-2.0-flash',
+      model: 'gemini-1.5-flash',
       systemInstruction: systemContext,
     })
 
     // Build proper multi-turn history (all but last message)
-    const history = messages.slice(0, -1).map((m: any) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }))
+    // Filter out empty-content messages (streaming artifacts) to avoid API errors
+    const history = messages
+      .slice(0, -1)
+      .filter((m: any) => m.content && m.content.trim().length > 0)
+      .map((m: any) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      }))
 
     const chat = model.startChat({ history })
     const result = await chat.sendMessageStream(lastUserMessage)

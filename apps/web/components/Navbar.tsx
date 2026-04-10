@@ -124,7 +124,7 @@ export default function Navbar() {
     {/* Mobile nav drawer */}
     {mobileMenuOpen && (
       <div className="fixed inset-0 z-[99] pt-16 bg-surface-lowest/95 backdrop-blur-xl md:hidden flex flex-col">
-        <div className="flex flex-col p-6 gap-2">
+        <div className="flex flex-col px-4 py-6 gap-2">
           {navLinks.map((link) => (
             <Link
               key={link.href}

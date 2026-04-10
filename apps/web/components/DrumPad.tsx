@@ -149,8 +149,13 @@ export default function DrumPad({ onStroke, keyboardActive = true }: DrumPadProp
         </div>
       </div>
 
-      {/* Pad grid */}
-      <div className={cn('grid gap-3', instrument === 'tabla' ? 'grid-cols-4' : 'grid-cols-4')}>
+      {/* Pad grid — tabla: 7 pads scroll on mobile; mridangam: 4 pads fit cleanly */}
+      <div className={cn(
+        'grid gap-2 md:gap-3',
+        instrument === 'tabla'
+          ? 'grid-cols-4 md:grid-cols-7'
+          : 'grid-cols-2 sm:grid-cols-4'
+      )}>
         {strokes.map(def => (
           <Pad
             key={def.label}

@@ -566,8 +566,7 @@ export class AudioEngine {
         min: -depth,   // dips below
         max: depth * 0.3, // rises only slightly above
       })
-      lfo.connect(synth.detune)
-      // Convert semitone offset to cents
+      // Scale semitone offset → cents (×100) before connecting to detune
       const lfoScaled = new Tone.Multiply(100)
       lfo.connect(lfoScaled)
       lfoScaled.connect(synth.detune)

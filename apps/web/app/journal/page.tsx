@@ -160,7 +160,7 @@ export default function JournalPage() {
   }, [timePeriod])
 
   return (
-    <div className="min-h-screen bg-surface-lowest flex flex-col pt-20 overflow-x-hidden">
+    <div className="min-h-screen bg-surface-lowest flex flex-col overflow-x-hidden">
       <Navbar />
       
       <main className="flex-1 max-w-6xl mx-auto w-full p-6 md:p-12 space-y-16">
