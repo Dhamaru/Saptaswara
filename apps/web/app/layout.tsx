@@ -5,6 +5,8 @@ import Navbar from '@/components/Navbar'
 import AuthListener from '@/components/AuthListener'
 import { PlaybackProvider } from '@/context/PlaybackContext'
 import { ToastProvider } from '@/components/Toast'
+import { GlobalAssistantProvider } from '@/context/GlobalAssistantContext'
+import { GlobalAssistant } from '@/components/GlobalAssistant'
 
 const manrope = Manrope({ 
   subsets: ['latin'],
@@ -49,6 +51,7 @@ export default function RootLayout({
       </head>
       <body className={`${manrope.variable} ${dmSans.variable} ${dmMono.variable} ${spaceGrotesk.variable} font-sans bg-background text-on-surface min-h-screen selection:bg-primary/30 antialiased`}>
         <PlaybackProvider>
+          <GlobalAssistantProvider>
           <AuthListener />
           <ToastProvider>
           {/* Ambient Background Elements */}
@@ -63,7 +66,9 @@ export default function RootLayout({
           <main className="relative z-10 pt-16 md:pt-20">
             {children}
           </main>
+          <GlobalAssistant />
           </ToastProvider>
+          </GlobalAssistantProvider>
         </PlaybackProvider>
       </body>
     </html>

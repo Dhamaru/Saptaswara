@@ -5,6 +5,7 @@ import RagaCard from '@/components/RagaCard'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
 
 const TIME_FILTERS = ['ALL', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT']
 const TRADITION_FILTERS = ['ALL', 'HINDUSTANI', 'CARNATIC']
@@ -26,6 +27,12 @@ export default function LibraryPage() {
   const [selectedRaga, setSelectedRaga] = useState<any | null>(null)
   const [focusedIdx, setFocusedIdx] = useState(-1)
   const router = useRouter()
+  const { setRagaContext, openAssistant } = useGlobalAssistant()
+
+  // Keep GlobalAssistant context in sync with the selected raga
+  useEffect(() => {
+    setRagaContext(selectedRaga ?? null)
+  }, [selectedRaga, setRagaContext])
 
   const fetchRagas = async () => {
     setFetchError(null)
@@ -371,7 +378,15 @@ export default function LibraryPage() {
             </div>
 
             {/* Sticky CTA — always visible at bottom */}
-            <div className="flex-shrink-0 p-6 border-t border-outline-variant/10 bg-surface-lowest/80 backdrop-blur-md">
+            <div className="flex-shrink-0 p-6 border-t border-outline-variant/10 bg-surface-lowest/80 backdrop-blur-md space-y-3">
+              {/* Ask AI about this raga */}
+              <button
+                onClick={() => openAssistant(selectedRaga)}
+                className="w-full py-3 bg-primary/10 border border-primary/25 rounded-2xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined !text-base">auto_awesome</span>
+                Ask AI about {selectedRaga.name}
+              </button>
               <button
                 onClick={() => router.push(`/studio?project_id=${selectedRaga.id}&guest=true`)}
                 className="w-full py-4 bg-gradient-to-r from-primary to-primary/70 rounded-2xl font-medium text-white shadow-glow hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 cursor-pointer"
