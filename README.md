@@ -1,23 +1,37 @@
-# Saptaswara
+# Saptaswara — Neural Resonance Studio
 
-## What is Saptaswara
-A raga-guided music creation platform where users create compositions using a virtual keyboard, drum pad, and voice recorder — all guided by the structure of Indian classical ragas.
+## What is Saptaswara?
+Saptaswara is a next-generation raga-guided music creation platform. It allows users to compose, practice, and explore Indian classical ragas using high-fidelity virtual instruments, an intelligent percussion engine, and a RAG-powered AI assistant.
 
-## Project structure
-- `tools/`: Data collection, structuring, validation, and RAG builder utilities.
-- `packages/core/`: Shared raga engine, audio interfaces, and state stores.
-- `backend/supabase/`: Database migrations, schema, and seed scripts.
-- `apps/web/`: Next.js 14 web application for music creation.
-- `apps/mobile/`: Expo SDK 51 mobile application for on-the-go creation.
+## Core Features
+- **Neural Studio**: A multi-track sequencer with scale-locking enforced by raga grammar.
+- **Authentic Synthesis**: Physical modeling of Hindustani (Sitar, Sarangi) and Carnatic (Veena, Bansuri) instruments.
+- **Global Assistant**: A context-aware AI floating widget that travels with you across the platform.
+- **Raga Library**: Semantic search for 120+ verified ragas with mood and prahar (time) metadata.
+- **Studio Percussion**: Specialized Tabla and Mridangam pads with authentic stroke synthesis.
 
-## Build order
-- Phase 1: Data collection and catalogue structuring.
-- Phase 2: Core raga engine and audio interface development.
-- Phase 3: Supabase backend and authentication setup.
-- Phase 4: Web application workspace and raga browser.
-- Phase 5: Mobile application development and feature parity.
+## Project Structure
+- `tools/`: Data pipeline (Scraper, Structurer, Validator, RAG Builder).
+- `packages/core/`: Shared raga logic, types, and detection engine.
+- `backend/supabase/`: SQL migrations and RLS security model.
+- `apps/web/`: **Next.js 16** web application (App Router, Proxy networking).
+- `apps/mobile/`: Expo SDK 51 mobile application scaffold.
 
-## Getting started
+## Technology Stack
+- **Frontend**: Next.js 16, React, Tailwind CSS, Tone.js.
+- **Backend/Auth**: Supabase (PostgreSQL + pgvector).
+- **AI**: Gemini Pro (Streaming Chat), Gemini Embedding (Semantic Retrieval).
+- **Networking**: Next.js 16 Proxy standard for secure session routing.
+
+## Build Order
+- [x] **Phase 1**: Data collection and deterministic catalogue structuring.
+- [x] **Phase 2**: Core raga engine and high-fidelity audio interfaces.
+- [x] **Phase 3**: Supabase backend integration and RLS security.
+- [x] **Phase 4**: Web workspace, Raga browser, and Studio stabilization.
+- [/] **Phase 5**: Mobile parity and performance optimization (Current).
+
+## Getting Started
 1. Clone the repository.
-2. Copy `.env.example` to `.env`.
-3. Fill in the required API keys.
+2. Initialize workspaces: `npm install`.
+3. Copy `.env.example` to `apps/web/.env.local`.
+4. Run development server: `npm run dev`.

@@ -18,28 +18,28 @@ The system uses MD3-inspired tokens for a high-end dark studio mode.
 | **Void Indigo** | `#131315` | `surface` — Default workspace background. |
 | **Studio Primary** | `#c3c0ff` | `primary` — Main actions, active notes, highlights. |
 | **Deep Resonance** | `#4338ca` | `primary-container` — Selection backgrounds, heavy buttons. |
-| **Teal Stroke** | `#84d6b9` | `secondary` — Secondary accents, rhythm indicators. |
-| **Terracotta Warmth** | `#ffb59e` | `tertiary` — Meticulous highlights, mood-specific accents. |
-| **Silver Text** | `#e5e1e4` | `on-surface` — Main readable text. |
-| **Muted Slate** | `#c7c4d7` | `on-surface-variant` — Subtitles, descriptions. |
+| **Teal Stroke** | `#84d6b9` |Secondary accents, rhythm indicators. |
+| **Terracotta Warmth** | `#ffb59e` |Meticulous highlights, mood-specific accents. |
+| **Silver Text** | `#e5e1e4` |Main readable text. |
+| **Muted Slate** | `#c7c4d7` |Subtitles, descriptions. |
 
-## 3. Typography Rules
-A dialogue between modern sans accessibility and technical mono-spaced precision.
+## 3. Typography & Icons
+- **Display (Manrope)**: Thin, large headers (Display-Lg). Tight letter spacing.
+- **Technical (Space Grotesk)**: Labels, swara names (Sa, Re, Ga).
+- **Support (DM Mono)**: Metadata, BPM, Aroha/Avaroha sequences.
+- **Iconography**: Use **Material Symbols (Outlined)**. Stroke weight `200` for a professional, hairline look.
 
-- **Display (DM Sans/Manrope)**: Thin, large headers (Display-Lg). Tight letter spacing.
-- **Technical (Space Grotesk)**: Labels, swara names (Sa, Re, Ga), and technical choices.
-- **Support (DM Mono)**: Metadata, BPM, Aroha/Avaroha sequences. Mathematical precision.
+## 4. Interaction Principles (Micro-Resonance)
+*   **Double-Click to Move**: Floating widgets (like the AI Assistant) are moved via a double-click-to-active-drag gesture, ensuring they don't interfere with single-click interactions.
+*   **Rhythmic Flash**: DrumPads must provide immediate visual feedback with a **120ms** background flash on trigger.
+*   **BPM Pulse**: The transport rail features a subtle radial pulse synced precisely with the global BPM.
+*   **Scale Lock**: Melodic inputs (Piano) visually dim notes that are not in the current raga scale.
 
-## 4. Component Stylings
-*   **The "No-Line" Rule**: Strictly prohibit 1px solid borders. Use background color shifts (`surface-container-low` vs `surface`) to define regions.
-*   **Buttons**: Filled with gradient (Primary to Primary-Container). Radius: `xl` (12px).
-*   **Cards/Containers**: Modular bento-style with varying tonal depths. Ambient tinted shadows (opacity 6-10%).
-*   **Inputs**: Underline-only or "Ghost" style. Focus is a thick studio cursor.
-*   **Glassmorphism**: Use `backdrop-blur` (20-40px) for floating playback controllers.
+## 5. Component Stylings
+*   **Bento Containers**: Modular tonal depths (Obsidian to Indigo) define regions without using 1px borders.
+*   **Buttons**: Radius `xl` (12px), background transitions rather than hard state changes.
+*   **Glassmorphism**: Use `backdrop-blur` (30px) and `bg-white/5` for overlays and the transport rail.
 
-## 5. Layout Principles
-- **Atmospheric White Space**: Lean on large section margins (`20`, `24` in tailwind scale).
-- **The Playback Rail**: Fixed bottom bar housing transport controls, feeling "hardware-like" and separate from the canvas.
-
-## 6. Design System Notes for Stitch Generation
-When generating screens, use descriptors like: `"The Resonant Void atmosphere," "Editorial high-end studio," "Mono-spaced metadata vs thin display headers," "Tonal layering instead of borders."`
+## 6. Layout Principles
+- **Hardware Separation**: The bottom Playback Rail is conceptually separate hardware. It should always feel floating and isolated from the main canvas.
+- **Void Space**: Lean into negative space. If a region feels crowded, increase tonal contrast rather than adding more elements.

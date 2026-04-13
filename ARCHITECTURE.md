@@ -49,13 +49,13 @@ Saptaswara is a full-stack Indian classical music studio built on **Next.js 16.2
 | UI language | TypeScript + Tailwind CSS |
 | Audio playback | Tone.js + Web Audio API |
 | MIDI export | midi-writer-js |
-| Backend | Next.js API routes (route.ts) |
-| Auth | Supabase Auth (email + OAuth / Google) |
+| Backend | Next.js API routes (route.ts) + Proxy (proxy.ts) |
+| Auth | Supabase Auth + Proxy Session Handling |
 | Database | Supabase (PostgreSQL) + pgvector |
 | AI generation | Google Generative AI — gemini-flash-latest |
 | AI embeddings | Google Generative AI — gemini-embedding-001 (768-dim) |
 | Input validation | Zod on all POST endpoints |
-| Rate limiting | In-memory Map, 20 req / 60 s per user |
+| Rate limiting | In-memory Map with store eviction, 20 req / 60 s per user |
 
 ---
 
@@ -177,7 +177,8 @@ This ordering matters: the studio page can call both playback actions and trigge
 |---|---|
 | `Piano.tsx` | Renders an interactive piano keyboard; calls `AudioEngine.playSwara()` |
 | `DrumPad.tsx` | Renders a drum pad grid; calls `AudioEngine.playStroke()` |
-| `Assistant.tsx` | AI chat panel; opens an SSE connection to `POST /api/ai/chat` |
+| `Assistant.tsx` | Local Studio AI chat panel (streaming SSE) |
+| `GlobalAssistant.tsx` | Floating site-wide AI assistant with "Double-Click to Drag" persistence |
 | `Navbar.tsx` | Top navigation bar, auth state display |
 | `RagaCard.tsx` | Card component for displaying a raga in the library |
 | `Toast.tsx` | Toast notification UI consumed from ToastProvider |
@@ -250,11 +251,14 @@ dispose()          // disposes Tone.js nodes and resets _instance = null
 
 **Percussion stroke routing:**
 
-| Strokes | Drum |
-|---|---|
-| Na, Ti, Te | High drum — dayan (MembraneSynth, 300 Hz) |
-| Ge, Ka | Low drum — bayan (MembraneSynth, 80 Hz) |
-| Dha, Dhin | Both drums simultaneously |
+The percussion engine uses independent synthesis chains decoupled from the melodic tradition to ensure polyphonic clarity.
+
+| Strokes | Drum | Synthesis Target |
+|---|---|---|
+| Na, Ti, Te | High drum (Dayan) | MembraneSynth (300 Hz) |
+| Ge, Ka | Low drum (Bayan) | MembraneSynth (80 Hz) |
+| Dha, Dhin | Both drums | Simultaneous trigger |
+| Chappu (Mridangam) | Rim stroke | MetalSynth (600 Hz resonance) |
 
 **Key public API:**
 
