@@ -480,11 +480,13 @@ export class AudioEngine {
         pitchDecay: 0.08, octaves: 4,
         envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 },
       }).connect(this.masterOutput)
+      this.percLow.volume.value = -2 // Boosted
 
       this.percHigh = new Tone.MembraneSynth({
         pitchDecay: 0.05, octaves: 2,
         envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.05 },
       }).connect(this.masterOutput)
+      this.percHigh.volume.value = -4 // Boosted
       this.percHighType     = 'membrane'
       this.percussionType   = 'tabla'
     } else {
@@ -493,12 +495,14 @@ export class AudioEngine {
         pitchDecay: 0.1, octaves: 5,
         envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.15 },
       }).connect(this.masterOutput)
+      this.percLow.volume.value = -2 // Boosted
 
       this.percHigh = new Tone.MetalSynth({
         harmonicity: 5.1,
         modulationIndex: 32, resonance: 4000, octaves: 1.5,
         envelope: { attack: 0.001, decay: 0.1, release: 0.1 },
       }).connect(this.masterOutput)
+      this.percHigh.volume.value = -6 // Boosted
       this.percHighType     = 'metal'
       this.percussionType   = 'mridangam'
     }
@@ -703,19 +707,26 @@ export class AudioEngine {
 
     // New-style percussion (MembraneSynth / MetalSynth)
     if (this.percLow || this.percHigh) {
-      const strokeMap = this._tradition === 'hindustani' ? TABLA_STROKES : MRIDANGAM_STROKES
+      // BUGFIX: Use this.percussionType explicitly instead of global _tradition
+      // This allows Tabla to work even if the Melody is in a Carnatic Raga.
+      const isTabla   = this.percussionType === 'tabla'
+      const strokeMap = isTabla ? TABLA_STROKES : MRIDANGAM_STROKES
       const drumType  = strokeMap[stroke]
+      
+      console.log(`AudioEngine: playStroke('${stroke}') -> type: ${drumType} (perc: ${this.percussionType})`)
+      
       if (!drumType) return
 
       if (drumType === 'low' || drumType === 'both') {
-        const freq = this._tradition === 'hindustani' ? 80 : 100
+        const freq = isTabla ? 85 : 110 // Tuned frequencies
         this.percLow?.triggerAttackRelease(freq, '16n')
       }
       if (drumType === 'high' || drumType === 'both') {
         if (this.percHighType === 'metal') {
-          (this.percHigh as Tone.MetalSynth).triggerAttackRelease('16n', Tone.now())
+          // Mridangam high requires a frequency for triggerAttackRelease to be audible
+          (this.percHigh as Tone.MetalSynth).triggerAttackRelease(600, '16n')
         } else {
-          const freq = this._tradition === 'hindustani' ? 300 : 400
+          const freq = isTabla ? 320 : 440
           ;(this.percHigh as Tone.MembraneSynth).triggerAttackRelease(freq, '16n')
         }
       }
