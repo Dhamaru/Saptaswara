@@ -193,7 +193,7 @@ export default function LibraryPage() {
 
           {/* Raga grid */}
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-8">
               {[0, 1, 2, 3, 4, 5].map(i => (
                 <div
                   key={i}
@@ -242,7 +242,7 @@ export default function LibraryPage() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-8">
               {filteredRagas.map((raga, idx) => (
                 <div
                   key={raga.id}

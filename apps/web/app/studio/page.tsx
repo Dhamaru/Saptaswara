@@ -873,7 +873,7 @@ function StudioContent() {
             {showAddTrack && (
               <div className="mb-4 p-4 rounded-2xl bg-surface-container-low/50 border border-outline-variant/10">
                 <p className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 mb-3">Choose track type</p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {(Object.keys(TRACK_META) as TrackType[]).map(type => {
                     const meta = TRACK_META[type]
                     const c = colors(meta.colorIdx)

@@ -160,7 +160,17 @@ export function GlobalAssistant() {
     <>
       {/* ── Chat panel ── */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[380px] max-h-[560px] flex flex-col rounded-[28px] bg-surface border border-outline-variant/15 shadow-2xl animate-slide-up overflow-hidden">
+        <>
+          {/* Mobile backdrop */}
+          <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" onClick={closeAssistant} />
+        </>
+      )}
+      {isOpen && (
+        <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col md:inset-auto md:bottom-6 md:right-6 md:w-[380px] max-h-[85dvh] md:max-h-[560px] rounded-t-[28px] md:rounded-[28px] bg-surface border border-outline-variant/15 shadow-2xl animate-slide-up overflow-hidden">
+          {/* Mobile drag handle */}
+          <div className="flex justify-center pt-3 pb-1 md:hidden flex-shrink-0">
+            <div className="w-10 h-1 rounded-full bg-outline-variant/30" />
+          </div>
 
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/10 bg-surface-container-low/50 flex-shrink-0">

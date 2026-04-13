@@ -54,18 +54,18 @@ export default function Dashboard() {
 
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-12">
         {/* Header */}
-        <header className="flex justify-between items-end mb-14">
+        <header className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-6 mb-14">
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 glass-gold rounded-full px-4 py-1.5 text-xs font-semibold text-primary-light uppercase tracking-wider">
               <Sparkles className="w-3 h-3" />
               {projects.length} Project{projects.length !== 1 ? 's' : ''}
             </div>
-            <h1 className="text-5xl font-black text-gradient-subtle tracking-tight">My Studio</h1>
+            <h1 className="text-4xl sm:text-5xl font-black text-gradient-subtle tracking-tight">My Studio</h1>
             <p className="text-white/30">Your saved raga compositions and musical ideas.</p>
           </div>
           <Link
             href="/studio"
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary flex items-center gap-2 self-start sm:self-auto"
           >
             <Plus className="w-5 h-5" />
             New Composition
