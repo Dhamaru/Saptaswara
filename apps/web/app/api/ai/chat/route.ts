@@ -107,16 +107,10 @@ export async function POST(req: Request) {
     )
     const { data: userData, error: authError } = await authClient.auth.getUser(token)
     
-    let activeUser = userData?.user
-    
+    const activeUser = userData?.user
+
     if (authError || !activeUser) {
-      // Guest bypass for development/testing
-      const isGuestBypass = req.headers.get('x-guest-auth') === 'true' && process.env.NODE_ENV === 'development'
-      if (isGuestBypass) {
-        activeUser = { id: 'guest-user', email: 'guest@saptaswara.ai' } as any
-      } else {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     if (activeUser && !checkRateLimit(activeUser.id)) {

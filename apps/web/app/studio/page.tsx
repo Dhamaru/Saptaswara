@@ -202,7 +202,7 @@ function StudioContent() {
     if (historyRef.current.length === 0) return
     const prev = historyRef.current[historyRef.current.length - 1]
     historyRef.current = historyRef.current.slice(0, -1)
-    redoRef.current = [...redoRef.current, tracks.map(t => ({ ...t, sequence: [...t.sequence] }))]
+    redoRef.current = [...redoRef.current.slice(-19), tracks.map(t => ({ ...t, sequence: [...t.sequence] }))]
     setTracks(prev)
   }, [tracks])
 
