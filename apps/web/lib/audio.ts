@@ -41,7 +41,7 @@ export class AudioEngine {
   // ── Legacy nodes (preserved so existing test indexes don't shift) ─────────
   private synth!: Tone.PolySynth
   private sampler!: Tone.Sampler
-  private percussion!: Tone.PolySynth
+  private percussion!: Tone.PolySynth | Tone.Sampler
   private percussionType: 'tabla' | 'mridangam' = 'tabla'
   private drone: Tone.PolySynth | Tone.AMSynth | null = null
   private droneType: 'poly' | 'am' = 'poly'
@@ -49,6 +49,16 @@ export class AudioEngine {
   private tamburaSeq: Tone.Sequence | null = null
   private isLoading = true
   private recorder = new Tone.Recorder()
+  private meter = new Tone.Meter()
+  
+  // ── Metronome state ───────────────────────────────────────────────────────
+  private clickSynth: Tone.MembraneSynth | null = null
+  private metronomeEventId: number | null = null
+  private _metronomeActive = false
+
+  // ── Mastering Chain members ───────────────────────────────────────────────
+  private limiter: Tone.Limiter | null = null
+  private masterEQ: Tone.EQ3 | null = null
 
   // ── TimbreEngine fields (new) ─────────────────────────────────────────────
   private timbreGain: Tone.Volume | null = null
@@ -62,6 +72,7 @@ export class AudioEngine {
   private percLow: Tone.MembraneSynth | null = null
   private percHigh: Tone.MetalSynth | Tone.MembraneSynth | null = null
   private percHighType: 'metal' | 'membrane' = 'membrane'
+  private masterOutput!: Tone.Gain
 
   // ── State ─────────────────────────────────────────────────────────────────
   public isStarted = false
@@ -79,13 +90,34 @@ export class AudioEngine {
   private async ensureInitialized() {
     if (this.synth) return // Already initialized
 
+    // ── Master Output ───────────────────────────────────────────────────────
+    this.masterOutput = new Tone.Gain(1)
+    this.masterOutput.toDestination()
+    
+    // Connect metering + recording
+    this.masterOutput.connect(this.recorder)
+    this.masterOutput.connect(this.meter)
+
+    // Mastering chain
+    this.limiter = new Tone.Limiter(-1).connect(this.masterOutput)
+    this.masterEQ = new Tone.EQ3(0, 0, 0).connect(this.limiter)
+
+    // Metronome synth
+    this.clickSynth = new Tone.MembraneSynth({
+      pitchDecay: 0.05,
+      octaves: 2,
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+    }).connect(this.masterOutput)
+    this.clickSynth.volume.value = -12
+
     Tone.Destination.volume.value = 5
 
     // polySynths[0] — melody fallback
     this.synth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: 'sine' },
       envelope: { attack: 0.1, decay: 0.2, sustain: 0.8, release: 1.5 },
-    }).toDestination()
+    }).connect(this.masterOutput)
 
     const urls: Record<string, string> = {}
     SAMPLE_NOTES.forEach(n => { urls[n.replace('s', '#')] = `${n}.mp3` })
@@ -94,18 +126,17 @@ export class AudioEngine {
       baseUrl: SAMPLES_URL,
       onload: () => { this.isLoading = false },
       onerror: () => { this.isLoading = false },
-    }).toDestination()
+    }).connect(this.masterOutput)
 
     // polySynths[1] — legacy percussion fallback
     this.initPercussion()
   }
 
   private initPercussion() {
-    this.percussion = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'sine' },
-      envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 },
-    }).toDestination()
-    this.percussion.connect(this.recorder)
+    this.percussion = new Tone.Sampler({
+      urls: { C4: 'drum.mp3' },
+      baseUrl: 'https://tonejs.github.io/audio/drum-samples/handclap/',
+    }).connect(this.masterOutput)
   }
 
   // ── Start ─────────────────────────────────────────────────────────────────
@@ -122,14 +153,12 @@ export class AudioEngine {
       this.drone = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'sawtooth4' },
         envelope: { attack: 2, release: 2 },
-      }).toDestination()
+      }).connect(this.masterOutput)
       this.drone.set({ volume: -25 })
-      this.drone.connect(this.recorder)
 
       // TimbreEngine gain bus — build default timbre immediately so sound is audible
       this.timbreGain = new Tone.Volume(0)
-      this.timbreGain.toDestination()
-      this.timbreGain.connect(this.recorder)
+      this.timbreGain.connect(this.masterOutput)
 
       const built = this.buildTimbreNode(this._instrument, this.timbreGain)
       this.timbreNode    = built.node
@@ -164,8 +193,7 @@ export class AudioEngine {
 
     // New gain bus starts silent; becomes audible after crossfade
     const newGain = new Tone.Volume(-120)
-    newGain.toDestination()
-    newGain.connect(this.recorder)
+    newGain.connect(this.masterOutput)
 
     // Build new node synchronously — test assertions work immediately
     const built = this.buildTimbreNode(instrument, newGain)
@@ -201,9 +229,8 @@ export class AudioEngine {
       this.drone = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'sawtooth4' },
         envelope: { attack: 2, release: 2 },
-      }).toDestination()
+      }).connect(this.masterOutput)
       this.drone.set({ volume: -25 })
-      this.drone.connect(this.recorder)
     }
   }
 
@@ -221,16 +248,28 @@ export class AudioEngine {
       // ── Western ───────────────────────────────────────────────────────────
 
       case 'piano': {
-        const piano = new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'triangle' },
-          envelope: { attack: 0.005, decay: 0.25, sustain: 0.15, release: 0.7 },
+        // Salamander Grand Piano samples — real recordings, vastly better than synthesis
+        const sampler = new Tone.Sampler({
+          urls: {
+            A0: 'A0.mp3',  C1: 'C1.mp3',  'D#1': 'Ds1.mp3', 'F#1': 'Fs1.mp3',
+            A1: 'A1.mp3',  C2: 'C2.mp3',  'D#2': 'Ds2.mp3', 'F#2': 'Fs2.mp3',
+            A2: 'A2.mp3',  C3: 'C3.mp3',  'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3',
+            A3: 'A3.mp3',  C4: 'C4.mp3',  'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3',
+            A4: 'A4.mp3',  C5: 'C5.mp3',  'D#5': 'Ds5.mp3', 'F#5': 'Fs5.mp3',
+            A5: 'A5.mp3',  C6: 'C6.mp3',  'D#6': 'Ds6.mp3', 'F#6': 'Fs6.mp3',
+            A7: 'A7.mp3',
+          },
+          baseUrl: SAMPLES_URL,
+          release: 1,
         })
-        piano.volume.value = -6
-        piano.connect(gain)
+        sampler.volume.value = -6
+        sampler.connect(gain)
         return {
-          node: piano,
+          node: sampler,
           aux: [],
-          playFn: (f, d, t, v) => piano.triggerAttackRelease(f, d, t, v),
+          playFn: (f, d, t, v) => {
+            if (sampler.loaded) sampler.triggerAttackRelease(f, d, t, v)
+          },
         }
       }
 
@@ -313,24 +352,39 @@ export class AudioEngine {
       // ── Hindustani ────────────────────────────────────────────────────────
 
       case 'harmonium': {
-        // Two sawtooth Synths, second detuned +8 cents for reed chorus
-        const primary = new Tone.Synth({
-          oscillator: { type: 'sawtooth' },
-          envelope: { attack: 0.04, decay: 0.1, sustain: 0.8, release: 0.5 },
-        } as any)
-        const chorus = new Tone.Synth({
-          oscillator: { type: 'sawtooth' },
-          envelope: { attack: 0.04, decay: 0.1, sustain: 0.8, release: 0.5 },
-        } as any)
-        chorus.detune.value = 8
-        primary.connect(gain)
-        chorus.connect(gain)
+        // Four slightly-detuned sawtooth oscillators simulate the harmonium reed bank
+        // Each physical reed has its own tuning variance — this models that naturally
+        const makePipe = (detuneCents: number, vol: number) => {
+          const s = new Tone.Synth({
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.06, decay: 0.05, sustain: 0.88, release: 0.6 },
+          } as any)
+          s.detune.value = detuneCents
+          s.volume.value = vol
+          return s
+        }
+        const p1 = makePipe(0,   -4)
+        const p2 = makePipe(7,   -8)   // +7 cents — natural reed spread
+        const p3 = makePipe(-5,  -9)   // -5 cents — opposing reed
+        const p4 = makePipe(12,  -14)  // soft octave presence
+
+        // Warm low-pass filter — harmoniums are naturally warm, not bright
+        const lpf = new Tone.Filter({ frequency: 3200, type: 'lowpass', rolloff: -12 })
+        // Light chorus for the air-bellows movement texture
+        const air = new Tone.Chorus({ frequency: 1.4, delayTime: 1.8, depth: 0.2, wet: 0.15 })
+
+        ;[p1, p2, p3, p4].forEach(p => p.connect(lpf))
+        lpf.connect(air)
+        air.connect(gain)
+
         return {
-          node: primary,
-          aux: [chorus],
+          node: p1,
+          aux: [p2, p3, p4, lpf, air],
           playFn: (f, d, t, v) => {
-            primary.triggerAttackRelease(f, d, t, v)
-            chorus.triggerAttackRelease(f, d, t, v)
+            p1.triggerAttackRelease(f, d, t, v)
+            p2.triggerAttackRelease(f, d, t, v)
+            p3.triggerAttackRelease(f, d, t, v)
+            p4.triggerAttackRelease(f, d, t, v)
           },
         }
       }
@@ -360,19 +414,43 @@ export class AudioEngine {
       }
 
       case 'sitar': {
-        // PolySynth with sharp attack + Chorus shimmer for sympathetic string texture
-        const sitarSynth = new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'sawtooth2' },
-          envelope: { attack: 0.005, decay: 0.5, sustain: 0.2, release: 0.7 },
+        // Main string: FMSynth captures the characteristic buzz (jawari) of the sitar bridge
+        const string = new Tone.FMSynth({
+          harmonicity: 1,
+          modulationIndex: 6,
+          oscillator: { type: 'sawtooth' } as any,
+          envelope: { attack: 0.002, decay: 0.6, sustain: 0.1, release: 1.2 },
+          modulation: { type: 'square' } as any,
+          modulationEnvelope: { attack: 0.002, decay: 0.3, sustain: 0, release: 0.5 },
         })
-        const chorus = new Tone.Chorus({ frequency: 2.5, delayTime: 3.5, depth: 0.4, wet: 0.3 })
-        sitarSynth.volume.value = 2
-        sitarSynth.connect(chorus)
-        chorus.connect(gain)
+        string.volume.value = 2
+
+        // Sympathetic strings: very soft high-passed noise burst on attack
+        const sympNoise = new Tone.NoiseSynth({
+          noise: { type: 'brown' },
+          envelope: { attack: 0.001, decay: 0.12, sustain: 0, release: 0.05 },
+        })
+        sympNoise.volume.value = -28
+        const hpf = new Tone.Filter({ frequency: 1800, type: 'highpass' })
+        sympNoise.connect(hpf)
+
+        // Reverb simulates instrument body + resonance chamber
+        const body = new Tone.Freeverb({ roomSize: 0.35, dampening: 5500, wet: 0.2 })
+        // Chorus for the shimmer of the taraf (resonant) strings
+        const shimmer = new Tone.Chorus({ frequency: 3, delayTime: 2.5, depth: 0.35, wet: 0.25 })
+
+        string.connect(shimmer)
+        shimmer.connect(body)
+        hpf.connect(body)
+        body.connect(gain)
+
         return {
-          node: sitarSynth,
-          aux: [chorus],
-          playFn: (f, d, t, v) => sitarSynth.triggerAttackRelease(f, d ?? '4n', t, v),
+          node: string,
+          aux: [sympNoise, hpf, shimmer, body],
+          playFn: (f, d, t, v) => {
+            string.triggerAttackRelease(f, d ?? '4n', t, v)
+            sympNoise.triggerAttackRelease(d ?? '4n', t, v)
+          },
         }
       }
 
@@ -401,14 +479,12 @@ export class AudioEngine {
       this.percLow = new Tone.MembraneSynth({
         pitchDecay: 0.08, octaves: 4,
         envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 },
-      }).toDestination()
-      this.percLow.connect(this.recorder)
+      }).connect(this.masterOutput)
 
       this.percHigh = new Tone.MembraneSynth({
         pitchDecay: 0.05, octaves: 2,
         envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.05 },
-      }).toDestination()
-      this.percHigh.connect(this.recorder)
+      }).connect(this.masterOutput)
       this.percHighType     = 'membrane'
       this.percussionType   = 'tabla'
     } else {
@@ -416,15 +492,13 @@ export class AudioEngine {
       this.percLow = new Tone.MembraneSynth({
         pitchDecay: 0.1, octaves: 5,
         envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.15 },
-      }).toDestination()
-      this.percLow.connect(this.recorder)
+      }).connect(this.masterOutput)
 
       this.percHigh = new Tone.MetalSynth({
         harmonicity: 5.1,
         modulationIndex: 32, resonance: 4000, octaves: 1.5,
         envelope: { attack: 0.001, decay: 0.1, release: 0.1 },
-      }).toDestination()
-      this.percHigh.connect(this.recorder)
+      }).connect(this.masterOutput)
       this.percHighType     = 'metal'
       this.percussionType   = 'mridangam'
     }
@@ -443,10 +517,9 @@ export class AudioEngine {
       envelope: { attack: 0.02, decay: 4, sustain: 0.05, release: 2 },
       modulation: { type: 'sawtooth' },
       modulationEnvelope: { attack: 0.1, decay: 1, sustain: 1, release: 0.5 },
-    }).toDestination()
+    }).connect(this.masterOutput)
     
     amb.set({ volume: -24 })
-    amb.connect(this.recorder)
     this.drone     = amb
     this.droneType = 'am'
     
@@ -726,17 +799,28 @@ export class AudioEngine {
 
   // ── Recording ─────────────────────────────────────────────────────────────
   async startRecording() {
-    if (!this.isStarted) return
-    this.recorder.start()
+    if (!this.isStarted || this.recorder.state === 'started') return
+    try {
+      this.recorder.start()
+    } catch (e) {
+      console.error('Failed to start recording:', e)
+    }
   }
 
   async stopRecording() {
-    const recording = await this.recorder.stop()
-    const url    = URL.createObjectURL(recording)
-    const anchor = document.createElement('a')
-    anchor.download = `Saptaswara_Composition_${Date.now()}.webm`
-    anchor.href = url
-    anchor.click()
+    if (this.recorder.state !== 'started') return
+    try {
+      const recording = await this.recorder.stop()
+      const url    = URL.createObjectURL(recording)
+      const anchor = document.createElement('a')
+      anchor.download = `Saptaswara_Composition_${Date.now()}.webm`
+      anchor.href = url
+      anchor.click()
+      // Cleanup URL after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch (e) {
+      console.error('Failed to stop recording:', e)
+    }
   }
 
   // ── Aroha / Avaroha sequence ──────────────────────────────────────────────
@@ -785,6 +869,11 @@ export class AudioEngine {
     try { this.percLow?.dispose() } catch { /* ignore */ }
     try { this.percHigh?.dispose() } catch { /* ignore */ }
     try { (this.drone as any)?.dispose?.() } catch { /* ignore */ }
+    try { this.clickSynth?.dispose() } catch { /* ignore */ }
+    try { this.masterEQ?.dispose() } catch { /* ignore */ }
+    try { this.limiter?.dispose() } catch { /* ignore */ }
+    try { this.meter?.dispose() } catch { /* ignore */ }
+    try { this.masterOutput?.dispose() } catch { /* ignore */ }
     this.isStarted = false
     this.isSequencing = false
     // Reset singleton so getAudioEngine() creates a fresh instance next time
@@ -804,6 +893,47 @@ export class AudioEngine {
       this.droneStarted = false 
     }
   }
+
+  // ── Premium Features: Metronome, Mastering, Metering ───────────────────
+
+  toggleMetronome(active: boolean, matras: number = 4) {
+    this._metronomeActive = active
+    if (this.metronomeEventId !== null) {
+      Tone.getTransport().clear(this.metronomeEventId)
+      this.metronomeEventId = null
+    }
+
+    if (active) {
+      this.metronomeEventId = Tone.getTransport().scheduleRepeat((time) => {
+        const seconds = Tone.getTransport().seconds
+        const bpm = Tone.getTransport().bpm.value
+        // Use the passed matras for the click cycle
+        const beat = Math.floor(seconds * (bpm / 60)) % matras
+        this.clickSynth?.triggerAttackRelease(beat === 0 ? 'C5' : 'C4', '32n', time)
+      }, '4n')
+    }
+  }
+
+  setMasteringPreset(preset: 'clear' | 'warm' | 'punchy' | 'neutral') {
+    if (!this.masterEQ) return
+    switch (preset) {
+      case 'warm':
+        this.masterEQ.low.value = 3; this.masterEQ.mid.value = 1; this.masterEQ.high.value = -4; break
+      case 'punchy':
+        this.masterEQ.low.value = 5; this.masterEQ.mid.value = -2; this.masterEQ.high.value = 2; break
+      case 'clear':
+        this.masterEQ.low.value = -2; this.masterEQ.mid.value = 0; this.masterEQ.high.value = 4; break
+      default:
+        this.masterEQ.low.value = 0; this.masterEQ.mid.value = 0; this.masterEQ.high.value = 0
+    }
+  }
+
+  getMeterLevel(): number {
+    const val = this.meter?.getValue()
+    return Array.isArray(val) ? val[0] : (val ?? -Infinity)
+  }
+
+  get metronomeActive() { return this._metronomeActive }
 
   // ── Read-only state (consumed by UI + tests) ──────────────────────────────
   get instrument(): InstrumentName { return this._instrument }

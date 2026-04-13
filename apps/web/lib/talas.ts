@@ -1,4 +1,8 @@
-import type { Tala } from '@saptaswara/core'
+import type { Tala as CoreTala } from '@saptaswara/core'
+
+export interface Tala extends CoreTala {
+  tradition: 'hindustani' | 'carnatic'
+}
 
 /**
  * Six common Hindustani talas with full structural metadata.
@@ -16,6 +20,7 @@ export const TALAS: Tala[] = [
       { size: 4, type: 'tali',  label: '3' },   // beats 13–16
     ],
     laya: { vilambit: [30, 60], madhya: [60, 120], drut: [120, 200] },
+    tradition: 'hindustani',
   },
   {
     name: 'Jhaptaal',
@@ -28,6 +33,7 @@ export const TALAS: Tala[] = [
       { size: 3, type: 'tali',  label: '3' },   // beats 8–10
     ],
     laya: { vilambit: [40, 70], madhya: [70, 130], drut: [130, 200] },
+    tradition: 'hindustani',
   },
   {
     name: 'Rupak',
@@ -39,6 +45,7 @@ export const TALAS: Tala[] = [
       { size: 2, type: 'tali',  label: '3' },   // beats 6–7
     ],
     laya: { vilambit: [40, 80], madhya: [80, 140], drut: [140, 220] },
+    tradition: 'hindustani',
   },
   {
     name: 'Ektaal',
@@ -53,6 +60,7 @@ export const TALAS: Tala[] = [
       { size: 2, type: 'tali',  label: '4' },   // beats 11–12
     ],
     laya: { vilambit: [25, 50], madhya: [50, 100], drut: [100, 180] },
+    tradition: 'hindustani',
   },
   {
     name: 'Keherwa',
@@ -63,6 +71,7 @@ export const TALAS: Tala[] = [
       { size: 4, type: 'khali', label: '0' },   // beats 5–8   (khali)
     ],
     laya: { vilambit: [60, 90], madhya: [90, 150], drut: [150, 240] },
+    tradition: 'hindustani',
   },
   {
     name: 'Dadra',
@@ -73,6 +82,54 @@ export const TALAS: Tala[] = [
       { size: 3, type: 'khali', label: '0' },   // beats 4–6   (khali)
     ],
     laya: { vilambit: [60, 100], madhya: [100, 160], drut: [160, 240] },
+    tradition: 'hindustani',
+  },
+  // ── Carnatic Talas ────────────────────────────────────────────────────────
+  {
+    name: 'Adi',
+    matras: 8,
+    samBeat: 1,
+    vibhags: [
+      { size: 4, type: 'tali',  label: '4' },   // Laghu
+      { size: 2, type: 'tali',  label: '2' },   // Dhrutam
+      { size: 2, type: 'tali',  label: '2' },   // Dhrutam
+    ],
+    laya: { vilambit: [40, 70], madhya: [70, 120], drut: [120, 200] },
+    tradition: 'carnatic',
+  },
+  {
+    name: 'Rupaka (Carnatic)',
+    matras: 3,
+    samBeat: 1,
+    vibhags: [
+      { size: 1, type: 'tali',  label: '1' },
+      { size: 2, type: 'tali',  label: '2' },
+    ],
+    laya: { vilambit: [40, 80], madhya: [80, 140], drut: [140, 220] },
+    tradition: 'carnatic',
+  },
+  {
+    name: 'Misra Chapu',
+    matras: 7,
+    samBeat: 1,
+    vibhags: [
+      { size: 3, type: 'tali',  label: '3' },
+      { size: 2, type: 'tali',  label: '2' },
+      { size: 2, type: 'tali',  label: '2' },
+    ],
+    laya: { vilambit: [30, 60], madhya: [60, 110], drut: [110, 180] },
+    tradition: 'carnatic',
+  },
+  {
+    name: 'Khanda Chapu',
+    matras: 5,
+    samBeat: 1,
+    vibhags: [
+      { size: 2, type: 'tali',  label: '2' },
+      { size: 3, type: 'tali',  label: '3' },
+    ],
+    laya: { vilambit: [40, 90], madhya: [90, 140], drut: [140, 200] },
+    tradition: 'carnatic',
   },
 ]
 

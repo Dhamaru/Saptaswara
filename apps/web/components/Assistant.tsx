@@ -200,6 +200,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
   const [unread, setUnread]           = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
+  const lastNotifiedIndex = useRef<number>(-1)
 
   // Persist history
   useEffect(() => {
@@ -213,10 +214,12 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages])
 
-  // Unread counter
+  // Unread counter — only increment for brand new assistant messages
   useEffect(() => {
-    if (isMinimized && messages[messages.length - 1]?.role === 'assistant') {
+    const lastIdx = messages.length - 1
+    if (isMinimized && lastIdx > lastNotifiedIndex.current && messages[lastIdx]?.role === 'assistant') {
       setUnread(u => u + 1)
+      lastNotifiedIndex.current = lastIdx
     }
   }, [messages, isMinimized])
 
@@ -225,8 +228,9 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
     if (!isMinimized) {
       setTimeout(() => inputRef.current?.focus(), 300)
       setUnread(0)
+      lastNotifiedIndex.current = messages.length - 1
     }
-  }, [isMinimized])
+  }, [isMinimized, messages.length])
 
   const handleSend = useCallback(async (overrideText?: string) => {
     const text = (overrideText ?? input).trim()

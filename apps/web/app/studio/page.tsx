@@ -30,9 +30,12 @@ const SwaPad = dynamic(() => import('@/components/SwaPad'), {
 import { RagaEngine } from '@saptaswara/core'
 import { CompositionProvider, useComposition } from '@/context/CompositionContext'
 import { TALAS, DEFAULT_TALA, expandTala } from '@/lib/talas'
-import type { Tala } from '@saptaswara/core'
+import type { Tala } from '@/lib/talas'
 import { Guidebook } from '@/components/Guidebook'
 import { LearnerGuide } from '@/components/LearnerGuide'
+import { RagaRing } from '@/components/RagaRing'
+import { EarTraining } from '@/components/EarTraining'
+import TransportBar from '@/components/TransportBar'
 
 // ── Track system ──────────────────────────────────────────────────────────────
 type TrackType = 'melody' | 'rhythm' | 'vocal' | 'bass' | 'drone' | 'pad'
@@ -135,9 +138,11 @@ function StudioContent() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isStarted, setIsStarted] = useState(false)
   const [activeStep, setActiveStep] = useState(-1)
+  const [recordingTime, setRecordingTime] = useState(0)
 
   const [keyboardLayout, setKeyboardLayout] = useState<KeyboardLayout>('Piano')
   const [droneActive, setDroneActive] = useState(false)
+  const [droneType, setDroneType] = useState<'Sa-Pa' | 'Sa-Ma'>('Sa-Pa')
   const [bpm, setBpm] = useState(120)
   const [volume, setVolume] = useState(0)
   const [loopLength, setLoopLength] = useState<8 | 16 | 32>(16)
@@ -145,6 +150,18 @@ function StudioContent() {
   const [ragaConstrained, setRagaConstrained] = useState(false)
   const [selectedTala, setSelectedTala] = useState<Tala>(DEFAULT_TALA)
   const [laySetting, setLaySetting] = useState<'vilambit' | 'madhya' | 'drut'>('madhya')
+
+  // Automatically switch Tala when tradition changes
+  useEffect(() => {
+    if (!selectedTala) return
+    const currentIsHindustani = selectedTala.tradition === 'hindustani'
+    const targetIsHindustani = activeTradition === 'hindustani'
+    
+    if (currentIsHindustani !== targetIsHindustani) {
+      const defaultTala = TALAS.find(t => t.tradition === activeTradition)
+      if (defaultTala) setSelectedTala(defaultTala)
+    }
+  }, [activeTradition, setSelectedTala])
 
   const [projectId, setProjectId] = useState<string | null>(projectIdFromUrl)
   const [projectName, setProjectName] = useState('Untitled Composition')
@@ -157,6 +174,8 @@ function StudioContent() {
   const [saveModalTitle, setSaveModalTitle] = useState('')
   const [showGuide, setShowGuide] = useState(false)
   const [showLearnGuide, setShowLearnGuide] = useState(false)
+  const [showNotation, setShowNotation] = useState(false)
+  const [showEarTraining, setShowEarTraining] = useState(false)
 
   const supabaseClient = createClient()
 
@@ -169,6 +188,31 @@ function StudioContent() {
   useEffect(() => { bpmRef.current    = bpm      }, [bpm])
   useEffect(() => { swingRef.current  = swingAmount }, [swingAmount])
   useEffect(() => { loopRef.current   = loopLength  }, [loopLength])
+
+  // ── Undo / Redo history (max 20 snapshots) ────────────────────────────────────
+  const historyRef = useRef<Track[][]>([])
+  const redoRef    = useRef<Track[][]>([])
+
+  const pushHistory = useCallback((snapshot: Track[]) => {
+    historyRef.current = [...historyRef.current.slice(-19), snapshot.map(t => ({ ...t, sequence: [...t.sequence] }))]
+    redoRef.current = [] // clear redo on new action
+  }, [])
+
+  const handleUndo = useCallback(() => {
+    if (historyRef.current.length === 0) return
+    const prev = historyRef.current[historyRef.current.length - 1]
+    historyRef.current = historyRef.current.slice(0, -1)
+    redoRef.current = [...redoRef.current, tracks.map(t => ({ ...t, sequence: [...t.sequence] }))]
+    setTracks(prev)
+  }, [tracks])
+
+  const handleRedo = useCallback(() => {
+    if (redoRef.current.length === 0) return
+    const next = redoRef.current[redoRef.current.length - 1]
+    redoRef.current = redoRef.current.slice(0, -1)
+    historyRef.current = [...historyRef.current, tracks.map(t => ({ ...t, sequence: [...t.sequence] }))]
+    setTracks(next)
+  }, [tracks])
 
   const playbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -197,13 +241,10 @@ function StudioContent() {
   useEffect(() => {
     const init = async () => {
       let activeUser = null
-      let activeSession = null
-      
+
       try {
         const { data: { user } } = await supabaseClient.auth.getUser()
         activeUser = user
-        const { data: { session } } = await supabaseClient.auth.getSession()
-        activeSession = session
       } catch (err) {
         console.warn('Studio: Supabase auth check failed, checking for guest mode.', err)
       }
@@ -325,6 +366,7 @@ function StudioContent() {
 
   // When loop length changes, resize all track sequences
   const handleLoopLengthChange = (len: 8 | 16 | 32) => {
+    pushHistory(tracks)
     setLoopLength(len)
     setTracks(prev => prev.map(t => {
       const seq = new Array(len).fill(null)
@@ -336,6 +378,7 @@ function StudioContent() {
 
   // ── Step toggling ─────────────────────────────────────────────────────────────
   const handleToggleStep = (stepIdx: number, value: StepEvent, trackId = activeTrackId) => {
+    pushHistory(tracks)
     setTracks(prev => prev.map(t => {
       if (t.id !== trackId) return t
       const seq = [...t.sequence]
@@ -346,6 +389,7 @@ function StudioContent() {
 
   // Cycle velocity on a filled step: 25 → 50 → 75 → 100 → 25 …
   const cycleVelocity = (stepIdx: number, trackId: string) => {
+    pushHistory(tracks)
     setTracks(prev => prev.map(t => {
       if (t.id !== trackId) return t
       const seq = [...t.sequence]
@@ -378,6 +422,25 @@ function StudioContent() {
     return () => { audioEngine?.stopAll() }
   }, [])
 
+  // ── Tanpura drone toggle ──────────────────────────────────────────────────────
+  const handleToggleDrone = useCallback((nextActive?: boolean) => {
+    const active = nextActive ?? !droneActive
+    // Sa is tuned to C4 = 261.63 Hz (standard concert pitch for Indian classical)
+    const rootFreq = 261.63
+    audioEngine?.toggleDrone(active, droneType, rootFreq)
+    setDroneActive(active)
+  }, [droneActive, droneType])
+
+  const handleCycleDroneType = useCallback(() => {
+    const next: 'Sa-Pa' | 'Sa-Ma' = droneType === 'Sa-Pa' ? 'Sa-Ma' : 'Sa-Pa'
+    setDroneType(next)
+    if (droneActive) {
+      const rootFreq = 261.63
+      audioEngine?.toggleDrone(false, droneType, rootFreq)
+      audioEngine?.toggleDrone(true, next, rootFreq)
+    }
+  }, [droneActive, droneType])
+
   // ── Blueprint (aroha/avaroha demo) ────────────────────────────────────────────
   const handlePlayBlueprint = () => {
     if (!audioEngine || !selectedRaga?.aroha || !selectedRaga?.avaroha) return
@@ -395,6 +458,23 @@ function StudioContent() {
   }
 
   // ── Recording ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    let interval: any
+    if (isRecording) {
+      setRecordingTime(0)
+      interval = setInterval(() => setRecordingTime(prev => prev + 1), 1000)
+    } else {
+      clearInterval(interval)
+    }
+    return () => clearInterval(interval)
+  }, [isRecording])
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
   const handleToggleRecording = async () => {
     if (!audioEngine) return
     if (!isRecording) {
@@ -534,11 +614,26 @@ function StudioContent() {
           setIsPlaying(!isPlaying)
           break
         }
+        case 'z': {
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault()
+            if (e.shiftKey) handleRedo()
+            else handleUndo()
+          }
+          break
+        }
+        case 'y': {
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault()
+            handleRedo()
+          }
+          break
+        }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [activeTrackId, setIsPlaying])
+  }, [activeTrackId, setIsPlaying, handleUndo, handleRedo])
 
   // ── Save project ──────────────────────────────────────────────────────────────
   const handleSaveProject = async (titleOverride?: string) => {
@@ -1021,8 +1116,35 @@ function StudioContent() {
               <span className="font-mono text-[8px] uppercase tracking-widest text-white/40 font-bold">{activeTradition}</span>
               <div className="w-px h-3 bg-white/10" />
               <span className="font-mono text-[8px] uppercase tracking-widest text-primary/70 font-bold">{activeInstrument}</span>
-              {activeInstrument === 'tambura' && droneActive && <div className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse ml-1" />}
             </div>
+
+            {/* ── Tanpura Drone — always visible in HUD ── */}
+            {isStarted && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={() => handleToggleDrone()}
+                  title={droneActive ? 'Stop tanpura drone' : 'Start tanpura drone (Sa–Pa)'}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-mono text-[9px] uppercase tracking-widest font-bold transition-all active:scale-95 ${
+                    droneActive
+                      ? 'bg-secondary/20 border-secondary/40 text-secondary shadow-[0_0_12px_rgba(132,214,185,0.2)]'
+                      : 'border-outline-variant/15 text-on-surface-variant/40 hover:text-secondary/70 hover:border-secondary/20 bg-transparent'
+                  }`}
+                >
+                  <span className="material-symbols-outlined !text-sm">radio_button_checked</span>
+                  Tanpura
+                  {droneActive && <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />}
+                </button>
+                {droneActive && (
+                  <button
+                    onClick={handleCycleDroneType}
+                    title="Toggle Sa-Pa / Sa-Ma tuning"
+                    className="px-2 py-1.5 rounded-xl border border-secondary/20 bg-secondary/5 font-mono text-[8px] text-secondary/60 hover:text-secondary hover:border-secondary/40 transition-all"
+                  >
+                    {droneType}
+                  </button>
+                )}
+              </div>
+            )}
             {/* Phrase detection badges — desktop only */}
             <div className="hidden lg:flex gap-2">
               {detectedPhrases.map((phrase, i) => (
@@ -1045,6 +1167,16 @@ function StudioContent() {
             >
               Save
             </button>
+            {isStarted && (
+              <button
+                onClick={() => setShowEarTraining(true)}
+                title="Ear Training — identify swaras by listening"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-tertiary/20 bg-tertiary/5 font-mono text-[9px] uppercase tracking-widest text-tertiary/70 hover:text-tertiary hover:border-tertiary/40 hover:bg-tertiary/10 transition-all active:scale-95"
+              >
+                <span className="material-symbols-outlined !text-sm">hearing</span>
+                Ear
+              </button>
+            )}
             <button
               onClick={() => setShowLearnGuide(v => !v)}
               title="Open Learner's Guide"
@@ -1095,6 +1227,19 @@ function StudioContent() {
                     </button>
                   ))}
                 </div>
+                {/* Notation view toggle */}
+                <button
+                  onClick={() => setShowNotation(v => !v)}
+                  title="Toggle notation view"
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-mono text-[8px] uppercase tracking-widest font-bold transition-all ${
+                    showNotation
+                      ? 'bg-secondary/15 border-secondary/30 text-secondary'
+                      : 'border-outline-variant/10 text-on-surface-variant/30 hover:text-on-surface-variant'
+                  }`}
+                >
+                  <span className="material-symbols-outlined !text-sm">abc</span>
+                  Notation
+                </button>
                 <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">
                   {activeStep >= 0 && !isPlaying ? `Step ${activeStep + 1}` : isPlaying ? '▶' : ''}
                 </span>
@@ -1189,7 +1334,7 @@ function StudioContent() {
                             }
                             className={`relative h-8 rounded-md font-mono text-[7px] font-bold transition-all border flex items-end justify-center pb-0.5 overflow-hidden ${
                               isActiveStep
-                                ? `${c.active} border-transparent shadow-glow`
+                                ? `${c.active} border-transparent shadow-step-active`
                                 : isSelected
                                 ? `border-primary/70 bg-primary/10 text-primary ring-1 ring-primary/20`
                                 : hasNote
@@ -1208,6 +1353,13 @@ function StudioContent() {
                                 style={{ height: `${velPct}%` }}
                               />
                             )}
+                            {/* Beat ring pulse — expands and fades on the active playhead */}
+                            {isActiveStep && (
+                              <span
+                                key={`ring-${stepIdx}-${activeStep}`}
+                                className="absolute inset-0 rounded-md border-2 border-current animate-beat-ring pointer-events-none"
+                              />
+                            )}
                             <span className="relative z-10">
                               {hasNote ? (track.type === 'melody' ? event!.label : event!.stroke) : null}
                             </span>
@@ -1220,6 +1372,38 @@ function StudioContent() {
               })}
             </div>{/* end min-w-[480px] */}
             </div>
+
+            {/* ── Notation view ── */}
+            {showNotation && (() => {
+              const activeTrack = tracks.find(t => t.id === activeTrackId)
+              if (!activeTrack) return null
+              // Build notation string: each filled step as label, rests as "—", barlines every 4
+              const tokens = activeTrack.sequence.map((s, i) => {
+                const tok = s
+                  ? (activeTrack.type === 'melody' ? s.label : (s.stroke ?? '—'))
+                  : '—'
+                // Insert | barline before every 4th step (except the first)
+                return i > 0 && i % 4 === 0 ? `| ${tok}` : tok
+              })
+              const notationLine = tokens.join('  ')
+              return (
+                <div className="mt-3 px-5 py-4 rounded-2xl bg-surface-container border border-outline-variant/10 animate-fade-in">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-mono text-[8px] uppercase tracking-widest text-secondary/70 font-bold">
+                      {activeTrack.name} — Swara Notation
+                    </span>
+                    <div className="flex-1 h-px bg-outline-variant/10" />
+                    <span className="font-mono text-[8px] text-on-surface-variant/30">{bpm} BPM · {selectedTala.name}</span>
+                  </div>
+                  <p className="font-mono text-sm text-on-surface/80 leading-relaxed tracking-wider">
+                    {notationLine}
+                  </p>
+                  <p className="font-mono text-[8px] text-on-surface-variant/25 mt-2">
+                    — = rest &nbsp;·&nbsp; | = vibhag boundary
+                  </p>
+                </div>
+              )
+            })()}
           </section>
 
           {/* ── Input section: Piano for melodic tracks, DrumPad for rhythm ── */}
@@ -1303,6 +1487,64 @@ function StudioContent() {
             )
           })()}
 
+          {/* ── Raga Ring Diagram ── */}
+          {selectedRaga?.aroha && selectedRaga?.avaroha && (
+            <section className="animate-slide-up max-w-4xl mx-auto border-t border-outline-variant/5 pt-14">
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
+                <div className="flex-shrink-0">
+                  <RagaRing
+                    ragaName={selectedRaga.name}
+                    aroha={selectedRaga.aroha as string[]}
+                    avaroha={selectedRaga.avaroha as string[]}
+                    vadi={selectedRaga.vadi}
+                    samvadi={selectedRaga.samvadi}
+                    size={220}
+                  />
+                </div>
+                <div className="flex-1 space-y-5">
+                  <div>
+                    <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold block mb-1">Aroha</span>
+                    <p className="font-label text-base text-on-surface/80 tracking-wide">
+                      {(selectedRaga.aroha as string[]).join(' – ')}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold block mb-1">Avaroha</span>
+                    <p className="font-label text-base text-on-surface/80 tracking-wide">
+                      {(selectedRaga.avaroha as string[]).join(' – ')}
+                    </p>
+                  </div>
+                  {selectedRaga.vadi && (
+                    <div className="flex gap-6">
+                      <div>
+                        <span className="font-mono text-[8px] uppercase tracking-widest text-amber-400/70 font-bold block mb-1">Vadi</span>
+                        <span className="font-label text-lg font-bold text-amber-400">{selectedRaga.vadi}</span>
+                      </div>
+                      {selectedRaga.samvadi && (
+                        <div>
+                          <span className="font-mono text-[8px] uppercase tracking-widest text-blue-400/70 font-bold block mb-1">Samvadi</span>
+                          <span className="font-label text-lg font-bold text-blue-400">{selectedRaga.samvadi}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {selectedRaga.mood && (
+                    <div>
+                      <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold block mb-1">Rasa</span>
+                      <p className="font-sans text-sm text-on-surface-variant/70 font-light">{selectedRaga.mood}</p>
+                    </div>
+                  )}
+                  {(selectedRaga as any).time_of_day && (
+                    <div>
+                      <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold block mb-1">Time of Day</span>
+                      <p className="font-sans text-sm text-on-surface-variant/70 font-light">{(selectedRaga as any).time_of_day}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* ── Melodic Guide ── */}
           <section className="animate-slide-up max-w-4xl mx-auto border-t border-outline-variant/5 pt-14">
             <div className="flex items-center justify-between mb-8">
@@ -1354,74 +1596,53 @@ function StudioContent() {
           </section>
         </div>
 
-        {/* ── Playback Rail ── */}
-        <div className="h-28 glass-panel mx-8 mb-8 rounded-[40px] border border-outline-variant/20 flex items-center justify-between px-12 shadow-2xl flex-shrink-0">
-          <div className="flex items-center gap-8">
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
-                isPlaying ? 'bg-primary text-on-primary shadow-glow' : 'bg-surface-container-high border border-outline-variant/10 text-on-surface hover:text-primary'
-              }`}
-            >
-              <span className="material-symbols-outlined !text-4xl">{isPlaying ? 'square' : 'play_arrow'}</span>
-            </button>
-            <button
-              onClick={() => { const next = !droneActive; setDroneActive(next); audioEngine?.toggleDrone(next) }}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
-                droneActive ? 'bg-secondary text-on-secondary shadow-glow' : 'bg-surface-container-high border border-outline-variant/10 text-on-surface hover:text-secondary'
-              }`}
-              title="Toggle Drone"
-            >
-              <span className="material-symbols-outlined !text-2xl">graphic_eq</span>
-            </button>
-          </div>
-
-          {/* Center sliders */}
-          <div className="flex-1 flex justify-center gap-8 border-x border-outline-variant/10 mx-10 px-10">
-            <div className="flex flex-col gap-1.5 w-36">
-              <div className="flex justify-between font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
-                <span>Volume</span><span className="text-primary">{volume} dB</span>
-              </div>
-              <input type="range" min={-40} max={0} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); audioEngine?.setVolume(v) }} className="w-full h-1 accent-primary cursor-pointer" />
-            </div>
-            <div className="flex flex-col gap-1.5 w-36">
-              <div className="flex justify-between font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
-                <span>Tempo</span><span className="text-primary">{bpm} BPM</span>
-              </div>
-              <input type="range" min={60} max={180} value={bpm} onChange={(e) => { const v = Number(e.target.value); setBpm(v); Tone.getTransport().bpm.value = v }} className="w-full h-1 accent-primary cursor-pointer" />
-            </div>
-            <div className="flex flex-col gap-1.5 w-36">
-              <div className="flex justify-between font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
-                <span>Swing</span><span className="text-primary">{Math.round(swingAmount * 200)}%</span>
-              </div>
-              <input type="range" min={0} max={50} value={Math.round(swingAmount * 100)} onChange={(e) => setSwingAmount(Number(e.target.value) / 100)} className="w-full h-1 accent-primary cursor-pointer" />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleExportMidi}
-              disabled={isExportingMidi}
-              className="flex items-center gap-2 px-6 py-3 rounded-2xl font-mono text-[10px] uppercase tracking-widest font-bold border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span>{isExportingMidi ? 'Exporting...' : 'Export MIDI'}</span>
-              <span className="material-symbols-outlined !text-lg">download</span>
-            </button>
-            <button
-              onClick={handleToggleRecording}
-              className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-mono text-[10px] uppercase tracking-widest font-bold shadow-glow hover:scale-105 active:scale-95 transition-all ${
-                isRecording ? 'bg-secondary text-on-secondary animate-pulse' : 'bg-primary text-on-primary'
-              }`}
-            >
-              <span>{isRecording ? 'Stop Rec' : 'Rec'}</span>
-              <span className="material-symbols-outlined !text-lg">fiber_manual_record</span>
-            </button>
-          </div>
-        </div>
+        {/* ── Transport Rail ── */}
+        <TransportBar
+          isPlaying={isPlaying}
+          onTogglePlay={() => setIsPlaying(!isPlaying)}
+          isRecording={isRecording}
+          onToggleRecording={handleToggleRecording}
+          recordingTime={recordingTime}
+          bpm={bpm}
+          onBpmChange={(v) => { setBpm(v); Tone.getTransport().bpm.value = v }}
+          volume={volume}
+          onVolumeChange={(v) => { setVolume(v); audioEngine?.setVolume(v) }}
+          tala={selectedTala}
+        />
       </main>
 
       <Guidebook open={showGuide} onClose={() => setShowGuide(false)} />
       <LearnerGuide open={showLearnGuide} onClose={() => setShowLearnGuide(false)} />
+      {showEarTraining && (
+        <EarTraining raga={selectedRaga} onClose={() => setShowEarTraining(false)} />
+      )}
+
+      {/* ── Mobile gate — studio requires a desktop viewport ── */}
+      <div className="md:hidden fixed inset-0 z-[9999] bg-background/95 backdrop-blur-xl flex flex-col items-center justify-center px-8 text-center">
+        <div className="mb-8 w-16 h-16 rounded-[20px] bg-surface-container-high border border-outline-variant/10 flex items-center justify-center">
+          <span className="material-symbols-outlined !text-3xl text-primary/70">desktop_windows</span>
+        </div>
+        <h2 className="font-display text-3xl font-light text-on-surface tracking-tight mb-3">
+          Studio needs a bigger screen.
+        </h2>
+        <p className="font-sans text-sm text-on-surface-variant/60 font-light leading-relaxed max-w-xs mb-8">
+          The Saptaswara Studio is designed for desktop and tablet. Open it on a device with a wider screen for the full experience.
+        </p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <a
+            href="/learn"
+            className="py-3 px-6 bg-primary/10 border border-primary/20 rounded-2xl font-sans text-sm text-primary font-medium text-center"
+          >
+            Go to Learner Guide
+          </a>
+          <a
+            href="/"
+            className="py-3 px-6 bg-surface-container-high border border-outline-variant/10 rounded-2xl font-sans text-sm text-on-surface-variant font-medium text-center"
+          >
+            Back to Home
+          </a>
+        </div>
+      </div>
 
       <Assistant
         ragaContext={selectedRaga}

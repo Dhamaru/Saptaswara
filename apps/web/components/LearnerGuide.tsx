@@ -86,6 +86,30 @@ function StepBox({ num, title, desc }: { num: number; title: string; desc: strin
   )
 }
 
+/** Safe parser for DoThis step strings — handles <strong> and <kbd> only */
+function parseStep(text: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = []
+  const re = /<(strong|kbd)>(.*?)<\/\1>/g
+  let last = 0
+  let match: RegExpExecArray | null
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > last) nodes.push(text.slice(last, match.index))
+    const [, tag, inner] = match
+    if (tag === 'strong') {
+      nodes.push(<strong key={match.index} className="text-on-surface/90 font-semibold">{inner}</strong>)
+    } else {
+      nodes.push(
+        <kbd key={match.index} className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-surface-container-high border border-outline-variant/20 font-mono text-[9px] font-bold text-primary mx-0.5">
+          {inner}
+        </kbd>
+      )
+    }
+    last = match.index + match[0].length
+  }
+  if (last < text.length) nodes.push(text.slice(last))
+  return nodes
+}
+
 /** "Try it now" callout — shows exactly where to click / what to press in the app */
 function DoThis({ title = 'Try it now', steps }: { title?: string; steps: string[] }) {
   return (
@@ -98,29 +122,11 @@ function DoThis({ title = 'Try it now', steps }: { title?: string; steps: string
         {steps.map((s, i) => (
           <li key={i} className="flex gap-2.5">
             <span className="font-mono text-[9px] font-bold text-secondary/60 w-4 flex-shrink-0 mt-0.5">{i + 1}.</span>
-            <p className="font-sans text-xs text-on-surface-variant/75 leading-relaxed" dangerouslySetInnerHTML={{ __html: s }} />
+            <p className="font-sans text-xs text-on-surface-variant/75 leading-relaxed">{parseStep(s)}</p>
           </li>
         ))}
       </ol>
     </div>
-  )
-}
-
-/** Keyboard key badge inline */
-function K({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-surface-container-high border border-outline-variant/20 font-mono text-[9px] font-bold text-primary mx-0.5">
-      {children}
-    </kbd>
-  )
-}
-
-/** Location label — describes where on screen something is */
-function Loc({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-container-high border border-outline-variant/15 font-mono text-[9px] font-bold text-on-surface/70 mx-0.5">
-      {children}
-    </span>
   )
 }
 

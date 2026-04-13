@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react'
 import { audioEngine } from '@/lib/audio'
-import { swaraToFrequency } from '@/lib/musicalMath'
 
 // ── Swara definitions ─────────────────────────────────────────────────────────
 

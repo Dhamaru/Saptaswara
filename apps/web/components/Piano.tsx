@@ -35,6 +35,13 @@ const KEY_MAP: Record<string, { offset: number; octave: number; label: string }>
   u: { offset: 10, octave: 4, label: 'ni'  },
   j: { offset: 11, octave: 4, label: 'Ni'  },
   k: { offset: 0,  octave: 5, label: 'Sa'  },
+  o: { offset: 1,  octave: 5, label: 're'  },
+  l: { offset: 2,  octave: 5, label: 'Re'  },
+  p: { offset: 3,  octave: 5, label: 'ga'  },
+  ';': { offset: 4, octave: 5, label: 'Ga' },
+  "'": { offset: 5, octave: 5, label: 'Ma' },
+  '[': { offset: 6, octave: 5, label: 'ma' },
+  ']': { offset: 7, octave: 5, label: 'Pa' },
 }
 
 /** Reverse map: "offset-octave" → uppercase key letter for badge display */

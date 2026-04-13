@@ -18,11 +18,15 @@ export default function SignupPage() {
     setError(null)
     setLoading(true)
 
+    // NEXT_PUBLIC_APP_URL is set in Vercel env vars to the production URL.
+    // Falls back to window.location.origin for local dev (localhost).
+    const siteOrigin = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        emailRedirectTo: `${siteOrigin}/auth/callback?next=/dashboard`,
       },
     })
 

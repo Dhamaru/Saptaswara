@@ -18,8 +18,11 @@ export default function ForgotPasswordPage() {
     setError(null)
     setLoading(true)
 
+    // NEXT_PUBLIC_APP_URL is set in Vercel env vars to the production URL.
+    const siteOrigin = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      redirectTo: `${siteOrigin}/auth/callback?next=/reset-password`,
     })
 
     if (error) {
