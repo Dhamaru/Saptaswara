@@ -5,6 +5,50 @@ import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
 
+// ── Draggable position ────────────────────────────────────────────────────────
+const SNAP_MARGIN = 24          // px from edge when snapping
+const DEFAULT_POS = { x: -1, y: -1 }  // sentinel → use CSS bottom-right default
+
+function useDraggableButton() {
+  const [pos, setPos]       = useState(DEFAULT_POS)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef  = useRef(false)
+  const startRef = useRef({ mx: 0, my: 0, bx: 0, by: 0 })
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.detail !== 2) return           // only on double-click
+    e.preventDefault()
+    dragRef.current = true
+    setIsDragging(true)
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    startRef.current = { mx: e.clientX, my: e.clientY, bx: rect.left, by: rect.top }
+
+    const onMove = (me: MouseEvent) => {
+      if (!dragRef.current) return
+      const dx = me.clientX - startRef.current.mx
+      const dy = me.clientY - startRef.current.my
+      const nx = Math.max(SNAP_MARGIN, Math.min(window.innerWidth  - 80 - SNAP_MARGIN, startRef.current.bx + dx))
+      const ny = Math.max(SNAP_MARGIN, Math.min(window.innerHeight - 56 - SNAP_MARGIN, startRef.current.by + dy))
+      setPos({ x: nx, y: ny })
+    }
+    const onUp = () => {
+      dragRef.current = false
+      setIsDragging(false)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
+  // Build inline style: use fixed coords when dragged, else fall back to default CSS
+  const style: React.CSSProperties = pos.x === -1
+    ? {}
+    : { left: pos.x, top: pos.y, bottom: 'auto', right: 'auto' }
+
+  return { style, isDragging, onMouseDown }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Message {
   role: 'user' | 'assistant'
@@ -61,6 +105,7 @@ function getChips(raga: any | null): string[] {
 export function GlobalAssistant() {
   const pathname = usePathname()
   const { ragaContext, isOpen, openAssistant, closeAssistant } = useGlobalAssistant()
+  const { style: dragStyle, isDragging, onMouseDown: onDragStart } = useDraggableButton()
 
   const [messages, setMessages]   = useState<Message[]>([])
   const [input, setInput]         = useState('')
@@ -175,8 +220,10 @@ export function GlobalAssistant() {
       {!isOpen && (
         <button
           onClick={() => openAssistant()}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl bg-surface-container-high border border-primary/20 shadow-glow hover:border-primary/50 hover:bg-surface-container-highest transition-all active:scale-95 group"
-          title="Ask Saptaswara AI"
+          onMouseDown={onDragStart}
+          style={dragStyle}
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl bg-surface-container-high border border-primary/20 shadow-glow hover:border-primary/50 hover:bg-surface-container-highest transition-all active:scale-95 group select-none${isDragging ? ' cursor-grabbing scale-105' : ' cursor-pointer'}`}
+          title="Ask Saptaswara AI · Double-click to move"
         >
           <div className="relative">
             <span className="material-symbols-outlined !text-xl text-primary/80 group-hover:text-primary transition-colors">auto_awesome</span>
