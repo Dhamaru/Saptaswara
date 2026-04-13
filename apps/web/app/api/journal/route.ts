@@ -24,10 +24,9 @@ async function resolveUserAndClient(req: Request) {
   try {
     const serverClient = await createServerClient()
     const { data: { user }, error } = await serverClient.auth.getUser()
-    console.log('[Auth Debug] Cookie Auth response:', { user: user?.id, error })
     if (user && !error) return { user, supabase: serverClient }
-  } catch (e) {
-    console.error('[Auth Debug] Cookie Auth exception:', e)
+  } catch {
+    // Cookie auth unavailable — fall through to Bearer token
   }
 
   // 2. Try Bearer Token Authentication

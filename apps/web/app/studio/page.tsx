@@ -245,20 +245,8 @@ function StudioContent() {
       try {
         const { data: { user } } = await supabaseClient.auth.getUser()
         activeUser = user
-      } catch (err) {
-        console.warn('Studio: Supabase auth check failed, checking for guest mode.', err)
-      }
-
-      // Guest mode bypass for development and automated testing
-      const isGuestMode = searchParams.get('guest') === 'true' || process.env.NODE_ENV === 'development'
-      
-      if (!activeUser && isGuestMode) {
-        console.log('Studio: Initializing in Guest Mode.')
-        activeUser = { 
-          id: 'guest-user', 
-          email: 'guest@saptaswara.ai',
-          user_metadata: { full_name: 'Guest Composer' } 
-        }
+      } catch {
+        // Auth check failed — middleware will redirect unauthenticated users
       }
 
       let token = accessToken
@@ -637,7 +625,7 @@ function StudioContent() {
 
   // ── Save project ──────────────────────────────────────────────────────────────
   const handleSaveProject = async (titleOverride?: string) => {
-    if (!user || user.id === 'guest-user') { alert('Please sign in to save projects.'); return }
+    if (!user) { alert('Please sign in to save projects.'); return }
     const saveTitle = titleOverride || projectName
     try {
       // Resolve token (handles cookie-auth users)
