@@ -175,7 +175,7 @@ export function GlobalAssistant() {
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/10 bg-surface-container-low/50 flex-shrink-0">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${isTyping ? 'bg-primary/30 animate-pulse' : 'bg-primary/15'}`}>
                 <span className="material-symbols-outlined !text-base text-primary">auto_awesome</span>
               </div>
               <div className="min-w-0">
@@ -249,6 +249,24 @@ export function GlobalAssistant() {
             )}
             <div ref={bottomRef} />
           </div>
+
+          {/* Typing status strip */}
+          {isTyping && (
+            <div className="px-4 py-2.5 flex items-center gap-2.5 border-t border-outline-variant/10 bg-primary/5 flex-shrink-0">
+              <span className="flex gap-1 items-center">
+                {[0, 1, 2].map(d => (
+                  <span
+                    key={d}
+                    className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce"
+                    style={{ animationDelay: `${d * 0.18}s` }}
+                  />
+                ))}
+              </span>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-primary/60 animate-pulse">
+                Saptaswara AI is generating…
+              </span>
+            </div>
+          )}
 
           {/* Chips row when conversation exists */}
           {messages.length > 0 && !isTyping && (
