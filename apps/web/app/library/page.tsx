@@ -194,8 +194,51 @@ export default function LibraryPage() {
           {/* Raga grid */}
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-              {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className="h-80 rounded-[32px] bg-surface-lowest/50 animate-pulse border border-outline-variant/5" />
+              {[0, 1, 2, 3, 4, 5].map(i => (
+                <div
+                  key={i}
+                  className="relative h-80 rounded-[32px] bg-surface-lowest border border-outline-variant/5 overflow-hidden"
+                  style={{ animationDelay: `${i * 80}ms` }}
+                >
+                  {/* Shimmer sweep */}
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.6s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+
+                  <div className="relative z-10 p-6 md:p-10 h-full flex flex-col justify-between">
+                    {/* Top: tag + tradition badge */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <div className="h-2.5 w-20 rounded-full bg-primary/10 animate-pulse" />
+                        <div className="h-2.5 w-12 rounded-full bg-white/5 animate-pulse" />
+                      </div>
+                      <div className="h-4 w-16 rounded-sm bg-primary/10 animate-pulse" />
+
+                      {/* Raga name */}
+                      <div className="h-8 w-36 rounded-xl bg-white/8 animate-pulse mt-2"
+                        style={{ animationDelay: `${i * 80 + 100}ms` }} />
+
+                      {/* Description lines */}
+                      <div className="flex flex-col gap-2 mt-3">
+                        <div className="h-2.5 w-full rounded-full bg-white/5 animate-pulse"
+                          style={{ animationDelay: `${i * 80 + 160}ms` }} />
+                        <div className="h-2.5 w-4/5 rounded-full bg-white/5 animate-pulse"
+                          style={{ animationDelay: `${i * 80 + 200}ms` }} />
+                        <div className="h-2.5 w-3/5 rounded-full bg-white/5 animate-pulse"
+                          style={{ animationDelay: `${i * 80 + 240}ms` }} />
+                      </div>
+                    </div>
+
+                    {/* Bottom: swara pills */}
+                    <div className="flex gap-2">
+                      {[28, 20, 24, 20, 20].map((w, j) => (
+                        <div
+                          key={j}
+                          className="h-6 rounded-full bg-primary/10 animate-pulse"
+                          style={{ width: `${w * 4}px`, animationDelay: `${i * 80 + j * 60}ms` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
