@@ -54,21 +54,23 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    // Supabase unreachable (project paused, network error) — let protected routes
+    // redirect to login so the app degrades gracefully instead of crashing.
+  }
 
   // Route Protection Logic
   const protectedRoutes = ['/studio', '/dashboard', '/journal', '/workspace', '/projects']
   const isProtected = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))
-  
+
   if (isProtected && !user) {
-    // Check for guest bypass in development, testing, or if explicitly requested via param
-    const isGuestBypass = request.nextUrl.searchParams.get('guest') === 'true'
-    
-    if (!isGuestBypass) {
-      const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = '/login'
-      return NextResponse.redirect(redirectUrl)
-    }
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = '/login'
+    return NextResponse.redirect(redirectUrl)
   }
 
   return response

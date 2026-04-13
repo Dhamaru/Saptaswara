@@ -2,6 +2,14 @@
 
 import React from 'react'
 
+// Normalise DB values that mean "not set"
+function cleanSwara(val: string | undefined): string | undefined {
+  if (!val) return undefined
+  const v = val.trim().toLowerCase()
+  if (v === 'unknown' || v === 'n/a' || v === '' || v === 'none') return undefined
+  return val.trim()
+}
+
 // Maps swara name → semitone index (0 = Sa, 7 = Pa)
 const SWARA_TO_SEMI: Record<string, number> = {
   Sa: 0, re: 1, Re: 2, ga: 3, Ga: 4, Ma: 5, ma: 6,
@@ -22,7 +30,9 @@ interface RagaRingProps {
   size?: number
 }
 
-export function RagaRing({ ragaName, aroha, avaroha, vadi, samvadi, size = 200 }: RagaRingProps) {
+export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: samvadiRaw, size = 200 }: RagaRingProps) {
+  const vadi    = cleanSwara(vadiRaw)
+  const samvadi = cleanSwara(samvadiRaw)
   const cx = size / 2
   const cy = size / 2
   const outerR = size * 0.42
@@ -79,9 +89,7 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi, samvadi, size = 200 }
             ? '#60a5fa'   // blue — minister note
             : isActive
             ? '#c3c0ff'   // primary — active raga note
-            : isPillar
-            ? '#464554'   // dim — Sa/Pa shown but not in raga (rare)
-            : '#1e1e20'   // near-invisible
+            : '#2d2b3d'   // visible but clearly inactive
 
           const strokeColor = isVadi
             ? 'rgba(245,158,11,0.5)'
@@ -91,7 +99,7 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi, samvadi, size = 200 }
             ? 'rgba(195,192,255,0.3)'
             : 'transparent'
 
-          const labelOpacity = isActive || isVadi || isSamvadi ? 1 : 0.15
+          const labelOpacity = isVadi || isSamvadi ? 1 : isActive ? 0.9 : 0.35
 
           return (
             <g key={semi}>
@@ -114,7 +122,7 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi, samvadi, size = 200 }
                 fontSize={size * 0.055}
                 fontFamily="'Space Grotesk', monospace"
                 fontWeight={isVadi || isSamvadi ? '700' : '400'}
-                fill={isVadi ? '#f59e0b' : isSamvadi ? '#60a5fa' : isActive ? '#c3c0ff' : '#464554'}
+                fill={isVadi ? '#f59e0b' : isSamvadi ? '#60a5fa' : isActive ? '#c3c0ff' : '#6b6880'}
                 opacity={labelOpacity}
               >
                 {label}
@@ -158,7 +166,7 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi, samvadi, size = 200 }
           <div key={sub} className="flex items-center gap-1.5">
             <div className={`w-2 h-2 rounded-full ${color} flex-shrink-0`} />
             <div className="text-left">
-              {label && <p className="font-label text-[9px] font-bold text-on-surface/80 leading-none">{label}</p>}
+              <p className="font-mono text-[9px] font-bold text-on-surface/80 leading-none">{label || '—'}</p>
               <p className="font-mono text-[8px] text-on-surface-variant/40 uppercase tracking-widest leading-none mt-0.5">{sub}</p>
             </div>
           </div>
