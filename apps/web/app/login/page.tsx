@@ -40,7 +40,7 @@ export default function LoginPage() {
       return
     }
 
-    // Force hard navigation to ensure cookies are sent to middleware
+    // Force hard navigation to ensure cookies are sent to proxy
     window.location.href = '/dashboard'
   }
 

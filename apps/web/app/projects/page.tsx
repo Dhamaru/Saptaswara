@@ -26,7 +26,7 @@ export default async function ProjectsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   
   if (!user) {
-    // Should be handled by middleware, but extra safety
+    // Should be handled by proxy, but extra safety
     return null
   }
 

@@ -16,14 +16,14 @@ export async function createClient() {
           try {
             cookieStore.set?.({ name, value, ...options })
           } catch {
-            // Called from Server Component — ignored if middleware refreshes sessions
+            // Called from Server Component — ignored if proxy refreshes sessions
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set?.({ name, value: '', ...options })
           } catch {
-            // Called from Server Component — ignored if middleware refreshes sessions
+            // Called from Server Component — ignored if proxy refreshes sessions
           }
         },
       },
