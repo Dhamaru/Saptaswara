@@ -176,7 +176,7 @@ graph TD
     end
 
     subgraph "Phase 3: Frontend & Audio"
-        F --> G[React & State Management Zustand]
+        F --> G[React Context & Context Reducers]
         G --> H[Web Audio API & Tone.js]
         H --> I[Full-Stack Web Next.js]
         I --> J[Cross-Platform Mobile Expo / React Native]
