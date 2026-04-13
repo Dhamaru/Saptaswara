@@ -111,32 +111,31 @@ export function GlobalAssistant() {
   const [input, setInput]         = useState('')
   const [isTyping, setIsTyping]   = useState(false)
   const [unread, setUnread]       = useState(0)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef  = useRef<HTMLInputElement>(null)
+  const bottomRef  = useRef<HTMLDivElement>(null)
+  const inputRef   = useRef<HTMLInputElement>(null)
+  const prevRagaRef = useRef<string | null>(null)
 
-  // Don't show the global assistant inside the studio — it has its own sidebar assistant
-  if (pathname?.startsWith('/studio')) return null
+  // ── All hooks must come before any conditional return (Rules of Hooks) ─────
 
-  // ── Scroll to bottom on new messages ───────────────────────────────────────
+  // Scroll to bottom on new messages
   useEffect(() => {
     if (isOpen) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isOpen])
 
-  // ── Focus input when opened ────────────────────────────────────────────────
+  // Focus input when opened
   useEffect(() => {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 100)
     else setUnread(0)
   }, [isOpen])
 
-  // ── Count unread when closed ───────────────────────────────────────────────
+  // Count unread when closed
   useEffect(() => {
     if (!isOpen && messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
       setUnread(u => u + 1)
     }
   }, [messages])
 
-  // ── Reset conversation when raga context changes ───────────────────────────
-  const prevRagaRef = useRef<string | null>(null)
+  // Reset conversation when raga context changes
   useEffect(() => {
     const ragaName = ragaContext?.name ?? null
     if (ragaName !== prevRagaRef.current) {
@@ -213,6 +212,9 @@ export function GlobalAssistant() {
   }, [input, messages, ragaContext, isTyping])
 
   const chips = getChips(ragaContext)
+
+  // Don't show the global assistant inside the studio - it has its own sidebar assistant
+  if (pathname?.startsWith('/studio')) return null
 
   return (
     <>
