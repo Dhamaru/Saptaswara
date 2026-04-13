@@ -1,53 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
-
-// ── Draggable position ────────────────────────────────────────────────────────
-const SNAP_MARGIN = 24          // px from edge when snapping
-const DEFAULT_POS = { x: -1, y: -1 }  // sentinel → use CSS bottom-right default
-
-function useDraggableButton() {
-  const [pos, setPos]       = useState(DEFAULT_POS)
-  const [isDragging, setIsDragging] = useState(false)
-  const dragRef  = useRef(false)
-  const startRef = useRef({ mx: 0, my: 0, bx: 0, by: 0 })
-
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.detail !== 2) return           // only on double-click
-    e.preventDefault()
-    dragRef.current = true
-    setIsDragging(true)
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    startRef.current = { mx: e.clientX, my: e.clientY, bx: rect.left, by: rect.top }
-
-    const onMove = (me: MouseEvent) => {
-      if (!dragRef.current) return
-      const dx = me.clientX - startRef.current.mx
-      const dy = me.clientY - startRef.current.my
-      const nx = Math.max(SNAP_MARGIN, Math.min(window.innerWidth  - 80 - SNAP_MARGIN, startRef.current.bx + dx))
-      const ny = Math.max(SNAP_MARGIN, Math.min(window.innerHeight - 56 - SNAP_MARGIN, startRef.current.by + dy))
-      setPos({ x: nx, y: ny })
-    }
-    const onUp = () => {
-      dragRef.current = false
-      setIsDragging(false)
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }, [])
-
-  // Build inline style: use fixed coords when dragged, else fall back to default CSS
-  const style: React.CSSProperties = pos.x === -1
-    ? {}
-    : { left: pos.x, top: pos.y, bottom: 'auto', right: 'auto' }
-
-  return { style, isDragging, onMouseDown }
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Message {
@@ -103,37 +58,24 @@ function getChips(raga: any | null): string[] {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function GlobalAssistant() {
-  const pathname = usePathname()
-  const { ragaContext, isOpen, openAssistant, closeAssistant } = useGlobalAssistant()
-  const { style: dragStyle, isDragging, onMouseDown: onDragStart } = useDraggableButton()
+  const { ragaContext, isOpen, closeAssistant } = useGlobalAssistant()
 
-  const [messages, setMessages]   = useState<Message[]>([])
-  const [input, setInput]         = useState('')
-  const [isTyping, setIsTyping]   = useState(false)
-  const [unread, setUnread]       = useState(0)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput]       = useState('')
+  const [isTyping, setIsTyping] = useState(false)
   const bottomRef  = useRef<HTMLDivElement>(null)
   const inputRef   = useRef<HTMLInputElement>(null)
   const prevRagaRef = useRef<string | null>(null)
-
-  // ── All hooks must come before any conditional return (Rules of Hooks) ─────
 
   // Scroll to bottom on new messages
   useEffect(() => {
     if (isOpen) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isOpen])
 
-  // Focus input when opened
+  // Focus input when panel opens
   useEffect(() => {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 100)
-    else setUnread(0)
   }, [isOpen])
-
-  // Count unread when closed
-  useEffect(() => {
-    if (!isOpen && messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
-      setUnread(u => u + 1)
-    }
-  }, [messages])
 
   // Reset conversation when raga context changes
   useEffect(() => {
@@ -213,34 +155,9 @@ export function GlobalAssistant() {
 
   const chips = getChips(ragaContext)
 
-  // Don't show the global assistant inside the studio - it has its own sidebar assistant
-  if (pathname?.startsWith('/studio')) return null
-
+  // Panel only — trigger button lives in the Navbar
   return (
     <>
-      {/* ── Floating trigger button ── */}
-      {!isOpen && (
-        <button
-          onClick={() => openAssistant()}
-          onMouseDown={onDragStart}
-          style={dragStyle}
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl bg-surface-container-high border border-primary/20 shadow-glow hover:border-primary/50 hover:bg-surface-container-highest transition-all active:scale-95 group select-none${isDragging ? ' cursor-grabbing scale-105' : ' cursor-pointer'}`}
-          title="Ask Saptaswara AI · Double-click to move"
-        >
-          <div className="relative">
-            <span className="material-symbols-outlined !text-xl text-primary/80 group-hover:text-primary transition-colors">auto_awesome</span>
-            {unread > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-on-primary text-[9px] font-bold flex items-center justify-center">
-                {unread}
-              </span>
-            )}
-          </div>
-          <span className="font-mono text-[9px] uppercase tracking-widest text-primary/70 font-bold group-hover:text-primary transition-colors">
-            Ask AI
-          </span>
-        </button>
-      )}
-
       {/* ── Chat panel ── */}
       {isOpen && (
         <div className="fixed bottom-6 right-6 z-50 w-[380px] max-h-[560px] flex flex-col rounded-[28px] bg-surface border border-outline-variant/15 shadow-2xl animate-slide-up overflow-hidden">

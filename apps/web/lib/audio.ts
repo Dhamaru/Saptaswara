@@ -477,32 +477,32 @@ export class AudioEngine {
     if (tradition === 'hindustani') {
       // Tabla: bayan (bass) + dayan (treble) — both MembraneSynth
       this.percLow = new Tone.MembraneSynth({
-        pitchDecay: 0.08, octaves: 4,
-        envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 },
+        pitchDecay: 0.12, octaves: 5,
+        envelope: { attack: 0.001, decay: 0.5, sustain: 0, release: 0.15 },
       }).connect(this.masterOutput)
-      this.percLow.volume.value = -2 // Boosted
+      this.percLow.volume.value = 6   // loud bayan thump
 
       this.percHigh = new Tone.MembraneSynth({
-        pitchDecay: 0.05, octaves: 2,
-        envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.05 },
+        pitchDecay: 0.06, octaves: 3,
+        envelope: { attack: 0.001, decay: 0.25, sustain: 0, release: 0.08 },
       }).connect(this.masterOutput)
-      this.percHigh.volume.value = -4 // Boosted
+      this.percHigh.volume.value = 4  // crisp dayan snap
       this.percHighType     = 'membrane'
       this.percussionType   = 'tabla'
     } else {
       // Mridangam: low (MembraneSynth) + high (MetalSynth)
       this.percLow = new Tone.MembraneSynth({
-        pitchDecay: 0.1, octaves: 5,
-        envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.15 },
+        pitchDecay: 0.14, octaves: 6,
+        envelope: { attack: 0.001, decay: 0.6, sustain: 0, release: 0.2 },
       }).connect(this.masterOutput)
-      this.percLow.volume.value = -2 // Boosted
+      this.percLow.volume.value = 6   // deep thom
 
       this.percHigh = new Tone.MetalSynth({
         harmonicity: 5.1,
-        modulationIndex: 32, resonance: 4000, octaves: 1.5,
-        envelope: { attack: 0.001, decay: 0.1, release: 0.1 },
+        modulationIndex: 16, resonance: 3200, octaves: 1.5,
+        envelope: { attack: 0.001, decay: 0.18, release: 0.08 },
       }).connect(this.masterOutput)
-      this.percHigh.volume.value = -6 // Boosted
+      this.percHigh.volume.value = 4  // bright dhi/tha ring
       this.percHighType     = 'metal'
       this.percussionType   = 'mridangam'
     }
@@ -691,7 +691,7 @@ export class AudioEngine {
    * Kan — brief grace note touch before the main swara.
    * direction 'up': approach from below; 'down': approach from above.
    */
-  playKan(mainFreq: number, kanFreq: number, direction: 'up' | 'down' = 'up') {
+  playKan(mainFreq: number, kanFreq: number, _direction: 'up' | 'down' = 'up') {
     if (!this.isStarted) return
     try {
       const now = Tone.now()
@@ -718,16 +718,16 @@ export class AudioEngine {
       if (!drumType) return
 
       if (drumType === 'low' || drumType === 'both') {
-        const freq = isTabla ? 85 : 110 // Tuned frequencies
-        this.percLow?.triggerAttackRelease(freq, '16n')
+        const freq = isTabla ? 100 : 120 // Tuned: slightly higher so laptop speakers can reproduce
+        this.percLow?.triggerAttackRelease(freq, '8n')
       }
       if (drumType === 'high' || drumType === 'both') {
         if (this.percHighType === 'metal') {
-          // Mridangam high requires a frequency for triggerAttackRelease to be audible
-          (this.percHigh as Tone.MetalSynth).triggerAttackRelease(600, '16n')
+          // MetalSynth: pass a centre frequency so the pitched overtones are audible
+          ;(this.percHigh as Tone.MetalSynth).triggerAttackRelease(800, '8n')
         } else {
           const freq = isTabla ? 320 : 440
-          ;(this.percHigh as Tone.MembraneSynth).triggerAttackRelease(freq, '16n')
+          ;(this.percHigh as Tone.MembraneSynth).triggerAttackRelease(freq, '8n')
         }
       }
       return

@@ -4,12 +4,14 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { usePlayback } from '@/context/PlaybackContext'
 import { createClient } from '@/lib/supabase/client'
+import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
 import React from 'react'
 
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const { isPlaying, setIsPlaying, triggerSave } = usePlayback()
+  const { isOpen, openAssistant, closeAssistant } = useGlobalAssistant()
 
   const navLinks = [
     { name: 'Naad', href: '/studio' },
@@ -72,6 +74,20 @@ export default function Navbar() {
       </div>
 
       <div className="flex items-center gap-3 md:gap-6">
+        {/* AI Assistant toggle */}
+        <button
+          onClick={() => isOpen ? closeAssistant() : openAssistant()}
+          title="Saptaswara AI Assistant"
+          className={`hidden md:flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+            isOpen
+              ? 'bg-primary/20 border-primary/40 text-primary'
+              : 'bg-surface-container-high/60 border-outline-variant/10 text-on-surface-variant/50 hover:border-primary/30 hover:text-primary/80'
+          }`}
+        >
+          <span className="material-symbols-outlined !text-base leading-none">auto_awesome</span>
+          <span className="font-mono text-[9px] uppercase tracking-widest font-bold">Ask AI</span>
+        </button>
+
         {/* Control Hub - Studio only, desktop */}
         {pathname.startsWith('/studio') && (
           <div className="hidden lg:flex items-center gap-2 p-1.5 rounded-2xl bg-surface-container-high/40 border border-outline-variant/10 backdrop-blur-md shadow-inner-glow animate-fade-in">
@@ -139,6 +155,17 @@ export default function Navbar() {
               {link.name}
             </Link>
           ))}
+          <button
+            onClick={() => { isOpen ? closeAssistant() : openAssistant(); setMobileMenuOpen(false) }}
+            className={`px-5 py-4 rounded-2xl font-mono text-sm uppercase tracking-widest transition-all flex items-center gap-3 ${
+              isOpen
+                ? 'bg-primary/15 text-primary border border-primary/20'
+                : 'text-on-surface-variant/60 hover:bg-surface-container-high border border-transparent'
+            }`}
+          >
+            <span className="material-symbols-outlined !text-lg">auto_awesome</span>
+            Ask AI
+          </button>
         </div>
         {pathname.startsWith('/studio') && (
           <div className="px-6 pt-4 border-t border-outline-variant/10 flex gap-3">
