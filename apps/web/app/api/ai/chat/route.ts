@@ -2,6 +2,14 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rateLimit'
+import {
+  embedCache,
+  ragaCache,
+  buildEnrichedQuery,
+  ragaCacheKey,
+  EMBED_TTL_MS,
+  RAGA_TTL_MS,
+} from '@/lib/ragCache'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
@@ -62,7 +70,7 @@ TIME & RASA:
 ═══ OUTPUT FORMAT ═══
 - Keep responses concise but complete — 3-6 sentences for explanations, longer for exercises
 - Use **bold** for important terms on first mention
-- Use \`swara sequences\` inside backticks
+- Use \`swara sequences\` inside backtick blocks
 - Use line breaks to separate sections in longer answers
 - Never use bullet points for melodic patterns — write them as flowing sequences
 - End teaching responses with a concrete "Try this:" suggestion when possible`
@@ -72,29 +80,91 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function getRagaContext(query: string): Promise<string> {
+// ── Embedding with in-process cache ──────────────────────────────────────────
+async function getEmbedding(text: string): Promise<number[] | null> {
+  const cached = embedCache.get(text)
+  if (cached) return cached
+
   try {
     const embedModel = genAI.getGenerativeModel({ model: 'models/gemini-embedding-001' })
-    const embeddingResult = await embedModel.embedContent({
-      content: { role: 'user', parts: [{ text: query }] },
+    const result = await embedModel.embedContent({
+      content: { role: 'user', parts: [{ text }] },
       taskType: 'RETRIEVAL_QUERY',
     } as any)
-    const embedding = embeddingResult.embedding.values
+    const embedding = result.embedding.values
+    embedCache.set(text, embedding, EMBED_TTL_MS)
+    return embedding
+  } catch {
+    return null
+  }
+}
 
+// ── Context-aware RAG retrieval with result cache ─────────────────────────────
+async function getRagaContext(
+  userMessage: string,
+  ragaName: string | null,
+  recentHistory: Array<{ role: string; content: string }>,
+): Promise<string> {
+  // Build a context-enriched query so the embedding is anchored to the
+  // raga and conversation rather than just the bare user message
+  const enrichedQuery = buildEnrichedQuery(userMessage, ragaName, recentHistory)
+  const cacheKey = ragaCacheKey(ragaName, userMessage)
+
+  // Return cached retrieval result if still warm
+  const cachedContext = ragaCache.get(cacheKey)
+  if (cachedContext !== undefined) return cachedContext
+
+  const embedding = await getEmbedding(enrichedQuery)
+  if (!embedding) return ''
+
+  try {
     const { data: matches, error } = await supabaseAdmin.rpc('match_ragas', {
       query_embedding: embedding,
-      match_threshold: 0.45,
-      match_count: 3,
+      match_threshold: 0.42,
+      match_count: 4,
     })
 
-    if (error || !matches?.length) return ''
-    return matches.map((m: any) => m.content).join('\n\n')
+    if (error || !matches?.length) {
+      ragaCache.set(cacheKey, '', RAGA_TTL_MS)
+      return ''
+    }
+
+    const context = matches.map((m: any) => m.content).join('\n\n')
+    ragaCache.set(cacheKey, context, RAGA_TTL_MS)
+    return context
   } catch {
-    // Vector search is best-effort — proceed without it on failure
     return ''
   }
 }
 
+// ── Conversation compaction ───────────────────────────────────────────────────
+// For long sessions, keep the first exchange (establishes intent/raga choice)
+// + the most recent N turns. This prevents token bloat while retaining coherence.
+const MAX_HISTORY_TURNS = 12  // messages (not pairs)
+const KEEP_RECENT = 8
+
+function compactHistory(
+  messages: Array<{ role: string; content: string }>,
+): Array<{ role: string; content: string }> {
+  // Filter out empty streaming artifacts
+  const valid = messages.filter(m => m.content?.trim())
+  if (valid.length <= MAX_HISTORY_TURNS) return valid
+
+  // Keep first 2 messages (user's opening + first assistant reply) so the
+  // model remembers what raga/topic was established at the start
+  const head = valid.slice(0, 2)
+  const tail = valid.slice(-KEEP_RECENT)
+
+  // Insert a synthetic note so the model knows turns were skipped
+  const bridge = {
+    role: 'user' as const,
+    content: '[Earlier conversation condensed for context window. Continue naturally.]',
+  }
+
+  return [...head, bridge, ...tail]
+}
+
+// ── POST handler ──────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get('Authorization')
@@ -106,26 +176,20 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
     const { data: userData, error: authError } = await authClient.auth.getUser(token)
-    
     const activeUser = userData?.user
-
     if (authError || !activeUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (activeUser && !checkRateLimit(activeUser.id)) {
+    if (!checkRateLimit(activeUser.id)) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
-
-
 
     const { messages, ragaContext, studioContext } = await req.json()
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: 'messages must be a non-empty array' }, { status: 400 })
     }
-
-    // Validate messages
     for (const m of messages) {
       if (!m || typeof m.content !== 'string' || !['user', 'assistant'].includes(m.role)) {
         return NextResponse.json({ error: 'Invalid message format' }, { status: 400 })
@@ -133,60 +197,67 @@ export async function POST(req: Request) {
     }
 
     const lastUserMessage = messages[messages.length - 1].content
+    const ragaName: string | null = ragaContext?.name ?? null
 
-    // RAG: pull relevant raga knowledge for the current query
-    const ragVectorContext = await getRagaContext(lastUserMessage)
+    // All messages except the last one — used for history and RAG enrichment
+    const priorMessages = messages.slice(0, -1)
 
-    // Build raga session context
+    // ── Context-aware RAG (parallel with history compaction) ─────────────────
+    const ragVectorContext = await getRagaContext(lastUserMessage, ragaName, priorMessages)
+
+    // ── Build raga session context ────────────────────────────────────────────
     const ragaInfo = ragaContext
       ? [
           `Active Raga: ${ragaContext.name}`,
           ragaContext.tradition ? `Tradition: ${ragaContext.tradition}` : null,
-          ragaContext.aroha ? `Aroha (ascending): ${Array.isArray(ragaContext.aroha) ? ragaContext.aroha.join(' – ') : ragaContext.aroha}` : null,
-          ragaContext.avaroha ? `Avaroha (descending): ${Array.isArray(ragaContext.avaroha) ? ragaContext.avaroha.join(' – ') : ragaContext.avaroha}` : null,
+          ragaContext.aroha
+            ? `Aroha (ascending): ${Array.isArray(ragaContext.aroha) ? ragaContext.aroha.join(' – ') : ragaContext.aroha}`
+            : null,
+          ragaContext.avaroha
+            ? `Avaroha (descending): ${Array.isArray(ragaContext.avaroha) ? ragaContext.avaroha.join(' – ') : ragaContext.avaroha}`
+            : null,
           ragaContext.vadi ? `Vadi (most important / king note): ${ragaContext.vadi}` : null,
           ragaContext.samvadi ? `Samvadi (second most important / minister note): ${ragaContext.samvadi}` : null,
           ragaContext.mood ? `Rasa / Mood: ${ragaContext.mood}` : null,
           ragaContext.time_of_day ? `Traditional time of performance: ${ragaContext.time_of_day}` : null,
           ragaContext.raga_phrases?.length
-            ? `Characteristic Pakads:\n${ragaContext.raga_phrases.map((p: any) =>
-                `  ${p.label}: ${Array.isArray(p.sequence) ? p.sequence.join(' ') : p.sequence}`
-              ).join('\n')}`
+            ? `Characteristic Pakads:\n${ragaContext.raga_phrases
+                .map((p: any) => `  ${p.label}: ${Array.isArray(p.sequence) ? p.sequence.join(' ') : p.sequence}`)
+                .join('\n')}`
             : null,
-        ].filter(Boolean).join('\n')
-      : 'No raga selected yet. Encourage the user to pick one from the sidebar.'
-
-    // Build studio grid context
-    const studioInfo = studioContext
-      ? `Current sequencer pattern:\n${studioContext}`
-      : null
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : 'No raga selected yet. Encourage the user to pick one from the library.'
 
     const systemContext = [
       SYSTEM_PROMPT,
       '\n--- SESSION CONTEXT ---',
       ragaInfo,
-      studioInfo ? `\n--- STUDIO GRID ---\n${studioInfo}` : null,
-      ragVectorContext ? `\n--- RAGA KNOWLEDGE BASE ---\n${ragVectorContext}` : null,
-    ].filter(Boolean).join('\n')
+      studioContext ? `\n--- STUDIO GRID ---\n${studioContext}` : null,
+      ragVectorContext ? `\n--- RAGA KNOWLEDGE BASE (retrieved) ---\n${ragVectorContext}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
 
+    // ── Compact + format history for Gemini ───────────────────────────────────
+    const compacted = compactHistory(priorMessages)
+    const firstUserIndex = compacted.findIndex(m => m.role === 'user')
+    const history = (firstUserIndex === -1 ? [] : compacted.slice(firstUserIndex))
+      .filter(m => m.content?.trim())
+      .map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      }))
+
+    // ── Generate streaming response ───────────────────────────────────────────
     const model = genAI.getGenerativeModel({
-      model: 'gemini-flash-latest',
+      model: 'gemini-2.0-flash',
       systemInstruction: {
         role: 'system',
         parts: [{ text: systemContext }],
       },
     })
-
-    // Build proper multi-turn history (all but last message)
-    // Filter out empty-content messages (streaming artifacts) to avoid API errors
-    // Find the first user message: Gemini history must start with a "user" turn.
-    const firstUserIndex = messages.findIndex((m: any) => m.role === 'user')
-    const history = (firstUserIndex === -1 ? [] : messages.slice(firstUserIndex, -1))
-      .filter((m: any) => m.content && m.content.trim().length > 0)
-      .map((m: any) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
-      }))
 
     const chat = model.startChat({ history })
     const result = await chat.sendMessageStream(lastUserMessage)
@@ -197,9 +268,7 @@ export async function POST(req: Request) {
         try {
           for await (const chunk of result.stream) {
             const text = chunk.text()
-            if (text) {
-              controller.enqueue(encoder.encode(`data: ${text}\n\n`))
-            }
+            if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
           }
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
           controller.close()
