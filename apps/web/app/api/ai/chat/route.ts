@@ -193,7 +193,7 @@ export async function POST(req: Request) {
     const rl = await checkRateLimit(activeUser.id, 'ai')
     if (!rl.allowed) return rateLimitedResponse(rl)
 
-    const { messages, ragaContext, studioContext } = await req.json()
+    const { messages, ragaContext, studioContext, mode } = await req.json()
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: 'messages must be a non-empty array' }, { status: 400 })
@@ -238,8 +238,13 @@ export async function POST(req: Request) {
           .join('\n')
       : 'No raga selected yet. Encourage the user to pick one from the library.'
 
+    const learnModePrefix = mode === 'learn'
+      ? '\n═══ LEARN MODE ACTIVE ═══\nThe user is in Beginner / Learn Mode. Use simple, friendly language. Avoid Sanskrit terms without explanation. Use everyday analogies. Keep responses short and focused on one idea at a time. Always end with a concrete "Try this:" action step.\n'
+      : ''
+
     const systemContext = [
       SYSTEM_PROMPT,
+      learnModePrefix,
       '\n--- SESSION CONTEXT ---',
       ragaInfo,
       studioContext ? `\n--- STUDIO GRID ---\n${studioContext}` : null,

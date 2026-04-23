@@ -623,7 +623,7 @@ export function Guidebook({ open, onClose }: GuidebookProps) {
       />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 bottom-0 z-[301] w-full max-w-2xl bg-[#0d0d18] border-l border-outline-variant/15 shadow-2xl flex flex-col animate-slide-in-right">
+      <div className="fixed right-0 top-16 md:top-20 bottom-0 z-[301] w-full max-w-2xl bg-[#0d0d18] border-l border-outline-variant/15 shadow-2xl flex flex-col animate-slide-in-right">
 
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-outline-variant/10 flex-shrink-0">
@@ -638,10 +638,11 @@ export function Guidebook({ open, onClose }: GuidebookProps) {
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl border border-outline-variant/10 flex items-center justify-center text-on-surface-variant/40 hover:text-on-surface hover:border-outline-variant/30 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-outline-variant/25 bg-surface-container-high/60 text-on-surface/80 hover:text-on-surface hover:border-outline-variant/50 hover:bg-surface-container-high transition-all"
             aria-label="Close guide"
           >
-            <span className="material-symbols-outlined !text-base">close</span>
+            <span className="material-symbols-outlined !text-sm leading-none">close</span>
+            <span className="font-mono text-[9px] uppercase tracking-widest font-bold">Close</span>
           </button>
         </div>
 

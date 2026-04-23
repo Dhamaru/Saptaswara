@@ -755,7 +755,7 @@ export function LearnerGuide({ open, onClose }: LearnerGuideProps) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[400] flex flex-col bg-[#08080f] animate-fade-in">
+    <div className="fixed top-16 md:top-20 inset-x-0 bottom-0 z-[400] flex flex-col bg-[#08080f] animate-fade-in">
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/10 bg-surface-lowest/60 backdrop-blur-md flex-shrink-0">
@@ -777,10 +777,10 @@ export function LearnerGuide({ open, onClose }: LearnerGuideProps) {
           </div>
           <button
             onClick={onClose}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-outline-variant/20 bg-surface-container-high/60 text-on-surface/70 hover:text-on-surface hover:border-outline-variant/40 hover:bg-surface-container-high transition-all"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-outline-variant/30 bg-surface-container-high/80 text-on-surface/90 hover:text-on-surface hover:border-primary/40 hover:bg-primary/10 hover:text-primary transition-all shadow-sm"
           >
-            <span className="material-symbols-outlined !text-sm leading-none">close</span>
-            <span className="font-mono text-[9px] uppercase tracking-widest font-bold">Close</span>
+            <span className="material-symbols-outlined !text-sm leading-none">arrow_back</span>
+            <span className="font-mono text-[9px] uppercase tracking-widest font-bold">Back to Studio</span>
           </button>
         </div>
       </div>

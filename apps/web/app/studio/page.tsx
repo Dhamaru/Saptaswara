@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import * as Tone from 'tone'
 import { createClient } from '@/lib/supabase/client'
 import { audioEngine } from '@/lib/audio'
+import type { MasteringPreset } from '@/lib/audio'
 import dynamic from 'next/dynamic'
 import type { Raga } from '@saptaswara/core'
 import { useSearchParams } from 'next/navigation'
@@ -150,6 +151,7 @@ function StudioContent() {
   const [recordingTime, setRecordingTime] = useState(0)
 
   const [keyboardLayout, setKeyboardLayout] = useState<KeyboardLayout>('Piano')
+  const [masteringPreset, setMasteringPreset] = useState<MasteringPreset>('neutral')
   const [droneActive, setDroneActive] = useState(false)
   const [droneType, setDroneType] = useState<'Sa-Pa' | 'Sa-Ma'>('Sa-Pa')
   const [bpm, setBpm] = useState(120)
@@ -1644,6 +1646,48 @@ function StudioContent() {
                           {opt.label}
                         </button>
                       ))}
+                    </div>
+                  )
+                })()}
+
+                {/* ── Mastering strip ── */}
+                {(() => {
+                  const MASTERING_PRESETS: MasteringPreset[] = ['neutral', 'warm', 'clear', 'punchy', 'raga', 'concert', 'vocal', 'deep', 'bright']
+                  const MASTERING_HINTS: Record<MasteringPreset, string> = {
+                    neutral: 'Flat',
+                    warm:    '+Low +Mid −High',
+                    clear:   '−Low +High',
+                    punchy:  '+Low −Mid +High',
+                    raga:    '−Low +Mid +High',
+                    concert: '+Low +Mid',
+                    vocal:   '−Low +Pres',
+                    deep:    '+Low −High',
+                    bright:  '+High',
+                  }
+                  return (
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="font-mono text-[7px] uppercase tracking-widest text-on-surface-variant/30 font-bold shrink-0">Mastering</span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {MASTERING_PRESETS.map(p => (
+                          <button
+                            key={p}
+                            onClick={() => {
+                              setMasteringPreset(p)
+                              audioEngine?.setMasteringPreset(p)
+                            }}
+                            className={`px-2.5 py-1 rounded-lg font-mono text-[8px] uppercase tracking-widest font-bold transition-all ${
+                              masteringPreset === p
+                                ? 'bg-primary/20 text-primary border border-primary/20'
+                                : 'text-on-surface-variant/30 hover:text-on-surface border border-transparent'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="font-mono text-[7px] text-on-surface-variant/25 ml-auto shrink-0 hidden sm:block">
+                        {MASTERING_HINTS[masteringPreset]}
+                      </span>
                     </div>
                   )
                 })()}

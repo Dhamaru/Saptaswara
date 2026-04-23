@@ -11,6 +11,7 @@
     "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
+    "docx": "^9.6.1",
     "ts-node": "^10.9.0",
     "typescript": "^5.0.0"
   },

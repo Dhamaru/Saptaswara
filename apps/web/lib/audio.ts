@@ -3,6 +3,7 @@ import { swaraToFrequency } from '@/lib/musicalMath'
 
 // ── Public types ─────────────────────────────────────────────────────────────
 export type TraditionType = 'carnatic' | 'hindustani'
+export type MasteringPreset = 'neutral' | 'clear' | 'warm' | 'punchy' | 'raga' | 'concert' | 'vocal' | 'deep' | 'bright'
 export type InstrumentName =
   | 'piano'                                          // Western
   | 'veena' | 'bansuri' | 'mridangam' | 'tambura'  // Carnatic
@@ -279,7 +280,7 @@ export class AudioEngine {
         // PolySynth with pluck-like envelope + Freeverb (synchronous) for resonance
         const veenaSynth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'triangle4' },
-          envelope: { attack: 0.01, decay: 0.6, sustain: 0.15, release: 1.0 },
+          envelope: { attack: 0.010, decay: 0.20, sustain: 0.35, release: 0.90 },
         })
         const chorus = new Tone.Chorus({ frequency: 5, delayTime: 2.5, depth: 0.35, wet: 0.4 })
         const fverb  = new Tone.Freeverb({ roomSize: 0.5, dampening: 4000, wet: 0.25 })
@@ -357,7 +358,7 @@ export class AudioEngine {
         const makePipe = (detuneCents: number, vol: number) => {
           const s = new Tone.Synth({
             oscillator: { type: 'sawtooth' },
-            envelope: { attack: 0.06, decay: 0.05, sustain: 0.88, release: 0.6 },
+            envelope: { attack: 0.08, decay: 0.20, sustain: 0.90, release: 0.6 },
           } as any)
           s.detune.value = detuneCents
           s.volume.value = vol
@@ -393,7 +394,7 @@ export class AudioEngine {
         // FMSynth with high modulation + Freeverb for sympathetic resonance
         const fm    = new Tone.FMSynth({
           harmonicity: 3, modulationIndex: 15,
-          envelope: { attack: 0.12, decay: 0.2, sustain: 0.6, release: 0.8 },
+          envelope: { attack: 0.06, decay: 0.15, sustain: 0.75, release: 0.50 },
         })
         fm.volume.value = 4
         const fverb = new Tone.Freeverb({ roomSize: 0.4, dampening: 5000, wet: 0.25 })
@@ -419,7 +420,7 @@ export class AudioEngine {
           harmonicity: 1,
           modulationIndex: 6,
           oscillator: { type: 'sawtooth' } as any,
-          envelope: { attack: 0.002, decay: 0.6, sustain: 0.1, release: 1.2 },
+          envelope: { attack: 0.005, decay: 0.35, sustain: 0.20, release: 0.90 },
           modulation: { type: 'square' } as any,
           modulationEnvelope: { attack: 0.002, decay: 0.3, sustain: 0, release: 0.5 },
         })
@@ -925,18 +926,57 @@ export class AudioEngine {
     }
   }
 
-  setMasteringPreset(preset: 'clear' | 'warm' | 'punchy' | 'neutral') {
+  setMasteringPreset(preset: MasteringPreset) {
     if (!this.masterEQ) return
     switch (preset) {
+      // ── Existing ──
       case 'warm':
-        this.masterEQ.low.value = 3; this.masterEQ.mid.value = 1; this.masterEQ.high.value = -4; break
+        this.masterEQ.low.value = 3;  this.masterEQ.mid.value = 1;  this.masterEQ.high.value = -4; break
       case 'punchy':
-        this.masterEQ.low.value = 5; this.masterEQ.mid.value = -2; this.masterEQ.high.value = 2; break
+        this.masterEQ.low.value = 5;  this.masterEQ.mid.value = -2; this.masterEQ.high.value = 2;  break
       case 'clear':
-        this.masterEQ.low.value = -2; this.masterEQ.mid.value = 0; this.masterEQ.high.value = 4; break
+        this.masterEQ.low.value = -2; this.masterEQ.mid.value = 0;  this.masterEQ.high.value = 4;  break
+      // ── New ──
+      case 'raga':
+        // Baithak / sitting-circle feel — forward mids, rolled-off lows, airy highs
+        this.masterEQ.low.value = -3; this.masterEQ.mid.value = 4;  this.masterEQ.high.value = 2;  break
+      case 'concert':
+        // Large hall presence — slight low bloom, strong upper-mid projection
+        this.masterEQ.low.value = 2;  this.masterEQ.mid.value = 3;  this.masterEQ.high.value = 1;  break
+      case 'vocal':
+        // Brings melodic lines forward — cuts muddy lows, lifts presence band
+        this.masterEQ.low.value = -4; this.masterEQ.mid.value = 5;  this.masterEQ.high.value = 0;  break
+      case 'deep':
+        // Tanpura / drone emphasis — heavy low-end, recessed highs
+        this.masterEQ.low.value = 6;  this.masterEQ.mid.value = 0;  this.masterEQ.high.value = -5; break
+      case 'bright':
+        // Airy and open — lifts overtones, good for Carnatic high-register work
+        this.masterEQ.low.value = -1; this.masterEQ.mid.value = -1; this.masterEQ.high.value = 6;  break
       default:
-        this.masterEQ.low.value = 0; this.masterEQ.mid.value = 0; this.masterEQ.high.value = 0
+        this.masterEQ.low.value = 0;  this.masterEQ.mid.value = 0;  this.masterEQ.high.value = 0
     }
+  }
+
+  /**
+   * KR-03 — Sympathetic resonance layer for sitar and veena.
+   * Plays the 5th harmonic (3/2) and octave (2/1) very softly through heavy reverb,
+   * simulating the taraf (resonant) strings that vibrate in sympathy.
+   */
+  playSympatheticResonance(frequency: number) {
+    if (!this.isStarted || !this.timbreGain) return
+    if (this._instrument !== 'sitar' && this._instrument !== 'veena') return
+    try {
+      const symp = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.10, decay: 1.8, sustain: 0, release: 0.4 },
+      })
+      symp.volume.value = -22
+      const fverb = new Tone.Freeverb({ roomSize: 0.88, dampening: 2800, wet: 0.75 })
+      symp.connect(fverb)
+      fverb.connect(this.timbreGain)
+      symp.triggerAttackRelease([frequency * 1.5, frequency * 2], '2n', Tone.now(), 0.28)
+      setTimeout(() => { try { symp.dispose(); fverb.dispose() } catch { /* ignore */ } }, 4000)
+    } catch { /* ignore */ }
   }
 
   getMeterLevel(): number {

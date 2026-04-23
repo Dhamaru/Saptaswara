@@ -1,8 +1,16 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
 import { checkRateLimitSync } from '@/lib/rateLimit'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '')
+
+const nvidiaClient = process.env.NVIDIA_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.NVIDIA_API_KEY,
+      baseURL: 'https://integrate.api.nvidia.com/v1',
+    })
+  : null
 
 const MOOD_SYSTEM = `You are an Indian classical music scholar. Your job is to recommend ragas that match a given emotional state or mood description.
 Return ONLY valid JSON — no prose, no markdown fences, no explanation outside the JSON object.`
@@ -47,28 +55,54 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  try {
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: MOOD_SYSTEM,
-    })
-
-    const result = await model.generateContent(MOOD_PROMPT(mood))
-    const text = result.response.text()
-
-    // Extract JSON from the response (tolerate any wrapping prose)
+  const parseRagas = (text: string) => {
     const start = text.indexOf('{')
     const end = text.lastIndexOf('}')
     if (start === -1 || end === -1) throw new Error('No JSON in response')
-
     const parsed = JSON.parse(text.slice(start, end + 1))
-    if (!Array.isArray(parsed.ragas) || parsed.ragas.length === 0) {
-      throw new Error('Invalid response shape')
-    }
-
-    return NextResponse.json({ ragas: parsed.ragas.slice(0, 3) })
-  } catch (err) {
-    console.error('[mood/route] error:', err)
-    return NextResponse.json({ error: 'Failed to get recommendations' }, { status: 500 })
+    if (!Array.isArray(parsed.ragas) || parsed.ragas.length === 0) throw new Error('Invalid shape')
+    return parsed.ragas.slice(0, 3)
   }
+
+  // Try Gemini first
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.0-flash',
+        systemInstruction: MOOD_SYSTEM,
+      })
+      const result = await model.generateContent(MOOD_PROMPT(mood))
+      return NextResponse.json({ ragas: parseRagas(result.response.text()) })
+    } catch (geminiErr: any) {
+      const isQuota =
+        geminiErr?.status === 429 ||
+        geminiErr?.message?.includes('429') ||
+        geminiErr?.message?.includes('Quota')
+      if (!isQuota || !nvidiaClient) {
+        console.error('[mood/route] gemini error:', geminiErr)
+        return NextResponse.json({ error: 'Recommendation service unavailable — please try again.' }, { status: 500 })
+      }
+    }
+  }
+
+  // NVIDIA fallback
+  if (nvidiaClient) {
+    try {
+      const completion = await nvidiaClient.chat.completions.create({
+        model: 'meta/llama-3.3-70b-instruct',
+        messages: [
+          { role: 'system', content: MOOD_SYSTEM },
+          { role: 'user', content: MOOD_PROMPT(mood) },
+        ],
+        max_tokens: 800,
+        temperature: 0.5,
+      })
+      const text = completion.choices[0]?.message?.content ?? ''
+      return NextResponse.json({ ragas: parseRagas(text) })
+    } catch (nvErr) {
+      console.error('[mood/route] nvidia error:', nvErr)
+    }
+  }
+
+  return NextResponse.json({ error: 'No AI provider available — check GEMINI_API_KEY or NVIDIA_API_KEY.' }, { status: 503 })
 }

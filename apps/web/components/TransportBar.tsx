@@ -32,7 +32,6 @@ export default function TransportBar({
 }: TransportBarProps) {
   const engine = getAudioEngine()
   const [metronomeOn, setMetronomeOn] = useState(false)
-  const [masteringPreset, setMasteringPreset] = useState<'neutral' | 'clear' | 'warm' | 'punchy'>('neutral')
   const [meterLevel, setMeterLevel] = useState(-Infinity)
   const [currentTime, setCurrentTime] = useState(0)
   
@@ -65,12 +64,6 @@ export default function TransportBar({
     engine?.toggleMetronome(next, tala.matras)
   }
 
-  const cycleMastering = () => {
-    const presets: ('neutral' | 'clear' | 'warm' | 'punchy')[] = ['neutral', 'clear', 'warm', 'punchy']
-    const next = presets[(presets.indexOf(masteringPreset) + 1) % presets.length]
-    setMasteringPreset(next)
-    engine?.setMasteringPreset(next)
-  }
 
   const formatTime = (timeInSeconds: number) => {
     const mins = Math.floor(timeInSeconds / 60)
@@ -152,14 +145,6 @@ export default function TransportBar({
       {/* ── Section: Mastering + Volume ── */}
       <div className="flex items-center gap-6">
         
-        {/* Mastering Preset */}
-        <button
-          onClick={cycleMastering}
-          className="flex flex-col items-start px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition-all min-w-[120px]"
-        >
-          <span className="font-mono text-[8px] uppercase tracking-widest text-white/30 font-bold mb-0.5">Mastering</span>
-          <span className="font-sans text-[10px] text-primary uppercase font-bold tracking-wider">{masteringPreset}</span>
-        </button>
 
         {/* Meter + Volume */}
         <div className="flex items-center gap-4 bg-white/5 rounded-2xl px-5 h-12 border border-white/5">
