@@ -4,6 +4,49 @@ This file tracks our daily progress, outlines our next steps, and serves as a co
 
 ---
 
+## 📅 Date: 2026-04-23
+
+### ✅ Work Completed Today
+1. **Production Hardening — RLS**: Replaced all `FOR ALL` policies on `projects`, `layers`, and `practice_logs` with explicit per-operation policies including `WITH CHECK` on UPDATE. Prevents ownership-transfer attacks. Added explicit deny policies on `ragas` table for non-service-role clients.
+2. **Distributed Rate Limiting**: Rewrote `lib/rateLimit.ts` to use Upstash Redis (sliding window, three tiers: ai/write/read). Automatic in-memory fallback for local dev. Updated all API routes to use the new async `checkRateLimit(userId, tier)` API.
+3. **NVIDIA NIM Fallback**: Added OpenAI-compatible NVIDIA NIM client to `ai/chat/route.ts`. Gemini 2.0 Flash is tried first; on 429 quota errors, falls back to `meta/llama-3.3-70b-instruct` seamlessly.
+4. **Sentry Error Tracking**: Integrated `@sentry/nextjs` with `withSentryConfig`. Client and server configs enabled only in production, 20% trace sampling, PII stripped. Gemini non-quota errors and outer-catch errors are captured.
+5. **GitHub Actions CI Pipeline**: Created `.github/workflows/ci.yml` with jobs: typecheck → lint → audit → build → Vercel deploy (main-only). Added `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` as GitHub repo secrets.
+6. **Security Cleanup**: Deleted unauthenticated `/api/ai/test` debug route (quota drain risk). Deleted stale `scratch/`, root `components/Navbar.tsx`, `bug_list.txt`, `saptaswara-performance-report.json`.
+7. **Dependency Audit**: Upgraded Next.js `16.2.2 → 16.2.4` in both `apps/web` and `packages/core` to close the DoS Server Components CVE (GHSA-q4gf-8mx6-v5v3). Zero vulnerabilities confirmed.
+8. **Mobile Studio**: Removed the "studio needs a bigger screen" gate. Studio now works on all screen sizes with responsive HUD, sidebar, and keyboard layout.
+9. **Studio Deduplication**: Removed duplicate Input Method and Laya controls from sidebar. Consolidated into keyboard layout tabs (above keyboard) and Laya presets (in TransportBar HUD).
+10. **Documentation**: Updated `README.md`, `ARCHITECTURE.md`, and `JOURNAL.md` to reflect current stack, file structure, and security model.
+
+### 🎯 Next Tasks (Priority Order)
+1. **Pitch Detection + Swara Transcription** — mic input → swara notation → raga compliance check (the killer practice feature).
+2. **Journal Dual AI Panel** — journal page renders both `Assistant` and `GlobalAssistant` simultaneously; consolidate to one.
+3. **Mobile Audio Synchronization** — optimize Tone.js buffer handling for low-latency playback on mobile Safari/Chrome.
+4. **SSE Edge Runtime** — migrate `/api/ai/chat` to Edge Runtime for lower cold-start latency.
+
+---
+
+## 📅 Date: 2026-04-22
+
+### ✅ Work Completed Today
+1. **Stabilized Studio Infrastructure**: Resolved critical stale closure and unmount bugs in the Studio page (`BUG-001`, `BUG-004`).
+2. **Fixed Varjya Logic**: Resolved a bug in `isVarjya` where octave markers caused false negatives. The logic now correctly handles all octaves.
+3. **Mood Picker in Studio**: Integrated the `MoodPicker` directly into the Studio sidebar, allowing users to find ragas by emotion without leaving the workspace.
+4. **Raga Compliance Highlighting**: Implemented real-time varjya (forbidden) note flagging in both the Step Sequencer and `SwaPad`. Sequencer steps with forbidden notes now glow red with a warning tooltip.
+5. **AI Sequence Injection**: Finalized the "Generate" workflow. AI-generated sequences now include calculated frequencies and are injected directly into the melody track with full playback support.
+6. **SwaPad Enhancements**: Added raga-based dimming to the `SwaPad` component. When raga constraint is active, excluded swaras are visually dimmed and interaction is disabled.
+
+### ⏳ Pending — Awaiting Approval to Push
+- **Studio Stabilization & Enhancements**: All changes in `StudioPage`, `SwaPad`, `ragaUtils.ts`, and the AI Generate route are verified and ready for deployment.
+
+### 🎯 Next Tasks (Priority Order)
+1. **Fix `?guest=true` in Library** — `Compose in this Raga` button passes `?guest=true` in the URL; remove the param now that guest bypass is gone.
+2. **Pitch Detection + Swara Transcription** — user sings/hums into the mic, transcribed to swara notation and checked against the active raga; the teacher killer-feature.
+3. **Mobile Audio Synchronization** — optimize Tone.js buffer handling for low-latency playback on mobile Safari/Chrome.
+
+
+---
+
 ## 📅 Date: 2026-04-13
 
 ### ✅ Work Completed Today
@@ -12,9 +55,15 @@ This file tracks our daily progress, outlines our next steps, and serves as a co
 3. **Global AI Assistant**: Implemented the floating `GlobalAssistant` widget available on all pages (Library, Projects, Profile), providing Raga-aware chat context everywhere.
 4. **Project Cleanup**: Removed obsolete scratch scripts (`verify_user.js`, `check_table.js`, etc.) to clean up the repository root.
 
-### 🎯 Plan for Tomorrow
-1. **Instrument Fine-Tuning**: Continue calibrating the synthesis of niche instruments like the Sarangi and Veena.
-2. **Mobile Audio Synchronization**: Ensure the percussion logic is synced with the Expo mobile surface.
+### ➕ Also Shipped This Day (Missing from Original Entry)
+5. **Library Shimmer Skeleton**: Replaced blank-screen loading with a full shimmer skeleton layout matching the raga card grid — immediate visual feedback on slow connections.
+6. **Responsive Layouts + Password Toggle**: Fixed mobile/tablet layout across Studio, Dashboard, Library, and GlobalAssistant. Added show/hide eye-button password toggle to Login and Signup pages.
+7. **Codebase Audit & Cleanup**: Removed all debug `console.log` statements, guest auth bypass blocks, and the `sprite_tests/` junk folder. Created `.env.example` documenting all required environment variables.
+8. **AI Typing Indicator**: Added a "Saptaswara AI is generating…" strip above the chat input with bouncing dots animation; header icon pulses while generating. No more blank wait with no feedback.
+9. **Context-Aware Cached RAG**: In-process embedding cache (500 entries, 5 min TTL) and raga result cache (100 entries, 15 min TTL). Queries are enriched with raga name + last assistant snippet before embedding. Conversation compacted to first 2 turns + bridge + last 8 to prevent token bloat. Retrieval threshold lowered to 0.42, match count raised to 4.
+
+### 🎯 Original Plan for Next (Now Superseded)
+~~Instrument Fine-Tuning / Mobile Audio Synchronization~~ → Completed gamaka implementation instead.
 
 ---
 

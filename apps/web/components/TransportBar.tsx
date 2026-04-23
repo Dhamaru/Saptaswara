@@ -36,22 +36,26 @@ export default function TransportBar({
   const [meterLevel, setMeterLevel] = useState(-Infinity)
   const [currentTime, setCurrentTime] = useState(0)
   
-  // Update meter regularly
+  // BUG-021: empty deps — getAudioEngine() called inside interval to avoid
+  // re-registering the meter poller whenever the engine reference changes.
   useEffect(() => {
     const interval = setInterval(() => {
-      if (engine) setMeterLevel(engine.getMeterLevel())
+      const eng = getAudioEngine()
+      if (eng) setMeterLevel(eng.getMeterLevel())
     }, 50)
     return () => clearInterval(interval)
-  }, [engine])
+  }, [])
 
-  // Update playback timer
+  // BUG-022: sync currentTime from transport immediately when play stops,
+  // so the display shows 0 after Stop and the correct offset after Pause.
   useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentTime(Tone.getTransport().seconds)
-      }, 100)
+    if (!isPlaying) {
+      setCurrentTime(Tone.getTransport().seconds)
+      return
     }
+    const interval = setInterval(() => {
+      setCurrentTime(Tone.getTransport().seconds)
+    }, 100)
     return () => clearInterval(interval)
   }, [isPlaying])
 

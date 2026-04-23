@@ -9,6 +9,7 @@ const SECTIONS = [
   { id: 'sequencer',  label: 'Step Sequencer',  icon: 'grid_on'         },
   { id: 'instruments',label: 'Instruments',     icon: 'piano'           },
   { id: 'raga',       label: 'Raga System',     icon: 'menu_book'       },
+  { id: 'gamakas',    label: 'Gamakas',         icon: 'graphic_eq'      },
   { id: 'playback',   label: 'Playback',        icon: 'play_circle'     },
   { id: 'tracks',     label: 'Tracks',          icon: 'layers'          },
 ] as const
@@ -330,7 +331,7 @@ function SectionInstruments() {
         <Row label="Piano"><span>Full 2-octave keyboard with white and black keys</span></Row>
         <Row label="Harmonium"><span>Same layout, styled to match a reed organ</span></Row>
         <Row label="Swara"><span>Wide swara buttons — great for touchscreens</span></Row>
-        <Row label="SwaPad"><span>7 coloured pads with ♭/♯ toggles and register selector</span></Row>
+        <Row label="SwaPad"><span>7 coloured pads with ♭/♯ toggles and register selector. Auto-tunes to the active raga's komal/tivra variants when a raga is selected — look for the <strong>Raga tuned</strong> badge.</span></Row>
       </div>
     </>
   )
@@ -367,7 +368,25 @@ function SectionRaga() {
         <Row label="Small amber dot"><span>Nyasa — valid resting note</span></Row>
         <Row label="Dimmed / no dot"><span>Varjya — forbidden in this raga</span></Row>
         <Row label="Small primary dot"><span>In raga but not special</span></Row>
+        <Row label="Blue label on black key"><span>Komal (flat) note — e.g. re ♭, ga ♭</span></Row>
+        <Row label="Amber label on black key"><span>Tivra (sharp) Ma — ma ♯</span></Row>
       </div>
+
+      <Heading>Note-type colour coding (Library & RagaRing)</Heading>
+      <Para>
+        Wherever aroha or avaroha notes are displayed — in the Ragam library detail panel and the RagaRing circle —
+        each note pill is colour-coded to show its variant at a glance:
+      </Para>
+      <div className="rounded-2xl border border-outline-variant/10 overflow-hidden mb-4">
+        <Row label="Blue pill  ♭"><span>Komal (flat) — re, ga, dha, ni</span></Row>
+        <Row label="Amber pill  ♯"><span>Tivra (sharp) — ma (tivra Ma only)</span></Row>
+        <Row label="Purple pill"><span>Shuddha (natural) — Re, Ga, Ma, Dha, Ni</span></Row>
+        <Row label="Muted pill"><span>Achala (immovable) — Sa, Pa (no variants)</span></Row>
+      </div>
+      <Para>
+        Hovering over any pill shows the full label (e.g. "komal Ga", "tivra Ma"). The RagaRing SVG
+        adds a small ♭ or ♯ symbol below each label for komal and tivra positions.
+      </Para>
 
       <Heading>Raga constraint</Heading>
       <Para>
@@ -381,6 +400,88 @@ function SectionRaga() {
         Below the keyboard you'll find the Melodic Guide showing characteristic phrases of the selected raga.
         Click <strong>Play Blueprint</strong> to hear the Aroha and Avaroha played in sequence. This is useful
         for learning the raga's shape before composing.
+      </Para>
+    </>
+  )
+}
+
+function SectionGamakas() {
+  const ornaments: { name: string; hindi: string; desc: string; example: string }[] = [
+    { name: 'Meend',     hindi: 'मींड',     desc: 'A continuous pitch glide between two swaras — the most common ornament in Hindustani music.',    example: 'Ga glides up to Ma in Yaman without stopping.' },
+    { name: 'Andolan',   hindi: 'आंदोलन',  desc: 'A slow, asymmetric oscillation on a single swara — not a fast vibrato but a lazy swing.',          example: 'Komal Ga in Darbari Kanhada swings slowly at ~1.5 Hz.' },
+    { name: 'Gamak',     hindi: 'गमक',     desc: 'Rapid, forceful alternation between two adjacent swaras — energetic, rhythmic.',                    example: 'Ni oscillates forcefully in Shankarabharanam (Carnatic).' },
+    { name: 'Kan',       hindi: 'कण',      desc: 'A brief grace touch of an adjacent swara immediately before landing on the main note.',             example: 'Pa in Puriya Dhanashree is approached with a kan touch.' },
+    { name: 'Murki',     hindi: 'मुरकी',   desc: 'A quick descending cluster of 3–4 notes that lands on the main swara.',                            example: 'Sa in Bhairavi gets a murki ornament in avaroha.' },
+    { name: 'Khatka',    hindi: 'खटका',    desc: 'A sharp percussive snap between adjacent pitches — like a flick of the note.',                     example: 'Used in Khayal gayaki to add rhythmic sharpness.' },
+    { name: 'Sparsh',    hindi: 'स्पर्श',  desc: 'A light ascending grace approach — touches the note from below before arriving.',                   example: 'Ga in Bilawal is approached with a sparsh from Re.' },
+    { name: 'Pratyahat', hindi: 'प्रत्याहत', desc: 'A light descending grace approach — the reverse of sparsh, touches from above.',                example: 'Dha in Malkauns gets a pratyahat from Ni.' },
+  ]
+
+  return (
+    <>
+      <Heading>What are Gamakas?</Heading>
+      <Para>
+        Gamakas (गमक) are melodic ornaments — the micro-inflections that give Indian classical music
+        its characteristic expressiveness. Where Western music largely plays notes as fixed pitches,
+        Indian music treats each swara as a living thing that can glide, oscillate, and approach from
+        different angles. Gamakas are not optional decoration; for many ragas, they are <strong>mandatory</strong>.
+      </Para>
+      <Para>
+        In the Ragam library, select any raga and scroll to the <strong>Gamakas &amp; Ornaments</strong> panel.
+        Each swara that carries a required ornament is listed with its gamaka type badge and a description
+        of how and when to apply it. Required ornaments are marked with a "required" label.
+      </Para>
+
+      <Heading>The 8 ornament types</Heading>
+      <div className="rounded-2xl border border-outline-variant/10 overflow-hidden mb-5">
+        {ornaments.map((o, i) => (
+          <div key={o.name} className={`px-5 py-3 ${i < ornaments.length - 1 ? 'border-b border-outline-variant/5' : ''}`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-mono text-[10px] font-bold text-primary/80 w-20 flex-shrink-0">{o.name}</span>
+              <span className="font-mono text-[9px] text-on-surface-variant/40">{o.hindi}</span>
+            </div>
+            <p className="font-sans text-xs text-on-surface-variant/70 leading-relaxed mb-1">{o.desc}</p>
+            <p className="font-mono text-[9px] text-secondary/60 italic">{o.example}</p>
+          </div>
+        ))}
+      </div>
+
+      <Heading>Andolan parameters</Heading>
+      <Para>
+        Andolan is described with two values shown in the library panel:
+      </Para>
+      <div className="rounded-2xl border border-outline-variant/10 overflow-hidden mb-4">
+        <Row label="Rate (Hz)"><span>How many oscillations per second. Darbari: ≈1.5 Hz (very slow). Bhairavi: ≈2 Hz. Bageshri Ni: ≈2.5 Hz (faster).</span></Row>
+        <Row label="Depth (st)"><span>How many semitones wide the swing is. 0.3 = subtle; 0.6 = deep and heavy like Darbari's ga.</span></Row>
+      </div>
+
+      <Heading>Reading the Gamakas panel</Heading>
+      <Para>
+        In the Ragam library → raga detail panel → scroll to <strong>Gamakas &amp; Ornaments</strong>:
+      </Para>
+      <div className="space-y-2 mb-4">
+        {[
+          ['Signature ornament badge', 'The single most defining ornament of the raga — shown at the top.'],
+          ['Swara pill (blue/amber)', 'The note the ornament applies to. Blue = komal, amber = tivra.'],
+          ['Gamaka type badge', 'Meend / Andolan / Kan etc. — colour coded by type.'],
+          ['"required" tag', 'This ornament is non-negotiable — omitting it changes the raga\'s identity.'],
+          ['Fine print', 'Rate and depth for andolan, or contextual notes for meend/kan.'],
+          ['Legend', 'At the bottom, each ornament type used in the raga is explained in plain English.'],
+        ].map(([label, desc]) => (
+          <div key={label} className="flex gap-3 py-1.5">
+            <span className="font-mono text-[9px] font-bold text-primary/70 w-36 flex-shrink-0 mt-0.5">{label}</span>
+            <span className="font-sans text-xs text-on-surface-variant/65 leading-relaxed">{desc}</span>
+          </div>
+        ))}
+      </div>
+
+      <Heading>Gamaka coverage</Heading>
+      <Para>
+        Gamakas are currently documented for 20 major ragas including Yaman, Bhairavi, Bhairav, Darbari,
+        Todi, Malkauns, Kedar, Bageshri, Kafi, Bilawal, Bhoopali, Puriya Dhanashree, Marwa, Bhimpalasi,
+        Abheri, Shankarabharanam, Kalyani, Hamsadhwani, Miyan Ki Malhar, and Puriya.
+        For ragas not yet in the database the panel is hidden — the aroha/avaroha note pills still show
+        komal/tivra colour coding.
       </Para>
     </>
   )
@@ -485,6 +586,7 @@ const SECTION_CONTENT: Record<SectionId, React.ReactNode> = {
   sequencer:   <SectionSequencer />,
   instruments: <SectionInstruments />,
   raga:        <SectionRaga />,
+  gamakas:     <SectionGamakas />,
   playback:    <SectionPlayback />,
   tracks:      <SectionTracks />,
 }

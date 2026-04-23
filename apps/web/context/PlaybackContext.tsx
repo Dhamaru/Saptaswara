@@ -11,6 +11,8 @@ interface PlaybackContextType {
   setCurrentRagaId: (id: string | null) => void
   saveTriggered: number
   triggerSave: () => void
+  isImmersive: boolean
+  setIsImmersive: (val: boolean) => void
 }
 
 const PlaybackContext = createContext<PlaybackContextType | undefined>(undefined)
@@ -20,6 +22,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   const [isRecording, setIsRecording] = useState(false)
   const [currentRagaId, setCurrentRagaId] = useState<string | null>(null)
   const [saveTriggered, setSaveTriggered] = useState(0)
+  const [isImmersive, setIsImmersive] = useState(false)
 
   const triggerSave = useCallback(() => {
     setSaveTriggered(prev => prev + 1)
@@ -34,7 +37,9 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       currentRagaId,
       setCurrentRagaId,
       saveTriggered,
-      triggerSave
+      triggerSave,
+      isImmersive,
+      setIsImmersive,
     }}>
       {children}
     </PlaybackContext.Provider>

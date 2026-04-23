@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
-import { checkRateLimit } from '@/lib/rateLimit'
+import { checkRateLimitSync } from '@/lib/rateLimit'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 const supabase = createClient(
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!checkRateLimit(userData.user.id)) {
+    if (!checkRateLimitSync(userData.user.id)) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
 
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
       If suggesting swara patterns, use standard notation (S, r, R, g, G, m, M, P, d, D, n, N).
     `
 
-    const chatModel = genAI.getGenerativeModel({ model: 'models/gemini-flash-latest' })
+    const chatModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
     const result = await chatModel.generateContent(prompt)
     const response = await result.response
     const text = response.text()

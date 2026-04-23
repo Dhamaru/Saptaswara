@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { audioEngine } from '@/lib/audio'
+import { deriveRagaVariants } from '@/lib/swaraUtils'
 
 // ── Swara definitions ─────────────────────────────────────────────────────────
 
@@ -86,14 +87,45 @@ interface SwaPadProps {
   ragaConstrained?: boolean
   /** Vadi swara name */
   vadiNote?: string
+  /**
+   * Aroha of the active raga — used to auto-set komal/tivra variants
+   * so the pad immediately matches the raga's note flavour.
+   */
+  ragaAroha?: string[]
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained = false, vadiNote }: SwaPadProps) {
-  const [register, setRegister]   = useState<Register>('madhya')
-  const [komalSet, setKomalSet]   = useState<Set<BaseSwara>>(new Set())
-  const [tivraSet, setTivraSet]   = useState<Set<BaseSwara>>(new Set())
-  const [heldSwara, setHeldSwara] = useState<BaseSwara | null>(null)
+export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained = false, vadiNote, ragaAroha }: SwaPadProps) {
+  const [register, setRegister]         = useState<Register>('madhya')
+  const [komalSet, setKomalSet]         = useState<Set<BaseSwara>>(new Set())
+  const [tivraSet, setTivraSet]         = useState<Set<BaseSwara>>(new Set())
+  const [heldSwara, setHeldSwara]       = useState<BaseSwara | null>(null)
+  const [ragaTuned, setRagaTuned]       = useState(false)
+  const lastArohaRef  = useRef<string>('')
+  // BUG-016: use a ref so keyup handler reads current heldSwara without being in effect deps
+  const heldSwaraRef  = useRef<BaseSwara | null>(null)
+
+  // Auto-set komal/tivra when ragaAroha changes
+  useEffect(() => {
+    if (!ragaAroha?.length) return
+    const key = ragaAroha.join(',')
+    if (key === lastArohaRef.current) return   // same raga — don't re-apply
+    lastArohaRef.current = key
+
+    const variants = deriveRagaVariants(ragaAroha)
+    const newKomal = new Set<BaseSwara>()
+    const newTivra = new Set<BaseSwara>()
+
+    for (const [base, type] of Object.entries(variants)) {
+      if (BASE_SWARAS.includes(base as BaseSwara)) {
+        if (type === 'komal') newKomal.add(base as BaseSwara)
+        if (type === 'tivra') newTivra.add(base as BaseSwara)
+      }
+    }
+    setKomalSet(newKomal)
+    setTivraSet(newTivra)
+    setRagaTuned(true)
+  }, [ragaAroha])
 
   const getVariant = useCallback((swara: BaseSwara): SwaraVariant => {
     if (tivraSet.has(swara)) return 'tivra'
@@ -106,6 +138,7 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
     const freq     = getFreq(swara, variant, register)
     const label    = swaraKey(swara, variant)
     audioEngine?.attackSwara(freq, 0.85)
+    heldSwaraRef.current = swara
     setHeldSwara(swara)
     onSwara?.(label, freq)
   }, [getVariant, register, onSwara])
@@ -114,10 +147,12 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
     const variant = getVariant(swara)
     const freq    = getFreq(swara, variant, register)
     audioEngine?.releaseSwara(freq)
+    heldSwaraRef.current = null
     setHeldSwara(null)
   }, [getVariant, register])
 
   // Keyboard shortcuts: A–J home row → Sa Re Ga Ma Pa Dha Ni
+  // BUG-016 fix: heldSwara removed from deps — read via ref to avoid listener churn
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -127,7 +162,7 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
     }
     const onKeyUp = (e: KeyboardEvent) => {
       const swara = SWAPAD_KEY_TO_SWARA[e.key.toLowerCase()]
-      if (swara && heldSwara === swara) handleRelease(swara)
+      if (swara && heldSwaraRef.current === swara) handleRelease(swara)
     }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
@@ -135,7 +170,7 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [handleAttack, handleRelease, heldSwara])
+  }, [handleAttack, handleRelease])
 
   const toggleKomal = (swara: BaseSwara) => {
     if (!KOMAL_CAPABLE.has(swara)) return
@@ -163,7 +198,15 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-display text-xl font-light text-on-surface">Swara Pad</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-display text-xl font-light text-on-surface">Swara Pad</h3>
+            {ragaTuned && (
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary/10 border border-secondary/20 font-mono text-[7px] uppercase tracking-widest text-secondary/80">
+                <span className="w-1 h-1 rounded-full bg-secondary animate-pulse" />
+                Raga tuned
+              </span>
+            )}
+          </div>
           <p className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 mt-0.5">
             Hold to sustain · Keys A–J · Toggle ♭ / ♯ below each swara
           </p>
@@ -199,9 +242,12 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
           const isVadi    = vadiNote?.toLowerCase() === swara.toLowerCase()
           const c         = SWARA_COLORS[swara]
           const label     = isKomal ? `k${swara}` : isTivra ? `${swara}♯` : swara
+          const ragaKey   = (isKomal ? 'k' : isTivra ? 't' : '') + swara.toLowerCase()
 
           return (
-            <div key={swara} className="flex flex-col items-center gap-1.5">
+            <div key={swara} className={`flex flex-col items-center gap-1.5 transition-opacity duration-300 ${
+              ragaConstrained && activeRagaNotes.length > 0 && !ragaSet.has(ragaKey) ? 'opacity-20 grayscale' : ''
+            }`}>
               {/* Main pad */}
               <button
                 onMouseDown={(e) => { e.preventDefault(); handleAttack(swara) }}
@@ -209,10 +255,13 @@ export default function SwaPad({ onSwara, activeRagaNotes = [], ragaConstrained 
                 onMouseLeave={() => { if (heldSwara === swara) handleRelease(swara) }}
                 onTouchStart={(e) => { e.preventDefault(); handleAttack(swara) }}
                 onTouchEnd={() => handleRelease(swara)}
+                disabled={ragaConstrained && activeRagaNotes.length > 0 && !ragaSet.has(ragaKey)}
+
                 className={`relative w-full h-20 rounded-2xl border transition-all select-none flex flex-col items-center justify-center gap-1 overflow-hidden ${
                   isHeld ? `${c.active} scale-95 shadow-glow` : `${c.idle}`
                 }`}
               >
+
                 {/* Vadi glow ring */}
                 {isVadi && (
                   <div className="absolute inset-0 rounded-2xl border-2 border-amber-400/60 pointer-events-none" />

@@ -18,29 +18,32 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
 
+  // BUG-036: use AbortController so fetch is cancelled if component unmounts
   useEffect(() => {
-    fetchProjects()
+    const controller = new AbortController()
+    ;(async () => {
+      try {
+        const res = await fetch('/api/projects', { signal: controller.signal })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error)
+        setProjects(data)
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        console.error('Error fetching projects:', err)
+      } finally {
+        setLoading(false)
+      }
+    })()
+    return () => controller.abort()
   }, [])
-
-  async function fetchProjects() {
-    try {
-      const res = await fetch('/api/projects')
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setProjects(data)
-    } catch (err) {
-      console.error('Error fetching projects:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   async function deleteProject(id: string) {
     if (!confirm('Are you sure you want to delete this project?')) return
     try {
       const res = await fetch(`/api/projects?id=${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Failed to delete')
-      setProjects(projects.filter(p => p.id !== id))
+      // BUG-035: functional setState avoids stale closure over projects
+      setProjects(prev => prev.filter(p => p.id !== id))
     } catch (err) {
       console.error('Error deleting project:', err)
     }

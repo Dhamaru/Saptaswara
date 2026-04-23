@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { audioEngine } from '@/lib/audio'
 import { NOTES_IN_OCTAVE, swaraToFrequency, normalizeSwara } from '@/lib/musicalMath'
+import { getSwaraType, swaraAccent } from '@/lib/swaraUtils'
 import { useComposition, type InstrumentType, type TraditionType } from '@/context/CompositionContext'
 
 interface PianoProps {
@@ -128,51 +129,80 @@ export default function Piano({
   const getFrequency = (offset: number, octave: number) =>
     rootFreq * Math.pow(2, octave - 4) * Math.pow(2, offset / 12)
 
-  const isAllowed = (rawName: string) => {
-    const canonical = normalizeSwara(rawName)
-    if (normalizedActiveNotes.length === 0) return true
-    if (isScaleLocked && !normalizedActiveNotes.includes(canonical)) return false
-    return true
-  }
+  // BUG-014: keep onNoteClick in a ref so the keyboard handler always calls the
+  // latest version without being in the effect's dependency array.
+  const onNoteClickRef = useRef(onNoteClick)
+  onNoteClickRef.current = onNoteClick
 
-  // Attack (mousedown/touchstart) — sustain until release
-  const handleAttack = (noteName: string, freq: number, rawName: string) => {
-    if (!isAllowed(rawName)) return
-    audioEngine?.attackSwara(freq, 0.8)
-    setHeldNotes(prev => new Set(prev).add(noteName))
-    onNoteClick?.(noteName, freq)
-  }
+  // BUG-012: keep heldNotes in a ref so the global-release effect never needs
+  // heldNotes in its deps — prevents re-registering listeners on every keystroke.
+  const heldNotesRef = useRef(heldNotes)
+  useEffect(() => { heldNotesRef.current = heldNotes }, [heldNotes])
 
-  // Release (mouseup/mouseleave/touchend)
-  const handleRelease = (noteName: string, freq: number) => {
-    audioEngine?.releaseSwara(freq)
-    setHeldNotes(prev => { const s = new Set(prev); s.delete(noteName); return s })
-  }
-
-  // Legacy click-style play (Swara board + keyboard shortcuts)
-  const handlePlay = (noteName: string, freq: number, rawName: string) => {
-    if (!isAllowed(rawName)) return
-    if (audioEngine) {
-      audioEngine.playSwara(freq)
-      setPlayingNote(noteName)
-      setTimeout(() => setPlayingNote(null), 250)
+  // ── Keyboard state & Release guards ──────────────────────────────────────
+  // BUG-012 fix: global mouseup/touchend releases stuck notes (drag-off-button).
+  // Empty deps — listeners are stable; current heldNotes read via ref.
+  useEffect(() => {
+    const handleGlobalRelease = () => {
+      if (heldNotesRef.current.size > 0) {
+        audioEngine?.releaseAll()
+        setHeldNotes(new Set())
+      }
     }
-    onNoteClick?.(noteName, freq)
+    window.addEventListener('mouseup', handleGlobalRelease)
+    window.addEventListener('touchend', handleGlobalRelease)
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalRelease)
+      window.removeEventListener('touchend', handleGlobalRelease)
+    }
+  }, [])
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleAttack = (noteId: string, freq: number, label: string) => {
+    setPlayingNote(noteId)
+    setHeldNotes(prev => new Set(prev).add(noteId))
+    audioEngine?.attackSwara(freq)
+    onNoteClick?.(label, freq)
+  }
+
+  const handleRelease = (noteId: string, freq: number) => {
+    setHeldNotes(prev => {
+      const next = new Set(prev)
+      next.delete(noteId)
+      return next
+    })
+    if (playingNote === noteId) setPlayingNote(null)
+    audioEngine?.releaseSwara(freq)
+  }
+
+  const handlePlay = (noteId: string, freq: number, label: string) => {
+    setPlayingNote(noteId)
+    audioEngine?.playSwara(freq, '4n')
+    // BUG-014: use ref so keyboard handler always calls the latest onNoteClick prop
+    onNoteClickRef.current?.(label, freq)
+    setTimeout(() => {
+      setPlayingNote(null)
+    }, 500)
   }
 
   // ── Instrument switching ──────────────────────────────────────────────────
-  const handleInstrumentChange = (value: string) => {
-    // value is "instrument:tradition"
+  // BUG-013 fix: Handle instrument switching with a loading state or sync guard
+  const handleInstrumentChange = async (value: string) => {
     const [inst, trad] = value.split(':') as [InstrumentType, TraditionType]
     dispatch({ type: 'SET_INSTRUMENT', value: inst })
     dispatch({ type: 'SET_TRADITION',  value: trad })
-    audioEngine?.setTimbre(inst, trad)
+    
+    // Some timbres might take time to switch (loading samples)
+    if (audioEngine) {
+      await audioEngine.setTimbre(inst, trad)
+    }
   }
 
   const octaves = [4, 5]
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return // Prevent oscillating stuck notes on key repeat
       if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '')) return
       const mapping = KEY_MAP[e.key.toLowerCase()]
       if (mapping) {
@@ -202,7 +232,7 @@ export default function Piano({
     return (
       <div className="flex gap-4 h-64 w-full overflow-x-auto pb-6 scroll-thin">
         {swaras.map((note, i) => {
-          const isPlaying = playingNote === note || externalActiveNote === note
+          const isNotePlaying = playingNote === note || externalActiveNote === note
           return (
             <button
               key={i}
@@ -217,18 +247,18 @@ export default function Piano({
                 )
               }
               className={`flex-1 min-w-[140px] rounded-[32px] border transition-all flex flex-col items-center justify-center gap-6 ${
-                isPlaying
+                isNotePlaying
                   ? 'bg-primary border-primary shadow-glow scale-95 brightness-125'
                   : 'bg-surface-container-high border-outline-variant/20 hover:border-primary/40'
               }`}
             >
               <span
-                className={`font-display text-5xl font-light ${isPlaying ? 'text-white' : 'text-on-surface'}`}
+                className={`font-display text-5xl font-light ${isNotePlaying ? 'text-white' : 'text-on-surface'}`}
               >
                 {note}
               </span>
               <div
-                className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-white animate-pulse' : 'bg-primary/60'}`}
+                className={`w-2 h-2 rounded-full ${isNotePlaying ? 'bg-white animate-pulse' : 'bg-primary/60'}`}
               />
             </button>
           )
@@ -317,161 +347,163 @@ export default function Piano({
       </div>
 
       {/* Keyboard — scrollable on narrow screens */}
-      <div className="w-full overflow-x-auto pb-2 scroll-thin">
-      <div className="relative flex p-2 bg-[#050505] rounded-[28px] border border-white/5 shadow-2xl mx-auto" style={{ width: 'fit-content' }}>
-        {octaves.map(octave => (
-          <div key={octave} className="relative flex w-[448px] h-80 shrink-0">
-            {/* White Keys */}
-            <div className="flex w-full h-full">
-              {NOTES_IN_OCTAVE.filter(n => !n.isBlack).map((note, idx, filteredArr) => {
-                const freq        = getFrequency(note.offset, octave)
-                const canonical   = normalizeSwara(note.name)
-                const isInRaga    = normalizedActiveNotes.length === 0 || normalizedActiveNotes.includes(canonical)
-                const noteId      = `${note.name}${octave}`
-                const isHeld      = heldNotes.has(noteId)
-                const isPlaying   = isHeld || playingNote === noteId || externalActiveNote === noteId
-                const isLockedOut = isScaleLocked && normalizedActiveNotes.length > 0 && !isInRaga
-                const isVadi      = vadiNorm !== null && canonical === vadiNorm
-                const isSamvadi   = samvadiNorm !== null && canonical === samvadiNorm
-                const isVarjya    = varjyaSet.has(canonical)
-                const isNyasa     = nyasaSet.has(canonical)
-                const isAbsoluteFirst = octave === octaves[0] && idx === 0
-                const isAbsoluteLast  = octave === octaves[octaves.length - 1] && idx === filteredArr.length - 1
+      {/* BUG-014 fix: use flex-shrink-0 and stable container width for the scrollable keyboard */}
+      <div className="w-full overflow-x-auto pb-4 pt-2 scroll-thin">
+        <div className="relative flex p-2 bg-[#050505] rounded-[32px] border border-white/5 shadow-2xl mx-auto flex-shrink-0" style={{ width: '896px', minWidth: '896px' }}>
+          {octaves.map(octave => (
+            <div key={octave} className="relative flex w-[448px] h-80 shrink-0">
+              {/* White Keys */}
+              <div className="flex w-full h-full">
+                {NOTES_IN_OCTAVE.filter(n => !n.isBlack).map((note, idx, filteredArr) => {
+                  const freq        = getFrequency(note.offset, octave)
+                  const canonical   = normalizeSwara(note.name)
+                  const isInRaga    = normalizedActiveNotes.length === 0 || normalizedActiveNotes.includes(canonical)
+                  const noteId      = `${note.name}${octave}`
+                  const isHeld      = heldNotes.has(noteId)
+                  const isNotePlaying = isHeld || playingNote === noteId || externalActiveNote === noteId
+                  const isLockedOut = isScaleLocked && normalizedActiveNotes.length > 0 && !isInRaga
+                  const isVadi      = vadiNorm !== null && canonical === vadiNorm
+                  const isSamvadi   = samvadiNorm !== null && canonical === samvadiNorm
+                  const isVarjya    = varjyaSet.has(canonical)
+                  const isNyasa     = nyasaSet.has(canonical)
+                  const isAbsoluteFirst = octave === octaves[0] && idx === 0
+                  const isAbsoluteLast  = octave === octaves[octaves.length - 1] && idx === filteredArr.length - 1
 
-                return (
-                  <button
-                    key={idx}
-                    onMouseDown={(e) => { e.preventDefault(); handleAttack(noteId, freq, note.name) }}
-                    onMouseUp={() => handleRelease(noteId, freq)}
-                    onMouseLeave={() => handleRelease(noteId, freq)}
-                    onTouchStart={(e) => { e.preventDefault(); handleAttack(noteId, freq, note.name) }}
-                    onTouchEnd={() => handleRelease(noteId, freq)}
-                    disabled={isLockedOut}
-                    className={`group relative flex-1 h-80 border-r border-black/10 transition-all duration-150 origin-top
-                      ${isAbsoluteFirst ? 'rounded-l-2xl' : ''}
-                      ${isAbsoluteLast  ? 'rounded-r-2xl'  : ''}
-                      ${isPlaying
-                        ? 'bg-primary brightness-125 translate-y-3 z-30 shadow-[0_20px_40px_rgba(var(--primary-rgb),0.5)]'
-                        : isLockedOut
-                          ? 'bg-[#ffffff] cursor-not-allowed opacity-90'
-                          : isVarjya
-                            ? 'bg-[#f0f0f0] opacity-50 cursor-not-allowed'
-                            : isVadi
-                              ? 'bg-[#fff8f0] hover:bg-[#ffe8d0] active:translate-y-2'
-                              : isSamvadi
-                                ? 'bg-[#f0f8ff] hover:bg-[#d8edff] active:translate-y-2'
-                                : 'bg-[#fafafa] hover:bg-[#ededed] active:translate-y-2 active:bg-[#e0e0e0]'
-                      }`}
-                  >
-                    {/* Vadi glow bar */}
-                    {isVadi && !isPlaying && (
-                      <div className="absolute top-0 inset-x-0 h-1.5 rounded-t-sm bg-gradient-to-r from-amber-400 to-orange-400 opacity-80" />
-                    )}
-                    {/* Samvadi bar */}
-                    {isSamvadi && !isPlaying && (
-                      <div className="absolute top-0 inset-x-0 h-1.5 rounded-t-sm bg-gradient-to-r from-sky-400 to-blue-400 opacity-60" />
-                    )}
-                    {/* Raga dot */}
-                    <div
-                      className={`absolute top-4 left-1/2 -translate-x-1/2 rounded-full transition-all
-                        ${isVadi    ? 'w-2 h-2 bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
-                        : isSamvadi ? 'w-1.5 h-1.5 bg-sky-400 opacity-80'
-                        : isNyasa   ? 'w-1 h-1 bg-primary/40'
-                        : isInRaga && !isLockedOut ? 'w-1 h-1 bg-primary/20'
-                        : 'w-0 h-0 opacity-0'}`}
-                    />
-                    <span
-                      className={`absolute bottom-6 left-1/2 -translate-x-1/2 font-display text-[9px] tracking-[0.2em] font-bold transition-all ${
-                        isPlaying ? 'text-white scale-110'
-                        : isVadi    ? 'text-amber-600'
-                        : isSamvadi ? 'text-sky-600'
-                        : 'text-black/20'
-                      }`}
+                  return (
+                    <button
+                      key={idx}
+                      onMouseDown={(e) => { e.preventDefault(); handleAttack(noteId, freq, note.name) }}
+                      onMouseUp={() => handleRelease(noteId, freq)}
+                      onMouseLeave={() => handleRelease(noteId, freq)}
+                      onTouchStart={(e) => { e.preventDefault(); handleAttack(noteId, freq, note.name) }}
+                      onTouchEnd={() => handleRelease(noteId, freq)}
+                      disabled={isLockedOut}
+                      className={`group relative flex-1 h-80 border-r border-black/10 transition-all duration-150 origin-top
+                        ${isAbsoluteFirst ? 'rounded-l-2xl' : ''}
+                        ${isAbsoluteLast  ? 'rounded-r-2xl'  : ''}
+                        ${isNotePlaying
+                          ? 'bg-primary brightness-125 translate-y-3 z-30 shadow-[0_20px_40px_rgba(var(--primary-rgb),0.5)]'
+                          : isLockedOut
+                            ? 'bg-[#ffffff] cursor-not-allowed opacity-90'
+                            : isVarjya
+                              ? 'bg-[#f0f0f0] opacity-50 cursor-not-allowed'
+                              : isVadi
+                                ? 'bg-[#fff8f0] hover:bg-[#ffe8d0] active:translate-y-2'
+                                : isSamvadi
+                                  ? 'bg-[#f0f8ff] hover:bg-[#d8edff] active:translate-y-2'
+                                  : 'bg-[#fafafa] hover:bg-[#ededed] active:translate-y-2 active:bg-[#e0e0e0]'
+                        }`}
                     >
-                      {note.name}
-                    </span>
-                    {NOTE_TO_KEY[`${note.offset}-${octave}`] && (
-                      <span className={`absolute bottom-2 left-1/2 -translate-x-1/2 font-mono text-[8px] font-bold transition-all ${
-                        isPlaying ? 'text-white/80' : 'text-black/25'
-                      }`}>
-                        {NOTE_TO_KEY[`${note.offset}-${octave}`]}
-                      </span>
-                    )}
-                    <div className="absolute inset-x-0 top-0 h-1 bg-white/40 opacity-0 group-hover:opacity-10" />
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Black Keys */}
-            <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-40">
-              {NOTES_IN_OCTAVE.map((note, idx) => {
-                if (!note.isBlack) return null
-                const freq        = getFrequency(note.offset, octave)
-                const canonical   = normalizeSwara(note.name)
-                const isInRaga    = normalizedActiveNotes.length === 0 || normalizedActiveNotes.includes(canonical)
-                const noteId      = `${note.name}${octave}`
-                const isHeld      = heldNotes.has(noteId)
-                const isPlaying   = isHeld || playingNote === noteId || externalActiveNote === noteId
-                const isLockedOut = isScaleLocked && normalizedActiveNotes.length > 0 && !isInRaga
-                const isVadi      = vadiNorm !== null && canonical === vadiNorm
-                const isSamvadi   = samvadiNorm !== null && canonical === samvadiNorm
-                const isVarjya    = varjyaSet.has(canonical)
-                const whiteKeysBefore = NOTES_IN_OCTAVE.slice(0, idx).filter(n => !n.isBlack).length
-
-                return (
-                  <button
-                    key={idx}
-                    disabled={isLockedOut}
-                    onMouseDown={e => { e.preventDefault(); e.stopPropagation(); handleAttack(noteId, freq, note.name) }}
-                    onMouseUp={() => handleRelease(noteId, freq)}
-                    onMouseLeave={() => handleRelease(noteId, freq)}
-                    onTouchStart={e => { e.preventDefault(); handleAttack(noteId, freq, note.name) }}
-                    onTouchEnd={() => handleRelease(noteId, freq)}
-                    className={`absolute top-0 w-[42px] h-48 -translate-x-1/2 rounded-b-xl border-x border-b transition-all duration-150 pointer-events-auto ${
-                      isPlaying
-                        ? 'bg-primary border-primary/50 translate-y-2 brightness-150 z-50 shadow-[0_15px_30px_rgba(var(--primary-rgb),0.5)]'
-                        : isLockedOut || isVarjya
-                          ? 'bg-[#111] border-white/5 cursor-not-allowed opacity-40'
-                          : isVadi
-                            ? 'bg-[#3d2800] border-amber-800/40 hover:bg-[#4d3400] shadow-2xl'
-                            : isSamvadi
-                              ? 'bg-[#001828] border-sky-800/40 hover:bg-[#002236] shadow-2xl'
-                              : 'bg-[#1a1a1c] border-white/5 hover:bg-[#252528] active:translate-y-1 active:bg-[#111] shadow-2xl'
-                    }`}
-                    style={{ left: `${whiteKeysBefore * 64}px` }}
-                  >
-                    {/* Vadi top accent */}
-                    {isVadi && !isPlaying && (
-                      <div className="absolute top-0 inset-x-0 h-1 rounded-t bg-amber-400 opacity-70" />
-                    )}
-                    {isSamvadi && !isPlaying && (
-                      <div className="absolute top-0 inset-x-0 h-1 rounded-t bg-sky-400 opacity-50" />
-                    )}
-                    {isInRaga && normalizedActiveNotes.length > 0 && (
+                      {/* Vadi glow bar */}
+                      {isVadi && !isNotePlaying && (
+                        <div className="absolute top-0 inset-x-0 h-1.5 rounded-t-sm bg-gradient-to-r from-amber-400 to-orange-400 opacity-80" />
+                      )}
+                      {/* Samvadi bar */}
+                      {isSamvadi && !isNotePlaying && (
+                        <div className="absolute top-0 inset-x-0 h-1.5 rounded-t-sm bg-gradient-to-r from-sky-400 to-blue-400 opacity-60" />
+                      )}
+                      {/* Raga dot */}
+                      <div
+                        className={`absolute top-4 left-1/2 -translate-x-1/2 rounded-full transition-all
+                          ${isVadi    ? 'w-2 h-2 bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
+                          : isSamvadi ? 'w-1.5 h-1.5 bg-sky-400 opacity-80'
+                          : isNyasa   ? 'w-1 h-1 bg-primary/40'
+                          : isInRaga && !isLockedOut ? 'w-1 h-1 bg-primary/20'
+                          : 'w-0 h-0 opacity-0'}`}
+                      />
                       <span
-                        className={`absolute bottom-8 left-1/2 -translate-x-1/2 font-mono text-[7px] uppercase font-bold tracking-tighter ${
-                          isPlaying ? 'text-white' : isVadi ? 'text-amber-400' : isSamvadi ? 'text-sky-400' : 'text-primary'
+                        className={`absolute bottom-6 left-1/2 -translate-x-1/2 font-display text-[9px] tracking-[0.2em] font-bold transition-all ${
+                          isNotePlaying ? 'text-white scale-110'
+                          : isVadi    ? 'text-amber-600'
+                          : isSamvadi ? 'text-sky-600'
+                          : 'text-black/20'
                         }`}
                       >
-                        {note.label}
+                        {note.name}
                       </span>
-                    )}
-                    {NOTE_TO_KEY[`${note.offset}-${octave}`] && (
-                      <span className={`absolute bottom-2 left-1/2 -translate-x-1/2 font-mono text-[8px] font-bold transition-all ${
-                        isPlaying ? 'text-white/80' : 'text-white/30'
-                      }`}>
-                        {NOTE_TO_KEY[`${note.offset}-${octave}`]}
-                      </span>
-                    )}
-                    <div className="absolute inset-x-1.5 top-0 h-1 bg-white/[0.05] rounded-full" />
-                  </button>
-                )
-              })}
+                      {NOTE_TO_KEY[`${note.offset}-${octave}`] && (
+                        <span className={`absolute bottom-2 left-1/2 -translate-x-1/2 font-mono text-[8px] font-bold transition-all ${
+                          isNotePlaying ? 'text-white/80' : 'text-black/25'
+                        }`}>
+                          {NOTE_TO_KEY[`${note.offset}-${octave}`]}
+                        </span>
+                      )}
+                      <div className="absolute inset-x-0 top-0 h-1 bg-white/40 opacity-0 group-hover:opacity-10" />
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Black Keys */}
+              <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-40">
+                {NOTES_IN_OCTAVE.map((note, idx) => {
+                  if (!note.isBlack) return null
+                  const freq        = getFrequency(note.offset, octave)
+                  const canonical   = normalizeSwara(note.name)
+                  const isInRaga    = normalizedActiveNotes.length === 0 || normalizedActiveNotes.includes(canonical)
+                  const noteId      = `${note.name}${octave}`
+                  const isHeld      = heldNotes.has(noteId)
+                  const isNotePlaying = isHeld || playingNote === noteId || externalActiveNote === noteId
+                  const isLockedOut = isScaleLocked && normalizedActiveNotes.length > 0 && !isInRaga
+                  const isVadi      = vadiNorm !== null && canonical === vadiNorm
+                  const isSamvadi   = samvadiNorm !== null && canonical === samvadiNorm
+                  const isVarjya    = varjyaSet.has(canonical)
+                  const whiteKeysBefore = NOTES_IN_OCTAVE.slice(0, idx).filter(n => !n.isBlack).length
+
+                  return (
+                    <button
+                      key={idx}
+                      disabled={isLockedOut}
+                      onMouseDown={e => { e.preventDefault(); e.stopPropagation(); handleAttack(noteId, freq, note.name) }}
+                      onMouseUp={() => handleRelease(noteId, freq)}
+                      onMouseLeave={() => handleRelease(noteId, freq)}
+                      onTouchStart={e => { e.preventDefault(); handleAttack(noteId, freq, note.name) }}
+                      onTouchEnd={() => handleRelease(noteId, freq)}
+                      className={`absolute top-0 w-[42px] h-48 -translate-x-1/2 rounded-b-xl border-x border-b transition-all duration-150 pointer-events-auto ${
+                        isNotePlaying
+                          ? 'bg-primary border-primary/50 translate-y-2 brightness-150 z-50 shadow-[0_15px_30px_rgba(var(--primary-rgb),0.5)]'
+                          : isLockedOut || isVarjya
+                            ? 'bg-[#111] border-white/5 cursor-not-allowed opacity-40'
+                            : isVadi
+                              ? 'bg-[#3d2800] border-amber-800/40 hover:bg-[#4d3400] shadow-2xl'
+                              : isSamvadi
+                                ? 'bg-[#001828] border-sky-800/40 hover:bg-[#002236] shadow-2xl'
+                                : 'bg-[#1a1a1c] border-white/5 hover:bg-[#252528] active:translate-y-1 active:bg-[#111] shadow-2xl'
+                      }`}
+                      style={{ left: `${whiteKeysBefore * 64}px` }}
+                    >
+                      {/* Vadi top accent */}
+                      {isVadi && !isNotePlaying && (
+                        <div className="absolute top-0 inset-x-0 h-1 rounded-t bg-amber-400 opacity-70" />
+                      )}
+                      {isSamvadi && !isNotePlaying && (
+                        <div className="absolute top-0 inset-x-0 h-1 rounded-t bg-sky-400 opacity-50" />
+                      )}
+                      {isInRaga && normalizedActiveNotes.length > 0 && (
+                        <span
+                          className={`absolute bottom-8 left-1/2 -translate-x-1/2 font-mono text-[7px] font-bold tracking-tighter text-center leading-tight ${
+                            isNotePlaying ? 'text-white' : isVadi ? 'text-amber-400' : isSamvadi ? 'text-sky-400' : getSwaraType(note.name) === 'tivra' ? 'text-amber-300' : 'text-blue-300'
+                          }`}
+                        >
+                          <span>{note.label}</span>
+                          <span className="block text-[6px] opacity-70">{swaraAccent(note.name)}</span>
+                        </span>
+                      )}
+                      {NOTE_TO_KEY[`${note.offset}-${octave}`] && (
+                        <span className={`absolute bottom-2 left-1/2 -translate-x-1/2 font-mono text-[8px] font-bold transition-all ${
+                          isNotePlaying ? 'text-white/80' : 'text-white/30'
+                        }`}>
+                          {NOTE_TO_KEY[`${note.offset}-${octave}`]}
+                        </span>
+                      )}
+                      <div className="absolute inset-x-1.5 top-0 h-1 bg-white/[0.05] rounded-full" />
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
       </div>{/* end scroll wrapper */}
 
       {/* Footer metadata */}
@@ -483,3 +515,4 @@ export default function Piano({
     </div>
   )
 }
+

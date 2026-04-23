@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { getSwaraType } from '@/lib/swaraUtils'
 
 // Normalise DB values that mean "not set"
 function cleanSwara(val: string | undefined): string | undefined {
@@ -16,7 +17,16 @@ const SWARA_TO_SEMI: Record<string, number> = {
   Pa: 7, dha: 8, Dha: 9, ni: 10, Ni: 11,
 }
 
+// Canonical swara at each semitone position
 const SEMI_LABELS = ['Sa', 're', 'Re', 'ga', 'Ga', 'Ma', 'ma', 'Pa', 'dha', 'Dha', 'ni', 'Ni']
+
+// Accent symbol for each semitone (♭ = komal, ♯ = tivra, '' = achala/shuddha)
+const SEMI_ACCENT = SEMI_LABELS.map(s => {
+  const t = getSwaraType(s)
+  if (t === 'komal') return '♭'
+  if (t === 'tivra') return '♯'
+  return ''
+})
 
 // Semitones that are the "fixed" pillars (Sa and Pa) — always shown even if not in raga
 const PILLAR_SEMIS = new Set([0, 7])
@@ -39,15 +49,19 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: sam
   const dotR   = size * 0.062
   const labelOffset = size * 0.1
 
+  // BUG-017: filter null/undefined entries before processing — DB can return sparse arrays
+  const safeAroha   = (Array.isArray(aroha)   ? aroha   : []).filter(Boolean) as string[]
+  const safeAvaroha = (Array.isArray(avaroha) ? avaroha : []).filter(Boolean) as string[]
+
   // Collect active semitones from aroha + avaroha
-  const allNotes = new Set([...aroha, ...avaroha])
+  const allNotes = new Set([...safeAroha, ...safeAvaroha])
   const activeSemis = new Set<number>()
   allNotes.forEach(n => {
     const semi = SWARA_TO_SEMI[n]
     if (semi !== undefined) activeSemis.add(semi)
   })
 
-  const vadiSemi   = vadi    !== undefined ? SWARA_TO_SEMI[vadi]    : undefined
+  const vadiSemi    = vadi    !== undefined ? SWARA_TO_SEMI[vadi]    : undefined
   const samvadiSemi = samvadi !== undefined ? SWARA_TO_SEMI[samvadi] : undefined
 
   return (
@@ -57,8 +71,8 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: sam
         <circle cx={cx} cy={cy} r={outerR} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1.5} />
 
         {/* Aroha arc — draw connecting lines between consecutive aroha notes */}
-        {aroha.length > 1 && (() => {
-          const points = aroha
+        {safeAroha.length > 1 && (() => {
+          const points = safeAroha
             .map(n => SWARA_TO_SEMI[n])
             .filter(s => s !== undefined)
             .map(s => {
@@ -81,6 +95,7 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: sam
           const isVadi    = semi === vadiSemi
           const isSamvadi = semi === samvadiSemi
           const isPillar  = PILLAR_SEMIS.has(semi)
+          const accent    = SEMI_ACCENT[semi]
 
           // Color hierarchy: vadi > samvadi > aroha/active > pillar > dim
           const fillColor = isVadi
@@ -101,6 +116,13 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: sam
 
           const labelOpacity = isVadi || isSamvadi ? 1 : isActive ? 0.9 : 0.35
 
+          // Komal notes get a blue tint on their label, tivra get amber
+          const accentColor = accent === '♭'
+            ? (isVadi ? '#f59e0b' : isSamvadi ? '#60a5fa' : '#93c5fd')   // blue-300
+            : accent === '♯'
+            ? (isVadi ? '#f59e0b' : '#fcd34d')                            // amber-300
+            : (isVadi ? '#f59e0b' : isSamvadi ? '#60a5fa' : isActive ? '#c3c0ff' : '#6b6880')
+
           return (
             <g key={semi}>
               {/* Outer ring for vadi/samvadi */}
@@ -114,19 +136,33 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: sam
               )}
               {/* Main dot */}
               <circle cx={x} cy={y} r={dotR} fill={fillColor} />
-              {/* Label */}
+              {/* Main swara label */}
               <text
-                x={lx} y={ly}
+                x={lx} y={ly - (accent ? size * 0.018 : 0)}
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fontSize={size * 0.055}
                 fontFamily="'Space Grotesk', monospace"
                 fontWeight={isVadi || isSamvadi ? '700' : '400'}
-                fill={isVadi ? '#f59e0b' : isSamvadi ? '#60a5fa' : isActive ? '#c3c0ff' : '#6b6880'}
+                fill={accentColor}
                 opacity={labelOpacity}
               >
                 {label}
               </text>
+              {/* Komal/tivra accent symbol — smaller, offset below the name */}
+              {accent && (
+                <text
+                  x={lx} y={ly + size * 0.038}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={size * 0.038}
+                  fontFamily="monospace"
+                  fill={accentColor}
+                  opacity={labelOpacity * 0.85}
+                >
+                  {accent}
+                </text>
+              )}
             </g>
           )
         })}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAnonClient } from '@supabase/supabase-js'
+import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
 
 /**
  * Try cookie auth first (server SSR client); fall back to Bearer token.
@@ -39,6 +40,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { user, supabase } = resolved
+    const rl = await checkRateLimit(user.id, 'read')
+    if (!rl.allowed) return rateLimitedResponse(rl)
 
     const { data, error } = await supabase
       .from('projects')
@@ -62,6 +65,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { user, supabase } = resolved
+    const rl = await checkRateLimit(user.id, 'write')
+    if (!rl.allowed) return rateLimitedResponse(rl)
 
     const body = await req.json()
     const { projectId, title, raga_id, bpm, sequence } = body
@@ -111,7 +116,7 @@ export async function POST(req: Request) {
         .insert({
           project_id: currentPid,
           name: 'Main Sequence',
-          type: 'keyboard',
+          type: 'melody',
           events: { sequence }
         })
     }
@@ -131,6 +136,8 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { user, supabase } = resolved
+    const rl = await checkRateLimit(user.id, 'write')
+    if (!rl.allowed) return rateLimitedResponse(rl)
 
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')

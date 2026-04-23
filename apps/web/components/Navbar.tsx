@@ -10,7 +10,7 @@ import React from 'react'
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { isPlaying, setIsPlaying, triggerSave } = usePlayback()
+  const { isPlaying, setIsPlaying, triggerSave, isImmersive, setIsImmersive } = usePlayback()
   const { isOpen, openAssistant, closeAssistant } = useGlobalAssistant()
 
   const navLinks = [
@@ -46,7 +46,7 @@ export default function Navbar() {
 
   return (
     <>
-    <nav className="fixed top-0 left-0 right-0 h-16 md:h-20 z-[100] px-4 md:px-8 flex items-center justify-between border-b border-outline-variant/5 bg-surface-lowest/40 backdrop-blur-xl">
+    <nav className={`fixed top-0 left-0 right-0 h-16 md:h-20 z-[100] px-4 md:px-8 flex items-center justify-between border-b border-outline-variant/5 bg-surface-lowest/40 backdrop-blur-xl transition-transform duration-300 ${isImmersive ? '-translate-y-full pointer-events-none' : 'translate-y-0'}`}>
       <div className="flex items-center gap-6 md:gap-12">
         <Link href="/" className="group flex items-center gap-3 transition-all">
           <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl overflow-hidden border border-primary/20 shadow-glow group-hover:scale-110 transition-transform">
@@ -111,6 +111,20 @@ export default function Navbar() {
               className="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant/40 hover:text-primary hover:bg-white/5 transition-all active:scale-95"
             >
               <span className="material-symbols-outlined !text-xl leading-none">save</span>
+            </button>
+            <div className="w-px h-6 bg-outline-variant/10 mx-1" />
+            <button
+              onClick={() => setIsImmersive(!isImmersive)}
+              title={isImmersive ? 'Exit Focus Mode' : 'Focus Mode'}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
+                isImmersive
+                  ? 'bg-primary/20 text-primary shadow-glow-sm'
+                  : 'text-on-surface-variant/40 hover:text-primary hover:bg-white/5'
+              }`}
+            >
+              <span className="material-symbols-outlined !text-xl leading-none">
+                {isImmersive ? 'fullscreen_exit' : 'fullscreen'}
+              </span>
             </button>
           </div>
         )}

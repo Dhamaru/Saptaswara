@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient as createApiClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
 
 const JournalSchema = z.object({
   raga: z.string().min(1, 'raga is required'),
@@ -48,6 +49,8 @@ export async function GET(req: Request) {
   try {
     const { user, supabase } = await resolveUserAndClient(req)
     if (!user || !supabase) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const rl = await checkRateLimit(user.id, 'read')
+    if (!rl.allowed) return rateLimitedResponse(rl)
 
     const { data, error } = await supabase
       .from('practice_logs')
@@ -78,6 +81,8 @@ export async function POST(req: Request) {
 
     const { user, supabase } = await resolveUserAndClient(req)
     if (!user || !supabase) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const rl = await checkRateLimit(user.id, 'write')
+    if (!rl.allowed) return rateLimitedResponse(rl)
 
     const { data, error } = await supabase.from('practice_logs').insert([
       {

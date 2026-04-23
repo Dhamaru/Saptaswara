@@ -30,7 +30,7 @@
 
 ## 1. Project Overview
 
-Saptaswara is a full-stack Indian classical music studio built on **Next.js 16.2.2** (App Router, Turbopack). It lets musicians compose and play back ragas using a virtual piano and drum pad, record sessions, export MIDI files, keep a practice journal, and consult an AI assistant trained on raga theory.
+Saptaswara is a full-stack Indian classical music studio built on **Next.js 16.2.4** (App Router, Turbopack). It lets musicians compose and play back ragas using a virtual piano and drum pad, record sessions, export MIDI files, keep a practice journal, and consult an AI assistant trained on raga theory.
 
 **Primary user flows:**
 - Browse the raga library, pick a raga, and open it in the studio editor.
@@ -45,17 +45,19 @@ Saptaswara is a full-stack Indian classical music studio built on **Next.js 16.2
 | Layer | Technology |
 |---|---|
 | Monorepo tooling | npm workspaces |
-| Frontend framework | Next.js 16.2.2 (App Router, Turbopack) |
+| Frontend framework | Next.js 16.2.4 (App Router, Turbopack) |
 | UI language | TypeScript + Tailwind CSS |
 | Audio playback | Tone.js + Web Audio API |
 | MIDI export | midi-writer-js |
 | Backend | Next.js API routes (route.ts) + Proxy (proxy.ts) |
 | Auth | Supabase Auth + Proxy Session Handling |
 | Database | Supabase (PostgreSQL) + pgvector |
-| AI generation | Google Generative AI — gemini-flash-latest |
+| AI generation | Google Generative AI — gemini-2.0-flash (primary), NVIDIA NIM llama-3.3-70b (429 fallback) |
 | AI embeddings | Google Generative AI — gemini-embedding-001 (768-dim) |
 | Input validation | Zod on all POST endpoints |
-| Rate limiting | In-memory Map with store eviction, 20 req / 60 s per user |
+| Rate limiting | Upstash Redis sliding window (ai: 20/60s, write: 60/60s, read: 200/60s); in-memory fallback in local dev |
+| Error tracking | Sentry (production only, 20% trace sampling, PII stripped) |
+| CI/CD | GitHub Actions — typecheck → lint → audit → build → Vercel deploy |
 
 ---
 
@@ -74,28 +76,48 @@ Saptaswara/
 │       │   ├── login/page.tsx       # Login form
 │       │   ├── signup/page.tsx      # Signup form
 │       │   ├── auth/callback/       # OAuth callback handler
-│       │   ├── debug-auth/          # Auth debugging route
 │       │   └── api/
 │       │       ├── ai/chat/route.ts
 │       │       ├── ai/suggest/route.ts
+│       │       ├── ai/generate/route.ts
+│       │       ├── ai/mood/route.ts
 │       │       ├── journal/route.ts
 │       │       ├── export/midi/route.ts
 │       │       └── projects/route.ts
 │       ├── components/
 │       │   ├── Piano.tsx
 │       │   ├── DrumPad.tsx
+│       │   ├── SwaPad.tsx
 │       │   ├── Assistant.tsx
+│       │   ├── GlobalAssistant.tsx
 │       │   ├── Navbar.tsx
+│       │   ├── TransportBar.tsx
 │       │   ├── RagaCard.tsx
+│       │   ├── RagaBrowser.tsx
+│       │   ├── RagaRing.tsx
+│       │   ├── EarTraining.tsx
+│       │   ├── LearnerGuide.tsx
+│       │   ├── Guidebook.tsx
+│       │   ├── MoodPicker.tsx
+│       │   ├── ImmersiveHUD.tsx
+│       │   ├── SwaraTranscriber.tsx
+│       │   ├── LayerTimeline.tsx
 │       │   ├── Toast.tsx
 │       │   └── ErrorBoundary.tsx
 │       ├── context/
 │       │   ├── PlaybackContext.tsx
 │       │   └── CompositionContext.tsx
 │       └── lib/
-│           ├── audio.ts             # AudioEngine singleton
+│           ├── toneAudioEngine.ts   # AudioEngine singleton (Tone.js)
 │           ├── musicalMath.ts       # Swara↔frequency math
-│           ├── rateLimit.ts         # In-memory rate limiter
+│           ├── ragaUtils.ts         # Varjya checking, scale utilities
+│           ├── ragCache.ts          # Embedding + RAG result caches
+│           ├── rateLimit.ts         # Upstash Redis rate limiter (3 tiers)
+│           ├── pitchDetector.ts     # Mic pitch detection (hum/sing)
+│           ├── hzToSwara.ts         # Hz → swara name conversion
+│           ├── swaraUtils.ts        # Swara display helpers
+│           ├── gamakaData.ts        # Gamaka ornament definitions
+│           ├── talas.ts             # Tala/cycle definitions
 │           ├── utils.ts
 │           └── supabase/
 │               ├── client.ts        # Browser client
@@ -120,7 +142,8 @@ Saptaswara/
         ├── 20260406120001_add_tradition_embeddings.sql
         ├── 20260407120000_raga_phrases.sql
         ├── 20260408000000_fix_tradition_column.sql
-        └── 20260408120000_grant_anon_access.sql
+        ├── 20260408120000_grant_anon_access.sql
+        └── 20260424000000_rls_hardening.sql
 ```
 
 **High-level service interaction:**
@@ -156,7 +179,6 @@ Browser
 | `/login` | `app/login/page.tsx` | Email / OAuth login form |
 | `/signup` | `app/signup/page.tsx` | Signup form |
 | `/auth/callback` | `app/auth/callback/` | OAuth callback handler |
-| `/debug-auth` | `app/debug-auth/` | Auth debugging route |
 
 ### Root Layout Provider Order
 
@@ -313,7 +335,7 @@ The `Assistant.tsx` component additionally opens an SSE stream (`text/event-stre
 
 ## 4. Backend Layer
 
-All API routes live under `apps/web/app/api/**/route.ts`. Validation uses **Zod** on every POST body. Rate limiting uses the in-memory store from `apps/web/lib/rateLimit.ts`.
+All API routes live under `apps/web/app/api/**/route.ts`. Validation uses **Zod** on every POST body. Rate limiting uses Upstash Redis (three tiers: `ai` 20/60s, `write` 60/60s, `read` 200/60s) with automatic in-memory fallback when Redis env vars are absent.
 
 ---
 
@@ -324,8 +346,8 @@ All API routes live under `apps/web/app/api/**/route.ts`. Validation uses **Zod*
 | Property | Detail |
 |---|---|
 | Auth | Bearer token → `anonClient.auth.getUser(token)` → 401 if fails |
-| Rate limit | `checkRateLimit(user.id)` → 429 if exceeded |
-| External | Google Generative AI — `models/gemini-flash-latest` — `generateContentStream()` |
+| Rate limit | `checkRateLimit(user.id, 'ai')` → 429 if exceeded (20 req/60s) |
+| External | Gemini 2.0 Flash (primary SSE stream); NVIDIA NIM llama-3.3-70b (429 fallback) |
 
 **Request body:**
 ```json

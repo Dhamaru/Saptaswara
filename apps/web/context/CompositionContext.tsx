@@ -32,7 +32,11 @@ export function CompositionProvider({ children }: { children: React.ReactNode })
         const raw = localStorage.getItem(key)
         if (raw) {
           const draft = JSON.parse(raw)
-          dispatch({ type: 'LOAD_DRAFT', draft })
+          // BUG-031: validate draft is a plain object before dispatching —
+          // corrupt or versioned drafts (arrays, primitives) would break the reducer
+          if (draft && typeof draft === 'object' && !Array.isArray(draft)) {
+            dispatch({ type: 'LOAD_DRAFT', draft })
+          }
         }
       } catch { /* corrupt storage — ignore */ }
     })

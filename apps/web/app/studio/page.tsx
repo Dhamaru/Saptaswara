@@ -30,12 +30,20 @@ const SwaPad = dynamic(() => import('@/components/SwaPad'), {
 import { RagaEngine } from '@saptaswara/core'
 import { CompositionProvider, useComposition } from '@/context/CompositionContext'
 import { TALAS, DEFAULT_TALA, expandTala } from '@/lib/talas'
+import { isVarjya } from '@/lib/ragaUtils'
+import { swaraDisplayName } from '@/lib/swaraUtils'
+import { swaraToFrequency } from '@/lib/musicalMath'
+import { MoodPicker } from '@/components/MoodPicker'
+
+
+import { SwaraTranscriber } from '@/components/SwaraTranscriber'
 import type { Tala } from '@/lib/talas'
 import { Guidebook } from '@/components/Guidebook'
 import { LearnerGuide } from '@/components/LearnerGuide'
 import { RagaRing } from '@/components/RagaRing'
 import { EarTraining } from '@/components/EarTraining'
 import TransportBar from '@/components/TransportBar'
+import { ImmersiveHUD } from '@/components/ImmersiveHUD'
 
 // ── Track system ──────────────────────────────────────────────────────────────
 type TrackType = 'melody' | 'rhythm' | 'vocal' | 'bass' | 'drone' | 'pad'
@@ -104,14 +112,15 @@ function makeTrack(type: TrackType, loopLen: number, overrides: Partial<Track> =
 // ── StudioContent ─────────────────────────────────────────────────────────────
 function StudioContent() {
   const searchParams = useSearchParams()
-  const projectIdFromUrl = searchParams.get('project_id')
+  // Accept both ?raga_id= (new) and ?project_id= (legacy bookmarks) for backward compat
+  const ragaIdFromUrl = searchParams.get('raga_id') ?? searchParams.get('project_id')
 
   useEffect(() => { 
     document.title = 'Saptaswara Studio'
     setMounted(true)
   }, [])
 
-  const { isPlaying, setIsPlaying, isRecording, setIsRecording, currentRagaId, setCurrentRagaId, saveTriggered } = usePlayback()
+  const { isPlaying, setIsPlaying, isRecording, setIsRecording, currentRagaId, setCurrentRagaId, saveTriggered, isImmersive, setIsImmersive } = usePlayback()
   const { state: comp, dispatch } = useComposition()
   const { activeInstrument, activeTradition } = comp
 
@@ -151,6 +160,12 @@ function StudioContent() {
   const [selectedTala, setSelectedTala] = useState<Tala>(DEFAULT_TALA)
   const [laySetting, setLaySetting] = useState<'vilambit' | 'madhya' | 'drut'>('madhya')
 
+  // ── AI Generate state ────────────────────────────────────────────────────────
+  const [generateOpen, setGenerateOpen] = useState(false)
+  const [generatePrompt, setGeneratePrompt] = useState('')
+  const [generateLoading, setGenerateLoading] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
+
   // Automatically switch Tala when tradition changes
   useEffect(() => {
     if (!selectedTala) return
@@ -163,7 +178,7 @@ function StudioContent() {
     }
   }, [activeTradition, setSelectedTala])
 
-  const [projectId, setProjectId] = useState<string | null>(projectIdFromUrl)
+  const [projectId, setProjectId] = useState<string | null>(ragaIdFromUrl)
   const [projectName, setProjectName] = useState('Untitled Composition')
   const [detectedPhrases, setDetectedPhrases] = useState<any[]>([])
   const [ragasLoading, setRagasLoading] = useState(true)
@@ -172,10 +187,16 @@ function StudioContent() {
   const [isExportingMidi, setIsExportingMidi] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [saveModalTitle, setSaveModalTitle] = useState('')
-  const [showGuide, setShowGuide] = useState(false)
+  const [showMoodPicker, setShowMoodPicker] = useState(false)
+
   const [showLearnGuide, setShowLearnGuide] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
   const [showNotation, setShowNotation] = useState(false)
   const [showEarTraining, setShowEarTraining] = useState(false)
+  const [immersiveTranscriber, setImmersiveTranscriber] = useState(false)
+
+  // Ref so the keyboard handler can read the latest value without re-registering
+  const isImmersiveRef = useRef(isImmersive)
 
   const supabaseClient = createClient()
 
@@ -184,10 +205,41 @@ function StudioContent() {
   const bpmRef    = useRef(bpm)
   const swingRef  = useRef(swingAmount)
   const loopRef   = useRef(loopLength)
-  useEffect(() => { tracksRef.current = tracks   }, [tracks])
-  useEffect(() => { bpmRef.current    = bpm      }, [bpm])
-  useEffect(() => { swingRef.current  = swingAmount }, [swingAmount])
-  useEffect(() => { loopRef.current   = loopLength  }, [loopLength])
+
+  // Ref for save handler — avoids stale closure in saveTriggered effect (BUG-001)
+  // Ref for mounted state — guards async setState after unmount (BUG-004)
+  const saveProjectRef = useRef<((titleOverride?: string) => Promise<void>) | null>(null)
+  const mountedRef     = useRef(true)
+  const isPlayingRef   = useRef(isPlaying)
+  useEffect(() => { tracksRef.current      = tracks      }, [tracks])
+  useEffect(() => { bpmRef.current         = bpm         }, [bpm])
+  useEffect(() => { swingRef.current       = swingAmount }, [swingAmount])
+  useEffect(() => { loopRef.current        = loopLength  }, [loopLength])
+  useEffect(() => { isImmersiveRef.current = isImmersive }, [isImmersive])
+  useEffect(() => { isPlayingRef.current   = isPlaying   }, [isPlaying])
+
+  // Enter / exit fullscreen in sync with isImmersive.
+  // Also listens for browser-native fullscreen exits (e.g. user presses browser Escape
+  // or the OS forces exit) so isImmersive stays in sync with actual fullscreen state.
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) setIsImmersive(false)
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+
+    if (isImmersive) {
+      document.documentElement.requestFullscreen().catch(() => {})
+    } else {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+      setImmersiveTranscriber(false)
+    }
+
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+      // Exit fullscreen on unmount so navigating away doesn't strand the browser in fullscreen
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+    }
+  }, [isImmersive])
 
   // ── Undo / Redo history (max 20 snapshots) ────────────────────────────────────
   const historyRef = useRef<Track[][]>([])
@@ -225,7 +277,7 @@ function StudioContent() {
       if (error) throw error
       if (ragaData && ragaData.length > 0) {
         setRagas(ragaData as any)
-        const targetId = projectIdFromUrl || currentRagaId
+        const targetId = ragaIdFromUrl || currentRagaId
         const initial = ragaData.find((r: any) => r.id === targetId) || ragaData[0]
         setSelectedRaga(initial as any)
         setCurrentRagaId(initial.id)
@@ -265,8 +317,10 @@ function StudioContent() {
   }, [searchParams, loadRagas])
 
   // ── Navbar save trigger ──────────────────────────────────────────────────────
+  // BUG-001 fix: use a ref so the effect always calls the latest handleSaveProject
+  // (avoids stale closure — handleSaveProject captures state at definition time)
   useEffect(() => {
-    if (saveTriggered > 0) handleSaveProject()
+    if (saveTriggered > 0) saveProjectRef.current?.()
   }, [saveTriggered])
 
   // ── Playback engine (setTimeout chain for swing support) ────────────────────
@@ -406,8 +460,13 @@ function StudioContent() {
   }, [activeInstrument, activeTradition, isStarted])
 
   // Stop playback on unmount — do NOT dispose singleton
+  // BUG-004 fix: mark unmounted so handleGenerate doesn't setState after unmount
   useEffect(() => {
-    return () => { audioEngine?.stopAll() }
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      audioEngine?.stopAll()
+    }
   }, [])
 
   // ── Tanpura drone toggle ──────────────────────────────────────────────────────
@@ -538,46 +597,56 @@ function StudioContent() {
 
       switch (e.key) {
         case 'ArrowRight': {
-          e.preventDefault()
+          // Only capture when a step is already selected — otherwise let the browser scroll
           setActiveStep(prev => {
-            const next = prev < 0 ? 0 : (prev + 1) % loopRef.current
-            return next
+            if (prev < 0) return prev
+            e.preventDefault()
+            return (prev + 1) % loopRef.current
           })
           break
         }
         case 'ArrowLeft': {
-          e.preventDefault()
           setActiveStep(prev => {
-            if (prev < 0) return loopRef.current - 1
+            if (prev < 0) return prev
+            e.preventDefault()
             return (prev - 1 + loopRef.current) % loopRef.current
           })
           break
         }
         case 'ArrowDown': {
-          e.preventDefault()
-          setTracks(prev => {
-            const idx = prev.findIndex(t => t.id === activeTrackId)
-            const next = prev[(idx + 1) % prev.length]
-            setActiveTrackId(next.id)
+          // Only steal when a step is active (user is in sequencer mode)
+          setActiveStep(prev => {
+            if (prev < 0) return prev
+            e.preventDefault()
+            setTracks(ts => {
+              const idx = ts.findIndex(t => t.id === activeTrackId)
+              const next = ts[(idx + 1) % ts.length]
+              setActiveTrackId(next.id)
+              return ts
+            })
             return prev
           })
           break
         }
         case 'ArrowUp': {
-          e.preventDefault()
-          setTracks(prev => {
-            const idx = prev.findIndex(t => t.id === activeTrackId)
-            const next = prev[(idx - 1 + prev.length) % prev.length]
-            setActiveTrackId(next.id)
+          setActiveStep(prev => {
+            if (prev < 0) return prev
+            e.preventDefault()
+            setTracks(ts => {
+              const idx = ts.findIndex(t => t.id === activeTrackId)
+              const next = ts[(idx - 1 + ts.length) % ts.length]
+              setActiveTrackId(next.id)
+              return ts
+            })
             return prev
           })
           break
         }
         case 'Delete':
         case 'Backspace': {
-          e.preventDefault()
           setActiveStep(prev => {
             if (prev < 0) return prev
+            e.preventDefault()
             setTracks(ts => ts.map(t => {
               if (t.id !== activeTrackId) return t
               const seq = [...t.sequence]
@@ -590,6 +659,7 @@ function StudioContent() {
         }
         case 'Escape': {
           setActiveStep(-1)
+          if (isImmersiveRef.current) setIsImmersive(false)
           break
         }
         case '?': {
@@ -599,7 +669,8 @@ function StudioContent() {
         }
         case ' ': {
           e.preventDefault()
-          setIsPlaying(!isPlaying)
+          // Use ref to avoid stale closure — isPlaying is not in effect deps
+          setIsPlaying(!isPlayingRef.current)
           break
         }
         case 'z': {
@@ -658,9 +729,68 @@ function StudioContent() {
   }
 
   // ── Raga-valid notes ──────────────────────────────────────────────────────────
+  // BUG-005 fix: guard with Array.isArray to prevent crash if API returns non-array
   const ragaValidNotes = ragaConstrained && selectedRaga
-    ? [...(selectedRaga.aroha || []), ...(selectedRaga.avaroha || [])]
+    ? [
+        ...(Array.isArray(selectedRaga.aroha)   ? selectedRaga.aroha   : []),
+        ...(Array.isArray(selectedRaga.avaroha) ? selectedRaga.avaroha : []),
+      ]
     : null
+
+  // BUG-001 fix: keep save ref pointing at the latest closure every render
+  saveProjectRef.current = handleSaveProject
+
+  // ── AI Sequence generation ───────────────────────────────────────────────────
+  const handleGenerate = async () => {
+    if (!selectedRaga) return
+    setGenerateLoading(true)
+    setGenerateError(null)
+    try {
+      const res = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ragaName: selectedRaga.name,
+          aroha:    selectedRaga.aroha   ?? [],
+          avaroha:  selectedRaga.avaroha ?? [],
+          vadi:     selectedRaga.vadi,
+          samvadi:  selectedRaga.samvadi,
+          steps:    loopLength,
+          prompt:   generatePrompt,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed')
+
+      // Find or create melody track and fill its sequence
+      const melodyId = tracks.find(t => t.type === 'melody')?.id ?? tracks[0].id
+      setActiveTrackId(melodyId)
+      pushHistory(tracks)
+      setTracks(prev => prev.map(t => {
+        if (t.id !== melodyId) return t
+        const seq: (StepEvent | null)[] = Array(loopLength).fill(null)
+        for (const s of data.steps as { step: number; note: string; octave: number; velocity: number }[]) {
+          const idx = s.step - 1
+          if (idx >= 0 && idx < loopLength) {
+            seq[idx] = { 
+              label: s.note, 
+              frequency: swaraToFrequency(s.note, 261.63, s.octave),
+              velocity: s.velocity / 100 
+            }
+
+          }
+        }
+        return { ...t, sequence: seq }
+      }))
+      setGenerateOpen(false)
+      setGeneratePrompt('')
+    } catch (e: unknown) {
+      if (mountedRef.current) setGenerateError(e instanceof Error ? e.message : 'Generation failed')
+    } finally {
+      // BUG-004 fix: guard against setState after unmount
+      if (mountedRef.current) setGenerateLoading(false)
+    }
+  }
 
   const colors = (idx: number) => TRACK_COLORS[idx % TRACK_COLORS.length]
 
@@ -674,7 +804,7 @@ function StudioContent() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] overflow-hidden bg-background">
+    <div className={`flex overflow-hidden bg-background transition-all duration-300 ${isImmersive ? 'h-screen' : 'h-[calc(100vh-64px)] md:h-[calc(100vh-80px)]'}`}>
 
       {/* Save project modal */}
       {showSaveModal && (
@@ -737,10 +867,10 @@ function StudioContent() {
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside className={`
-        fixed md:relative z-50 md:z-auto inset-y-0 left-0
+        fixed md:relative z-50 md:z-auto top-16 md:top-0 bottom-0 left-0
         flex-shrink-0 bg-surface-lowest border-r border-outline-variant/10 flex flex-col overflow-hidden
         transition-all duration-300 ease-in-out
-        ${sidebarOpen ? 'w-80 translate-x-0' : 'md:w-12 w-80 -translate-x-full md:translate-x-0'}
+        ${isImmersive ? '!w-0 -translate-x-full overflow-hidden' : sidebarOpen ? 'w-80 translate-x-0' : 'md:w-12 w-80 -translate-x-full md:translate-x-0'}
       `}>
 
         {/* Collapse toggle — desktop only */}
@@ -782,20 +912,6 @@ function StudioContent() {
             className="w-full bg-transparent font-display text-2xl font-light text-on-surface focus:outline-none focus:text-primary transition-colors mb-8"
           />
           <div className="space-y-4">
-            <div>
-              <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-3 font-bold">Input Method</span>
-              <select
-                value={keyboardLayout}
-                onChange={(e) => setKeyboardLayout(e.target.value as KeyboardLayout)}
-                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-xs font-mono uppercase tracking-widest text-on-surface border border-outline-variant/10 focus:border-primary/40 transition-all outline-none"
-              >
-                <option value="SwaPad">Swara Pad</option>
-                <option value="Piano">Chromatic Piano</option>
-                <option value="Harmonium">Classic Harmonium</option>
-                <option value="Swara">Swara Boards</option>
-              </select>
-            </div>
-
             {/* Tala selector */}
             <div>
               <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-2 font-bold">Tala</span>
@@ -812,31 +928,6 @@ function StudioContent() {
                   <option key={t.name} value={t.name}>{t.name} ({t.matras} matras)</option>
                 ))}
               </select>
-            </div>
-
-            {/* Laya presets */}
-            <div>
-              <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-2 font-bold">Laya</span>
-              <div className="flex gap-1.5">
-                {(['vilambit', 'madhya', 'drut'] as const).map(lay => {
-                  const [lo, hi] = selectedTala.laya[lay]
-                  const midBpm   = Math.round((lo + hi) / 2)
-                  return (
-                    <button
-                      key={lay}
-                      onClick={() => { setLaySetting(lay); setBpm(midBpm) }}
-                      className={`flex-1 py-2 rounded-xl font-mono text-[7px] uppercase tracking-wider font-bold transition-all border ${
-                        laySetting === lay
-                          ? 'bg-primary/20 text-primary border-primary/30'
-                          : 'bg-surface-container-low text-on-surface-variant/40 border-outline-variant/10 hover:border-primary/20 hover:text-on-surface'
-                      }`}
-                      title={`${lo}–${hi} BPM`}
-                    >
-                      {lay}
-                    </button>
-                  )
-                })}
-              </div>
             </div>
           </div>
         </div>
@@ -1006,41 +1097,51 @@ function StudioContent() {
                 </div>
               </div>
             </div>
-            <div className="relative mb-3">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined !text-base text-on-surface-variant/30">search</span>
-              {(() => {
-                const filteredForNav = ragas.filter(r => {
-                  const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase())
-                  const matchTradition = !r.tradition || r.tradition.toLowerCase() === activeTradition
-                  return matchSearch && matchTradition
-                })
-                return (
-                  <input
-                    placeholder="Find raga..."
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value) }}
-                    onKeyDown={(e) => {
-                      if (!filteredForNav.length) return
-                      const idx = filteredForNav.findIndex(r => r.id === selectedRaga?.id)
-                      if (e.key === 'ArrowDown') {
-                        e.preventDefault()
-                        const next = filteredForNav[Math.min(idx + 1, filteredForNav.length - 1)]
-                        if (next) { setSelectedRaga(next); setCurrentRagaId(next.id) }
-                      } else if (e.key === 'ArrowUp') {
-                        e.preventDefault()
-                        const next = filteredForNav[Math.max(idx - 1, 0)]
-                        if (next) { setSelectedRaga(next); setCurrentRagaId(next.id) }
-                      } else if (e.key === 'Enter' && filteredForNav.length > 0) {
-                        e.preventDefault()
-                        const pick = idx < 0 ? filteredForNav[0] : filteredForNav[idx]
-                        setSelectedRaga(pick); setCurrentRagaId(pick.id)
-                      }
-                    }}
-                    className="w-full bg-surface-container-low rounded-xl py-2.5 pl-9 pr-4 text-xs font-sans border border-outline-variant/10 outline-none focus:border-primary/30"
-                  />
-                )
-              })()}
+            <div className="flex gap-2 mb-3">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined !text-base text-on-surface-variant/30">search</span>
+                {(() => {
+                  const filteredForNav = ragas.filter(r => {
+                    const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase())
+                    const matchTradition = !r.tradition || r.tradition.toLowerCase() === activeTradition
+                    return matchSearch && matchTradition
+                  })
+                  return (
+                    <input
+                      placeholder="Find raga..."
+                      value={searchQuery}
+                      onChange={(e) => { setSearchQuery(e.target.value) }}
+                      onKeyDown={(e) => {
+                        if (!filteredForNav.length) return
+                        const idx = filteredForNav.findIndex(r => r.id === selectedRaga?.id)
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault()
+                          const next = filteredForNav[Math.min(idx + 1, filteredForNav.length - 1)]
+                          if (next) { setSelectedRaga(next); setCurrentRagaId(next.id) }
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault()
+                          const next = filteredForNav[Math.max(idx - 1, 0)]
+                          if (next) { setSelectedRaga(next); setCurrentRagaId(next.id) }
+                        } else if (e.key === 'Enter' && filteredForNav.length > 0) {
+                          e.preventDefault()
+                          const pick = idx < 0 ? filteredForNav[0] : filteredForNav[idx]
+                          setSelectedRaga(pick); setCurrentRagaId(pick.id)
+                        }
+                      }}
+                      className="w-full bg-surface-container-low rounded-xl py-2.5 pl-9 pr-4 text-xs font-sans border border-outline-variant/10 outline-none focus:border-primary/30"
+                    />
+                  )
+                })()}
+              </div>
+              <button
+                onClick={() => setShowMoodPicker(true)}
+                title="Find a Raga by Mood"
+                className="w-10 h-10 flex-shrink-0 rounded-xl border border-secondary/20 bg-secondary/5 text-secondary/60 hover:text-secondary hover:bg-secondary/10 transition-all flex items-center justify-center"
+              >
+                <span className="material-symbols-outlined !text-base">mood</span>
+              </button>
             </div>
+
             <div className="h-52 overflow-y-auto scroller-none space-y-1">
               {ragasLoading ? (
                 [1,2,3,4].map(i => <div key={i} className="h-8 rounded-lg bg-surface-container-high/50 animate-pulse mb-1" />)
@@ -1084,7 +1185,7 @@ function StudioContent() {
       <main className="flex-1 relative flex flex-col bg-surface overflow-hidden min-w-0">
 
         {/* HUD */}
-        <div className="h-14 md:h-20 px-3 md:px-10 flex justify-between items-center border-b border-outline-variant/5 bg-surface/40 backdrop-blur-md flex-shrink-0 gap-2">
+        <div className="min-h-14 md:h-20 px-3 md:px-10 flex flex-wrap justify-between items-center border-b border-outline-variant/5 bg-surface/40 backdrop-blur-md flex-shrink-0 gap-2 py-2 md:py-0">
           <div className="flex items-center gap-2 min-w-0">
             {/* Mobile sidebar open button */}
             <button
@@ -1100,10 +1201,26 @@ function StudioContent() {
                 {selectedRaga?.name || (ragasLoading ? '...' : 'Select a Raga')}
               </span>
             </div>
-            <div className="hidden sm:flex px-3 py-1.5 rounded-full bg-white/5 border border-white/10 items-center gap-2 flex-shrink-0">
-              <span className="font-mono text-[8px] uppercase tracking-widest text-white/40 font-bold">{activeTradition}</span>
-              <div className="w-px h-3 bg-white/10" />
-              <span className="font-mono text-[8px] uppercase tracking-widest text-primary/70 font-bold">{activeInstrument}</span>
+            {/* Laya presets — tempo feel selector */}
+            <div className="hidden sm:flex items-center gap-1 p-1 rounded-xl bg-surface-container-high/40 border border-outline-variant/10">
+              {(['vilambit', 'madhya', 'drut'] as const).map(lay => {
+                const [lo, hi] = selectedTala.laya[lay]
+                const midBpm   = Math.round((lo + hi) / 2)
+                return (
+                  <button
+                    key={lay}
+                    onClick={() => { setLaySetting(lay); setBpm(midBpm) }}
+                    title={`${lay} — ${lo}–${hi} BPM`}
+                    className={`px-2.5 py-1 rounded-lg font-mono text-[7px] uppercase tracking-widest font-bold transition-all ${
+                      laySetting === lay
+                        ? 'bg-primary/20 text-primary'
+                        : 'text-on-surface-variant/30 hover:text-on-surface'
+                    }`}
+                  >
+                    {lay}
+                  </button>
+                )
+              })}
             </div>
 
             {/* ── Tanpura Drone — always visible in HUD ── */}
@@ -1119,7 +1236,7 @@ function StudioContent() {
                   }`}
                 >
                   <span className="material-symbols-outlined !text-sm">radio_button_checked</span>
-                  Tanpura
+                  <span className="hidden sm:inline">Tanpura</span>
                   {droneActive && <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />}
                 </button>
                 {droneActive && (
@@ -1184,7 +1301,7 @@ function StudioContent() {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-auto p-4 md:p-10 space-y-8 md:space-y-14 scroll-thin">
+        <div className={`flex-1 overflow-auto p-4 md:p-10 space-y-8 md:space-y-14 scroll-thin ${isImmersive && selectedRaga?.aroha ? 'pt-12' : ''}`}>
 
           {/* ── Step Sequencer ── */}
           <section className="animate-slide-up">
@@ -1228,6 +1345,63 @@ function StudioContent() {
                   <span className="material-symbols-outlined !text-sm">abc</span>
                   Notation
                 </button>
+                {/* AI Generate */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setGenerateOpen(v => !v); setGenerateError(null) }}
+                    disabled={!selectedRaga}
+                    title={selectedRaga ? 'AI Sequence Generation' : 'Select a raga first'}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-mono text-[8px] uppercase tracking-widest font-bold transition-all disabled:opacity-20 disabled:cursor-not-allowed ${
+                      generateOpen
+                        ? 'bg-secondary/15 border-secondary/40 text-secondary'
+                        : 'border-outline-variant/10 text-on-surface-variant/30 hover:text-secondary/70 hover:border-secondary/25'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined !text-sm">auto_awesome</span>
+                    Generate
+                  </button>
+
+                  {generateOpen && (
+                    <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-2xl bg-[#0b0b16] border border-outline-variant/20 shadow-2xl p-4">
+                      <p className="font-mono text-[8px] uppercase tracking-widest text-secondary/60 mb-2">AI Sequence — {selectedRaga?.name}</p>
+                      <input
+                        value={generatePrompt}
+                        onChange={e => setGeneratePrompt(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleGenerate() }}
+                        placeholder="e.g. ascending phrase, slow and meditative…"
+                        className="w-full bg-surface-container-low border border-outline-variant/15 rounded-xl px-3 py-2 font-sans text-xs text-on-surface placeholder:text-on-surface-variant/30 outline-none focus:border-secondary/40 transition-colors mb-3"
+                        maxLength={200}
+                        autoFocus
+                      />
+                      {generateError && (
+                        <p className="font-sans text-[10px] text-red-400 mb-2">{generateError}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleGenerate}
+                          disabled={generateLoading}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-secondary/15 border border-secondary/30 text-secondary font-mono text-[8px] uppercase tracking-widest font-bold hover:bg-secondary/25 transition-all disabled:opacity-40"
+                        >
+                          {generateLoading
+                            ? <span className="material-symbols-outlined !text-sm animate-spin">progress_activity</span>
+                            : <span className="material-symbols-outlined !text-sm">auto_awesome</span>
+                          }
+                          {generateLoading ? 'Generating…' : 'Generate'}
+                        </button>
+                        <button
+                          onClick={() => setGenerateOpen(false)}
+                          className="px-3 py-2 rounded-xl border border-outline-variant/10 text-on-surface-variant/40 hover:text-on-surface font-mono text-[8px] transition-all"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <p className="font-sans text-[9px] text-on-surface-variant/30 mt-2 leading-relaxed">
+                        Fills the Melody track with a raga-compliant phrase. Any varjya notes are automatically filtered.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">
                   {activeStep >= 0 && !isPlaying ? `Step ${activeStep + 1}` : isPlaying ? '▶' : ''}
                 </span>
@@ -1298,6 +1472,9 @@ function StudioContent() {
                         const hasNote = !!event
                         const velPct = hasNote ? Math.round((event!.velocity ?? 0.8) * 100) : 0
                         const isBeat = stepIdx % 4 === 0
+                        // Varjya check: only on melody tracks with a note, only when a raga is selected
+                        const noteIsVarjya = track.type === 'melody' && hasNote && !!selectedRaga
+                          && isVarjya(event!.label, selectedRaga.aroha, selectedRaga.avaroha)
                         return (
                           <button
                             key={stepIdx}
@@ -1317,7 +1494,7 @@ function StudioContent() {
                             }}
                             title={
                               hasNote
-                                ? `${track.type === 'melody' ? event!.label : event!.stroke} (vel ${velPct}%) · Shift+click to cycle velocity`
+                                ? `${track.type === 'melody' ? event!.label : event!.stroke} (vel ${velPct}%)${noteIsVarjya ? ' · ⚠ Varjya note — outside this raga' : ''} · Shift+click to cycle velocity`
                                 : `Record to step ${stepIdx + 1}`
                             }
                             className={`relative h-8 rounded-md font-mono text-[7px] font-bold transition-all border flex items-end justify-center pb-0.5 overflow-hidden ${
@@ -1325,6 +1502,8 @@ function StudioContent() {
                                 ? `${c.active} border-transparent shadow-step-active`
                                 : isSelected
                                 ? `border-primary/70 bg-primary/10 text-primary ring-1 ring-primary/20`
+                                : noteIsVarjya
+                                ? 'bg-red-500/10 border-red-500/50 text-red-400 ring-1 ring-red-500/30'
                                 : hasNote
                                 ? isActiveTrack
                                   ? `${c.fill} ${c.text}`
@@ -1337,9 +1516,13 @@ function StudioContent() {
                             {/* Velocity fill bar */}
                             {hasNote && !isActiveStep && (
                               <div
-                                className={`absolute bottom-0 left-0 right-0 opacity-40 rounded-b-md ${isActiveTrack ? c.dot : 'bg-white'}`}
+                                className={`absolute bottom-0 left-0 right-0 opacity-40 rounded-b-md ${noteIsVarjya ? 'bg-red-500' : isActiveTrack ? c.dot : 'bg-white'}`}
                                 style={{ height: `${velPct}%` }}
                               />
+                            )}
+                            {/* Varjya warning pip */}
+                            {noteIsVarjya && !isActiveStep && (
+                              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-red-400 pointer-events-none" />
                             )}
                             {/* Beat ring pulse — expands and fades on the active playhead */}
                             {isActiveStep && (
@@ -1435,14 +1618,52 @@ function StudioContent() {
 
             return (
               <section className="animate-slide-up">
-                {/* Context hint */}
-                <div className="flex items-center gap-2 mb-3">
-                  <div className={`w-2 h-2 rounded-full ${activeStep >= 0 ? 'bg-primary animate-pulse' : 'bg-outline-variant/30'}`} />
-                  <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
+                {/* ── Keyboard layout tabs ── */}
+                {(() => {
+                  const LAYOUT_OPTIONS: { value: KeyboardLayout; label: string; instrument: string }[] = [
+                    { value: 'SwaPad',    label: 'Swara Pad',  instrument: 'piano'    },
+                    { value: 'Piano',     label: 'Piano',      instrument: 'piano'    },
+                    { value: 'Harmonium', label: 'Harmonium',  instrument: 'harmonium' },
+                    { value: 'Swara',     label: 'Swara Keys', instrument: 'harmonium' },
+                  ]
+                  return (
+                    <div className="flex items-center gap-1 mb-4 p-1 rounded-xl bg-surface-container-high/40 border border-outline-variant/10 w-fit">
+                      {LAYOUT_OPTIONS.map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => {
+                            setKeyboardLayout(opt.value)
+                            dispatch({ type: 'SET_INSTRUMENT', value: opt.instrument as any })
+                          }}
+                          className={`px-3 py-1.5 rounded-lg font-mono text-[8px] uppercase tracking-widest font-bold transition-all ${
+                            keyboardLayout === opt.value
+                              ? 'bg-primary/20 text-primary border border-primary/20'
+                              : 'text-on-surface-variant/30 hover:text-on-surface'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
+
+                {/* Context hint + Swara Transcriber */}
+                <div className="relative flex items-center gap-2 mb-3">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeStep >= 0 ? 'bg-primary animate-pulse' : 'bg-outline-variant/30'}`} />
+                  <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 flex-1">
                     {activeStep >= 0
                       ? `Step ${activeStep + 1} selected — ${keyboardLayout === 'SwaPad' ? 'tap a swara' : 'press a key'} to record`
                       : 'Select a step in the grid above to start recording'}
                   </span>
+                  <SwaraTranscriber
+                    aroha={selectedRaga?.aroha}
+                    avaroha={selectedRaga?.avaroha}
+                    onInsert={(note, _octave) => {
+                      if (activeStep === -1) return
+                      handleToggleStep(activeStep, { label: note, velocity: 0.8 })
+                    }}
+                  />
                 </div>
 
                 {keyboardLayout === 'SwaPad' ? (
@@ -1450,6 +1671,7 @@ function StudioContent() {
                     activeRagaNotes={allRagaNotes}
                     ragaConstrained={ragaConstrained}
                     vadiNote={selectedRaga?.vadi}
+                    ragaAroha={selectedRaga?.aroha}
                     onSwara={(label, freq) => onNoteRecord(label, freq)}
                   />
                 ) : (
@@ -1493,13 +1715,13 @@ function StudioContent() {
                   <div>
                     <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold block mb-1">Aroha</span>
                     <p className="font-label text-base text-on-surface/80 tracking-wide">
-                      {(selectedRaga.aroha as string[]).join(' – ')}
+                      {(selectedRaga.aroha as string[]).map(swaraDisplayName).join(' – ')}
                     </p>
                   </div>
                   <div>
                     <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold block mb-1">Avaroha</span>
                     <p className="font-label text-base text-on-surface/80 tracking-wide">
-                      {(selectedRaga.avaroha as string[]).join(' – ')}
+                      {(selectedRaga.avaroha as string[]).map(swaraDisplayName).join(' – ')}
                     </p>
                   </div>
                   {selectedRaga.vadi && (
@@ -1584,19 +1806,71 @@ function StudioContent() {
           </section>
         </div>
 
-        {/* ── Transport Rail ── */}
-        <TransportBar
-          isPlaying={isPlaying}
-          onTogglePlay={() => setIsPlaying(!isPlaying)}
-          isRecording={isRecording}
-          onToggleRecording={handleToggleRecording}
-          recordingTime={recordingTime}
-          bpm={bpm}
-          onBpmChange={(v) => { setBpm(v); Tone.getTransport().bpm.value = v }}
-          volume={volume}
-          onVolumeChange={(v) => { setVolume(v); audioEngine?.setVolume(v) }}
-          tala={selectedTala}
-        />
+        {/* ── Transport Rail (hidden in immersive) ── */}
+        {!isImmersive && (
+          <TransportBar
+            isPlaying={isPlaying}
+            onTogglePlay={() => setIsPlaying(!isPlaying)}
+            isRecording={isRecording}
+            onToggleRecording={handleToggleRecording}
+            recordingTime={recordingTime}
+            bpm={bpm}
+            onBpmChange={(v) => { setBpm(v); Tone.getTransport().bpm.value = v }}
+            volume={volume}
+            onVolumeChange={(v) => { setVolume(v); audioEngine?.setVolume(v) }}
+            tala={selectedTala}
+          />
+        )}
+
+        {/* ── Immersive Raga Reference Bar ── */}
+        {isImmersive && selectedRaga?.aroha && selectedRaga?.avaroha && (
+          <div className="fixed top-0 left-0 right-0 z-[250] flex items-center justify-center gap-6 px-6 py-2.5 bg-surface-lowest/85 border-b border-outline-variant/10 backdrop-blur-xl animate-fade-in">
+            <span className="font-display text-xs font-light text-primary/80 uppercase tracking-widest flex-shrink-0">
+              {selectedRaga.name}
+            </span>
+            <div className="w-px h-4 bg-outline-variant/20 flex-shrink-0" />
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 flex-shrink-0">Aroha</span>
+              <span className="font-label text-xs text-on-surface/80 truncate">
+                {(selectedRaga.aroha as string[]).map(swaraDisplayName).join(' – ')}
+              </span>
+            </div>
+            <div className="w-px h-4 bg-outline-variant/20 flex-shrink-0" />
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 flex-shrink-0">Avaroha</span>
+              <span className="font-label text-xs text-on-surface/80 truncate">
+                {(selectedRaga.avaroha as string[]).map(swaraDisplayName).join(' – ')}
+              </span>
+            </div>
+            {selectedRaga.vadi && (
+              <>
+                <div className="w-px h-4 bg-outline-variant/20 flex-shrink-0" />
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[8px] uppercase tracking-widest text-amber-400/60">Vadi</span>
+                    <span className="font-label text-sm font-bold text-amber-400">{swaraDisplayName(selectedRaga.vadi)}</span>
+                  </div>
+                  {selectedRaga.samvadi && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-[8px] uppercase tracking-widest text-blue-400/60">Samvadi</span>
+                      <span className="font-label text-sm font-bold text-blue-400">{swaraDisplayName(selectedRaga.samvadi)}</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Immersive HUD ── */}
+        {isImmersive && (
+          <ImmersiveHUD
+            bpm={bpm}
+            loopLength={loopLength}
+            transcriberActive={immersiveTranscriber}
+            onToggleTranscriber={() => setImmersiveTranscriber(v => !v)}
+          />
+        )}
       </main>
 
       <Guidebook open={showGuide} onClose={() => setShowGuide(false)} />
@@ -1605,32 +1879,6 @@ function StudioContent() {
         <EarTraining raga={selectedRaga} onClose={() => setShowEarTraining(false)} />
       )}
 
-      {/* ── Mobile gate — studio requires a desktop viewport ── */}
-      <div className="md:hidden fixed inset-0 z-[9999] bg-background/95 backdrop-blur-xl flex flex-col items-center justify-center px-8 text-center">
-        <div className="mb-8 w-16 h-16 rounded-[20px] bg-surface-container-high border border-outline-variant/10 flex items-center justify-center">
-          <span className="material-symbols-outlined !text-3xl text-primary/70">desktop_windows</span>
-        </div>
-        <h2 className="font-display text-3xl font-light text-on-surface tracking-tight mb-3">
-          Studio needs a bigger screen.
-        </h2>
-        <p className="font-sans text-sm text-on-surface-variant/60 font-light leading-relaxed max-w-xs mb-8">
-          The Saptaswara Studio is designed for desktop and tablet. Open it on a device with a wider screen for the full experience.
-        </p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <a
-            href="/learn"
-            className="py-3 px-6 bg-primary/10 border border-primary/20 rounded-2xl font-sans text-sm text-primary font-medium text-center"
-          >
-            Go to Learner Guide
-          </a>
-          <a
-            href="/"
-            className="py-3 px-6 bg-surface-container-high border border-outline-variant/10 rounded-2xl font-sans text-sm text-on-surface-variant font-medium text-center"
-          >
-            Back to Home
-          </a>
-        </div>
-      </div>
 
       <Assistant
         ragaContext={selectedRaga}
@@ -1645,7 +1893,21 @@ function StudioContent() {
             : undefined
         })()}
       />
+      <MoodPicker
+        open={showMoodPicker}
+        onClose={() => setShowMoodPicker(false)}
+        onSelectRaga={(name) => {
+          const match = ragas.find(r => r.name.toLowerCase() === name.toLowerCase())
+          if (match) {
+            setSelectedRaga(match)
+            setCurrentRagaId(match.id)
+          } else {
+            setSearchQuery(name)
+          }
+        }}
+      />
     </div>
+
   )
 }
 

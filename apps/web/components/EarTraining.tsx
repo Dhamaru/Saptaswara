@@ -80,7 +80,17 @@ export function EarTraining({ raga, onClose }: EarTrainingProps) {
   const [phase, setPhase] = useState<'playing' | 'waiting' | 'answered' | 'finished'>('waiting')
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
-  const lastSwaraRef = useRef<string | undefined>(undefined)
+  const lastSwaraRef  = useRef<string | undefined>(undefined)
+  // BUG-020: track timeouts so we can cancel them on unmount
+  const advanceTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const playTimer     = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current)
+      if (playTimer.current)    clearTimeout(playTimer.current)
+    }
+  }, [])
 
   const roundNumber = rounds.length + 1
 
@@ -88,7 +98,9 @@ export function EarTraining({ raga, onClose }: EarTrainingProps) {
     if (!audioEngine?.isStarted) return
     setPhase('playing')
     audioEngine.playSwara(currentQ.frequency, '2n')
-    setTimeout(() => setPhase('waiting'), 1200)
+    // BUG-020: track timer so it can be cancelled on unmount
+    if (playTimer.current) clearTimeout(playTimer.current)
+    playTimer.current = setTimeout(() => setPhase('waiting'), 1200)
   }, [currentQ])
 
   // Auto-play on mount and on each new question
@@ -111,8 +123,9 @@ export function EarTraining({ raga, onClose }: EarTrainingProps) {
     setStreak(newStreak)
     setPhase('answered')
 
-    // Auto-advance after 1.4s
-    setTimeout(() => {
+    // BUG-019/020: track the advance timer so it can be cancelled on unmount
+    if (advanceTimer.current) clearTimeout(advanceTimer.current)
+    advanceTimer.current = setTimeout(() => {
       if (newRounds.length >= TOTAL_ROUNDS) {
         setPhase('finished')
       } else {

@@ -29,6 +29,48 @@
     text-shadow: 0 0 30px rgba(195, 192, 255, 0.15);
   }
 
+  /* ── Glass utilities (dashboard + shared) ─────────────────────── */
+  .glass {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+  }
+
+  .glass-light {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(20px);
+  }
+
+  .glass-gold {
+    background: linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(124, 58, 237, 0.08));
+    border: 1px solid rgba(167, 139, 250, 0.25);
+  }
+
+  /* ── Button ───────────────────────────────────────────────────── */
+  .btn-primary {
+    @apply px-6 py-3 bg-gradient-to-r from-[#7c3aed] to-[#3b82f6] rounded-2xl font-semibold text-white tracking-tight shadow-glow hover:scale-105 active:scale-95 transition-all;
+  }
+
+  /* ── Card ────────────────────────────────────────────────────── */
+  .card {
+    @apply bg-surface-container-low border border-outline-variant/20 rounded-3xl p-6 transition-all duration-300;
+  }
+
+  /* ── Dot pattern background ──────────────────────────────────── */
+  .dot-pattern {
+    background-image: radial-gradient(circle, rgba(167, 139, 250, 0.35) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* ── Text gradients ──────────────────────────────────────────── */
+  .text-gradient-subtle {
+    background: linear-gradient(135deg, #f4f0ff 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   .glass-panel {
     @apply bg-surface-container-lowest/80 backdrop-blur-2xl border border-outline-variant/10;
   }

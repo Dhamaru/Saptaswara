@@ -1,673 +1,720 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { swaraDisplayName, getSwaraType } from '@/lib/swaraUtils'
 
-// ── Chapter definitions ───────────────────────────────────────────────────────
+// ── Chapter config ─────────────────────────────────────────────────────────────
+type ChapterId = 'welcome' | 'swaras' | 'scale' | 'raga' | 'vadi' | 'gamakas' | 'practice' | 'tips'
+
 const CHAPTERS = [
-  { id: 'welcome',  label: 'Welcome',        icon: 'waving_hand'     },
-  { id: 'swaras',   label: 'The 7 Swaras',   icon: 'music_note'      },
-  { id: 'scale',    label: 'Scale & Octave',  icon: 'straighten'      },
-  { id: 'raga',     label: 'What is a Raga?', icon: 'menu_book'       },
-  { id: 'vadi',     label: 'Vadi & Samvadi',  icon: 'stars'           },
-  { id: 'practice', label: 'Your First Loop', icon: 'play_lesson'     },
-  { id: 'tips',     label: 'Student Tips',    icon: 'lightbulb'       },
+  { id: 'welcome'  as ChapterId, label: 'Welcome',        icon: 'waving_hand',  tagline: 'Start your journey',          gradient: 'from-violet-600/30 to-indigo-500/10' },
+  { id: 'swaras'   as ChapterId, label: 'The 7 Swaras',   icon: 'music_note',   tagline: 'The building blocks',          gradient: 'from-amber-500/30 to-orange-500/10' },
+  { id: 'scale'    as ChapterId, label: 'Scale & Octave',  icon: 'straighten',   tagline: 'Space and pitch',              gradient: 'from-sky-500/30 to-cyan-500/10' },
+  { id: 'raga'     as ChapterId, label: 'Ragas',           icon: 'auto_awesome', tagline: 'Beyond a scale',               gradient: 'from-emerald-500/30 to-teal-500/10' },
+  { id: 'vadi'     as ChapterId, label: 'Vadi & Samvadi',  icon: 'stars',        tagline: 'Note hierarchy',               gradient: 'from-yellow-500/30 to-amber-500/10' },
+  { id: 'gamakas'  as ChapterId, label: 'Gamakas',         icon: 'graphic_eq',   tagline: 'Ornamentation',                gradient: 'from-rose-500/30 to-pink-500/10' },
+  { id: 'practice' as ChapterId, label: 'First Loop',      icon: 'play_lesson',  tagline: 'Make music now',               gradient: 'from-primary/30 to-secondary/10' },
+  { id: 'tips'     as ChapterId, label: 'Practice Tips',   icon: 'lightbulb',    tagline: 'Habits that accelerate learning', gradient: 'from-lime-500/30 to-green-500/10' },
 ] as const
 
-type ChapterId = typeof CHAPTERS[number]['id']
+// ── Swara Explorer data ────────────────────────────────────────────────────────
+const BASE_SWARAS = [
+  {
+    short: 'Sa', full: 'Shadja', western: 'C',
+    type: 'achala',
+    char: 'The root note — the absolute centre of gravity. Every other note is measured in relation to Sa. It never changes.',
+    komal: null, tivra: null,
+  },
+  {
+    short: 'Re', full: 'Rishabh', western: 'D',
+    type: 'shuddha',
+    char: 'Noble and bright. In its shuddha form it has an uplifted, dignified quality.',
+    komal: { short: 're',  full: 'Komal Re',  western: 'C♯', char: 'Tender and vulnerable — often gives a raga a plaintive quality.' },
+    tivra: null,
+  },
+  {
+    short: 'Ga', full: 'Gandhara', western: 'E',
+    type: 'shuddha',
+    char: 'The most expressive swara. Shuddha Ga is warm and confident; komal Ga is heart-rending.',
+    komal: { short: 'ga',  full: 'Komal Ga',  western: 'D♯', char: 'Deeply emotional — the signature of many beloved ragas like Darbari.' },
+    tivra: null,
+  },
+  {
+    short: 'Ma', full: 'Madhyama', western: 'F',
+    type: 'shuddha',
+    char: 'The bridge note — the midpoint between Sa and Pa. Shuddha Ma is stable and grounding.',
+    komal: null,
+    tivra: { short: 'ma', full: 'Tivra Ma', western: 'F♯', char: 'Bright and ethereal — the signature of Raga Yaman, giving it its evening character.' },
+  },
+  {
+    short: 'Pa', full: 'Panchama', western: 'G',
+    type: 'achala',
+    char: 'The twin of Sa — equally stable, equally fixed. Sa and Pa anchor every raga like pillars.',
+    komal: null, tivra: null,
+  },
+  {
+    short: 'Dha', full: 'Dhaivata', western: 'A',
+    type: 'shuddha',
+    char: 'Rich and dignified. Often carries the emotional weight of the melody in the upper half of the octave.',
+    komal: { short: 'dha', full: 'Komal Dha', western: 'G♯', char: 'Dark and introspective — key to the devotional colour of ragas like Bhairav.' },
+    tivra: null,
+  },
+  {
+    short: 'Ni', full: 'Nishada', western: 'B',
+    type: 'shuddha',
+    char: 'The note of longing and yearning — it naturally pulls the ear back toward Sa to complete the cycle.',
+    komal: { short: 'ni',  full: 'Komal Ni',  western: 'A♯', char: 'Softer and more wistful than Shuddha Ni — common in evening and night ragas.' },
+    tivra: null,
+  },
+] as const
 
-// ── Small helpers ─────────────────────────────────────────────────────────────
-function H1({ children }: { children: React.ReactNode }) {
-  return <h2 className="font-display text-2xl font-light text-on-surface mb-1 leading-snug">{children}</h2>
-}
+// ── Reusable small components ─────────────────────────────────────────────────
 
-function Sub({ children }: { children: React.ReactNode }) {
-  return <p className="font-mono text-[9px] uppercase tracking-widest text-primary/60 mb-5">{children}</p>
-}
-
-function P({ children }: { children: React.ReactNode }) {
-  return <p className="font-sans text-sm text-on-surface-variant/75 leading-relaxed mb-3">{children}</p>
-}
-
-function B({ children }: { children: React.ReactNode }) {
-  return <strong className="text-on-surface/90 font-semibold">{children}</strong>
-}
-
-function Tip({ children }: { children: React.ReactNode }) {
+function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-3 p-4 rounded-2xl bg-primary/8 border border-primary/15 mb-4">
-      <span className="material-symbols-outlined !text-base text-primary flex-shrink-0 mt-0.5">tips_and_updates</span>
-      <p className="font-sans text-sm text-on-surface-variant/80 leading-relaxed">{children}</p>
+    <kbd className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-surface-container-high border border-outline-variant/20 font-mono text-[9px] font-bold text-primary mx-0.5">
+      {children}
+    </kbd>
+  )
+}
+
+function Tag({ children, color = 'primary' }: { children: React.ReactNode; color?: string }) {
+  const cls = color === 'amber'   ? 'bg-amber-400/10 border-amber-400/20 text-amber-300/80'
+            : color === 'sky'     ? 'bg-sky-400/10 border-sky-400/20 text-sky-300/80'
+            : color === 'rose'    ? 'bg-rose-400/10 border-rose-400/20 text-rose-300/80'
+            : color === 'emerald' ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-300/80'
+            : color === 'orange'  ? 'bg-orange-400/10 border-orange-400/20 text-orange-300/80'
+            :                       'bg-primary/10 border-primary/20 text-primary/80'
+  return (
+    <span className={`px-2.5 py-0.5 rounded-full border font-mono text-[8px] uppercase tracking-widest ${cls}`}>
+      {children}
+    </span>
+  )
+}
+
+function ConceptCard({ icon, title, desc, color = 'default' }: { icon: string; title: string; desc: string; color?: string }) {
+  const bg = color === 'amber'   ? 'bg-amber-400/8 border-amber-400/15'
+           : color === 'sky'     ? 'bg-sky-400/8 border-sky-400/15'
+           : color === 'rose'    ? 'bg-rose-400/8 border-rose-400/15'
+           : color === 'emerald' ? 'bg-emerald-400/8 border-emerald-400/15'
+           :                       'bg-surface-container-low/50 border-outline-variant/10'
+  const ic = color === 'amber' ? 'text-amber-400' : color === 'sky' ? 'text-sky-400' : color === 'rose' ? 'text-rose-400' : color === 'emerald' ? 'text-emerald-400' : 'text-primary/70'
+  return (
+    <div className={`rounded-2xl border p-4 ${bg}`}>
+      <div className="flex items-start gap-3">
+        <span className={`material-symbols-outlined !text-lg flex-shrink-0 mt-0.5 ${ic}`}>{icon}</span>
+        <div>
+          <p className="font-sans text-sm font-semibold text-on-surface/85 mb-1">{title}</p>
+          <p className="font-sans text-xs text-on-surface-variant/60 leading-relaxed">{desc}</p>
+        </div>
+      </div>
     </div>
   )
 }
 
-function Note({ children }: { children: React.ReactNode }) {
+function PracticeStep({ num, title, where, desc }: { num: number; title: string; where?: string; desc: string }) {
   return (
-    <div className="flex gap-3 p-4 rounded-2xl bg-secondary/8 border border-secondary/15 mb-4">
-      <span className="material-symbols-outlined !text-base text-secondary flex-shrink-0 mt-0.5">school</span>
-      <p className="font-sans text-sm text-on-surface-variant/80 leading-relaxed">{children}</p>
-    </div>
-  )
-}
-
-function SwaraChip({
-  swara, fullName, semitone, isBlack, isSpecial,
-}: {
-  swara: string; fullName: string; semitone: string; isBlack?: boolean; isSpecial?: boolean
-}) {
-  return (
-    <div className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-2xl border text-center min-w-[64px] ${
-      isSpecial
-        ? 'bg-amber-400/10 border-amber-400/30'
-        : isBlack
-        ? 'bg-surface-container-high border-outline-variant/15'
-        : 'bg-surface-container-low border-outline-variant/10'
-    }`}>
-      <span className={`font-display text-xl font-medium ${isSpecial ? 'text-amber-300' : 'text-on-surface/90'}`}>
-        {swara}
-      </span>
-      <span className="font-sans text-[10px] text-on-surface-variant/55 leading-tight">{fullName}</span>
-      <span className="font-mono text-[8px] text-primary/50">{semitone}</span>
-    </div>
-  )
-}
-
-function StepBox({ num, title, desc }: { num: number; title: string; desc: string }) {
-  return (
-    <div className="flex gap-3 p-4 rounded-2xl bg-surface-container-low/50 border border-outline-variant/10 mb-3">
-      <div className="w-7 h-7 rounded-full bg-primary/15 text-primary font-mono text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+    <div className="flex gap-3 p-3 rounded-xl bg-surface-container-low/40 border border-outline-variant/8">
+      <div className="w-6 h-6 rounded-full bg-primary/20 text-primary font-mono text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
         {num}
       </div>
-      <div>
-        <p className="font-sans text-sm font-semibold text-on-surface/85 mb-0.5">{title}</p>
+      <div className="flex-1">
+        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+          <span className="font-sans text-sm font-semibold text-on-surface/85">{title}</span>
+          {where && <Tag color="primary">{where}</Tag>}
+        </div>
         <p className="font-sans text-xs text-on-surface-variant/60 leading-relaxed">{desc}</p>
       </div>
     </div>
   )
 }
 
-/** Safe parser for DoThis step strings — handles <strong> and <kbd> only */
-function parseStep(text: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = []
-  const re = /<(strong|kbd)>(.*?)<\/\1>/g
-  let last = 0
-  let match: RegExpExecArray | null
-  while ((match = re.exec(text)) !== null) {
-    if (match.index > last) nodes.push(text.slice(last, match.index))
-    const [, tag, inner] = match
-    if (tag === 'strong') {
-      nodes.push(<strong key={match.index} className="text-on-surface/90 font-semibold">{inner}</strong>)
-    } else {
-      nodes.push(
-        <kbd key={match.index} className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-surface-container-high border border-outline-variant/20 font-mono text-[9px] font-bold text-primary mx-0.5">
-          {inner}
-        </kbd>
-      )
-    }
-    last = match.index + match[0].length
-  }
-  if (last < text.length) nodes.push(text.slice(last))
-  return nodes
-}
+// ── Interactive: Swara Explorer ───────────────────────────────────────────────
+function SwaraExplorer() {
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
+  const sw = selectedIdx !== null ? BASE_SWARAS[selectedIdx] : null
 
-/** "Try it now" callout — shows exactly where to click / what to press in the app */
-function DoThis({ title = 'Try it now', steps }: { title?: string; steps: string[] }) {
   return (
-    <div className="rounded-2xl bg-secondary/8 border border-secondary/25 p-4 mb-5">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="material-symbols-outlined !text-sm text-secondary">touch_app</span>
-        <span className="font-mono text-[9px] uppercase tracking-widest text-secondary font-bold">{title}</span>
+    <div>
+      {/* 7 base swara tiles */}
+      <div className="grid grid-cols-7 gap-2 mb-3">
+        {BASE_SWARAS.map((s, i) => {
+          const isSelected = selectedIdx === i
+          const isAchala = s.type === 'achala'
+          return (
+            <button
+              key={s.short}
+              onClick={() => setSelectedIdx(isSelected ? null : i)}
+              className={`flex flex-col items-center gap-1.5 py-4 rounded-2xl border transition-all duration-200 ${
+                isSelected
+                  ? isAchala
+                    ? 'bg-amber-400/20 border-amber-400/60 scale-105 shadow-lg'
+                    : 'bg-primary/20 border-primary/60 scale-105 shadow-lg'
+                  : 'bg-surface-container-low/50 border-outline-variant/10 hover:border-primary/30 hover:bg-surface-container-high/40 hover:scale-102'
+              }`}
+            >
+              <span className={`font-display text-2xl font-medium transition-colors ${
+                isAchala ? 'text-amber-300' : isSelected ? 'text-primary' : 'text-on-surface/80'
+              }`}>{s.short}</span>
+              <span className="font-mono text-[8px] text-on-surface-variant/40">{s.western}</span>
+              {isAchala && (
+                <span className="font-mono text-[6px] uppercase tracking-widest text-amber-400/50 px-1.5 py-0.5 rounded-full border border-amber-400/20 bg-amber-400/8">
+                  fixed
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
-      <ol className="space-y-2">
-        {steps.map((s, i) => (
-          <li key={i} className="flex gap-2.5">
-            <span className="font-mono text-[9px] font-bold text-secondary/60 w-4 flex-shrink-0 mt-0.5">{i + 1}.</span>
-            <p className="font-sans text-xs text-on-surface-variant/75 leading-relaxed">{parseStep(s)}</p>
-          </li>
-        ))}
-      </ol>
+
+      {/* Detail card */}
+      {sw ? (
+        <div className="rounded-2xl bg-surface-container-low/60 border border-outline-variant/15 p-5 animate-fade-in">
+          <div className="flex items-start gap-4">
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+              sw.type === 'achala' ? 'bg-amber-400/15 border border-amber-400/20' : 'bg-primary/10 border border-primary/20'
+            }`}>
+              <span className={`font-display text-3xl font-medium ${sw.type === 'achala' ? 'text-amber-300' : 'text-primary'}`}>
+                {sw.short}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <h3 className="font-display text-xl font-light text-on-surface">{sw.full}</h3>
+                <Tag color={sw.type === 'achala' ? 'amber' : 'primary'}>{sw.type}</Tag>
+                <Tag color="sky">{sw.western} (west)</Tag>
+              </div>
+              <p className="font-sans text-sm text-on-surface-variant/70 leading-relaxed mb-3">{sw.char}</p>
+              {(sw.komal || sw.tivra) && (
+                <div className="flex flex-wrap gap-2">
+                  {sw.komal && (
+                    <div className="flex-1 min-w-[160px] px-3 py-2 rounded-xl bg-sky-400/8 border border-sky-400/20">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="font-display text-base text-sky-300">{sw.komal.short}</span>
+                        <span className="font-mono text-[8px] text-sky-400/60 uppercase tracking-widest">{sw.komal.full}</span>
+                        <span className="font-mono text-[8px] text-sky-400/50">· {sw.komal.western}</span>
+                      </div>
+                      <p className="font-sans text-[10px] text-on-surface-variant/55 leading-snug">{sw.komal.char}</p>
+                    </div>
+                  )}
+                  {sw.tivra && (
+                    <div className="flex-1 min-w-[160px] px-3 py-2 rounded-xl bg-orange-400/8 border border-orange-400/20">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="font-display text-base text-orange-300">{sw.tivra.short}</span>
+                        <span className="font-mono text-[8px] text-orange-400/60 uppercase tracking-widest">{sw.tivra.full}</span>
+                        <span className="font-mono text-[8px] text-orange-400/50">· {sw.tivra.western}</span>
+                      </div>
+                      <p className="font-sans text-[10px] text-on-surface-variant/55 leading-snug">{sw.tivra.char}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-outline-variant/15 p-4 text-center">
+          <span className="material-symbols-outlined !text-2xl text-on-surface-variant/20 block mb-1">touch_app</span>
+          <p className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/30">Tap any note tile to explore it</p>
+        </div>
+      )}
     </div>
   )
 }
 
+// ── Interactive: Aroha Visualizer ─────────────────────────────────────────────
+function ArohaVisualizer({ notes, label }: { notes: string[]; label: string }) {
+  const [activeIdx, setActiveIdx] = useState(-1)
+  const [running, setRunning] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const stop = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    setRunning(false)
+    setActiveIdx(-1)
+  }, [])
+
+  const animate = useCallback(() => {
+    if (running) { stop(); return }
+    setRunning(true)
+    setActiveIdx(-1)
+    let i = 0
+    const step = () => {
+      if (i >= notes.length) { stop(); return }
+      setActiveIdx(i)
+      i++
+      timerRef.current = setTimeout(step, 650)
+    }
+    step()
+  }, [running, notes, stop])
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 font-bold">{label}</span>
+        <button
+          onClick={animate}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-[8px] uppercase tracking-widest transition-all border ${
+            running
+              ? 'bg-primary/20 border-primary/40 text-primary'
+              : 'bg-surface-container-high/40 border-outline-variant/10 text-on-surface-variant/50 hover:border-primary/30 hover:text-primary/80'
+          }`}
+        >
+          <span className="material-symbols-outlined !text-xs leading-none">{running ? 'stop' : 'play_arrow'}</span>
+          {running ? 'Playing…' : 'Animate'}
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {notes.map((note, i) => {
+          const type = getSwaraType(note)
+          const display = swaraDisplayName(note)
+          const isActive = i === activeIdx
+          return (
+            <div
+              key={`${note}-${i}`}
+              className={`px-3 py-2 rounded-xl font-mono text-sm font-bold border transition-all duration-300 ${
+                isActive
+                  ? type === 'achala'   ? 'bg-amber-400/30 border-amber-400/70 text-amber-200 scale-125 shadow-glow'
+                  : type === 'komal'    ? 'bg-sky-400/30 border-sky-400/70 text-sky-200 scale-125'
+                  : type === 'tivra'   ? 'bg-orange-400/30 border-orange-400/70 text-orange-200 scale-125'
+                  :                      'bg-primary/30 border-primary/70 text-primary scale-125'
+                  : type === 'achala'  ? 'bg-amber-400/10 border-amber-400/20 text-amber-400/70'
+                  : type === 'komal'   ? 'bg-sky-400/10 border-sky-400/20 text-sky-400/70'
+                  : type === 'tivra'  ? 'bg-orange-400/10 border-orange-400/20 text-orange-400/70'
+                  :                     'bg-surface-container-high/40 border-outline-variant/10 text-on-surface/60'
+              }`}
+            >
+              {display}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Raga anatomy ──────────────────────────────────────────────────────────────
+const RAGA_ELEMENTS = [
+  { term: 'Aroha',    icon: 'arrow_upward',          color: 'emerald', desc: 'The ascending pattern — how you climb from low Sa to high Sa. Not always in strict order.' },
+  { term: 'Avaroha',  icon: 'arrow_downward',         color: 'sky',     desc: 'The descending pattern — often different from the Aroha, giving each raga its unique shape.' },
+  { term: 'Vadi',     icon: 'grade',                  color: 'amber',   desc: 'The "king" note — the most important, most frequently used swara. Always return to it.' },
+  { term: 'Samvadi',  icon: 'supervised_user_circle', color: 'primary', desc: 'The "minister" note — second most important, usually a fourth or fifth away from Vadi.' },
+  { term: 'Pakad',    icon: 'fingerprint',            color: 'rose',    desc: 'A signature phrase that instantly identifies the raga — its melodic fingerprint.' },
+  { term: 'Rasa',     icon: 'mood',                   color: 'orange',  desc: 'The emotional colour — devotion, romance, longing, courage. Each raga has its own.' },
+]
+
+// Yaman is the standard example raga
+const YAMAN_AROHA  = ['Sa', 'Re', 'Ga', 'ma', 'Pa', 'Dha', 'Ni', 'Sa']
+const YAMAN_AVAROHA = ['Sa', 'Ni', 'Dha', 'Pa', 'ma', 'Ga', 'Re', 'Sa']
+
 // ── Chapter content ───────────────────────────────────────────────────────────
 function ChWelcome() {
+  const zones = [
+    { icon: 'view_sidebar',    label: 'Left Sidebar',    desc: 'Tracks, Raga selector, and Tradition toggle. Pick your raga and manage composition layers here.' },
+    { icon: 'grid_on',         label: 'Sequencer Grid',  desc: 'Click any cell to select a step, then press a key or tap the keyboard to record a note.' },
+    { icon: 'piano',           label: 'Keyboard Area',   desc: 'Piano / SwaPad / DrumPad — your instrument. Keys are colour-coded to show the active raga\'s grammar.' },
+    { icon: 'horizontal_rule', label: 'Transport Rail',  desc: 'The bar at the bottom — Play, Stop, Drone, Tempo, Volume, Swing, Record, MIDI Export.' },
+    { icon: 'auto_fix_high',   label: 'AI Assistant',    desc: 'The glowing button (bottom-right) — ask it anything about ragas, ask for a melody suggestion, or switch to Learn mode.' },
+  ]
+
   return (
-    <>
-      <H1>Welcome, Learner</H1>
-      <Sub>A gentle introduction to Indian classical music and Saptaswara Studio</Sub>
-
-      <P>
-        You've opened one of the most ancient and expressive musical traditions in the world.
-        Indian classical music is built on <B>ragas</B> — melodic frameworks that carry emotion,
-        season, and time of day into every note. This guide walks you through every part of the app step by step.
-      </P>
-
-      {/* App layout map */}
-      <div className="rounded-3xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/15 p-5 mb-5">
-        <h3 className="font-display text-base font-light text-on-surface mb-3">The studio has 4 zones</h3>
-        <div className="space-y-2.5">
-          {[
-            { icon: 'view_sidebar',  label: 'Left Sidebar',    desc: 'Tracks list, Raga selector, and tradition filter. This is where you pick your raga and manage layers.' },
-            { icon: 'grid_on',       label: 'Main Workspace',  desc: 'Step Sequencer grid at the top, instrument keyboard (Piano / SwaPad / DrumPad) below it.' },
-            { icon: 'horizontal_rule', label: 'Playback Rail', desc: 'The dark bar at the bottom — Play, Stop, Drone, Volume, Tempo, Swing, Rec, and Export MIDI.' },
-            { icon: 'auto_fix_high', label: 'AI Assistant',    desc: 'The glowing round button at the bottom-right. Opens a chat window for raga guidance.' },
-          ].map(z => (
-            <div key={z.label} className="flex gap-3">
-              <span className="material-symbols-outlined !text-sm text-primary/60 flex-shrink-0 mt-0.5">{z.icon}</span>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <p className="font-mono text-[9px] uppercase tracking-widest text-primary/60 font-bold mb-3">Studio layout</p>
+          {zones.map(z => (
+            <div key={z.label} className="flex gap-3 p-3 rounded-xl bg-surface-container-low/40 border border-outline-variant/8">
+              <span className="material-symbols-outlined !text-base text-primary/60 flex-shrink-0 mt-0.5">{z.icon}</span>
               <div>
-                <p className="font-sans text-xs font-semibold text-on-surface/80">{z.label}</p>
+                <p className="font-sans text-sm font-semibold text-on-surface/85">{z.label}</p>
                 <p className="font-sans text-xs text-on-surface-variant/60 leading-relaxed">{z.desc}</p>
               </div>
             </div>
           ))}
         </div>
-      </div>
-
-      <DoThis title="Orient yourself in the app" steps={[
-        'Look at the <strong>top bar (HUD)</strong> — it shows the active raga name, tradition badge, instrument, and tempo.',
-        'On the <strong>top-right</strong> you will find: <strong>Save</strong>, <strong>Learn</strong> (this guide), and <strong>?</strong> (Studio Reference).',
-        'The <strong>glowing FAB button</strong> at the bottom-right is the AI Raga Assistant — click it now to open the chat.',
-        'On the <strong>left sidebar</strong> find the raga search box and the Hindustani / Carnatic toggle. Try switching traditions.',
-        'At the <strong>bottom</strong> of the screen is the Playback Rail. Press the large <strong>▶ play button</strong> or hit <kbd>Space</kbd> on your keyboard.',
-      ]} />
-
-      <div className="rounded-2xl bg-gradient-to-br from-primary/8 to-transparent border border-primary/15 p-5 mb-4">
-        <h3 className="font-display text-base font-light text-on-surface mb-3">What you will learn</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="space-y-3">
+          <p className="font-mono text-[9px] uppercase tracking-widest text-secondary/60 font-bold mb-3">You will learn</p>
           {[
-            ['music_note',  'The names of the 7 basic notes (Swaras)'],
-            ['straighten',  'How octaves and semitones work'],
+            ['music_note',  'The 7 swaras (notes) and their variants'],
+            ['straighten',  'How octaves and registers work'],
             ['menu_book',   'What makes a raga different from a scale'],
-            ['stars',       'Why some notes are more important than others'],
-            ['piano',       'How to play your first loop in the studio'],
+            ['stars',       'Why some notes matter more than others'],
+            ['graphic_eq',  'How notes are ornamented (gamakas)'],
+            ['play_lesson', 'How to build your first loop'],
             ['lightbulb',   'Daily practice habits that actually work'],
           ].map(([icon, text]) => (
-            <div key={text} className="flex items-center gap-2">
-              <span className="material-symbols-outlined !text-sm text-primary/60">{icon}</span>
-              <span className="font-sans text-xs text-on-surface-variant/70">{text}</span>
+            <div key={text as string} className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined !text-sm text-secondary/70">{icon as string}</span>
+              </div>
+              <span className="font-sans text-sm text-on-surface-variant/70">{text as string}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <Tip>
-        Use the chapters on the left to move at your own pace. The <strong>AI Assistant</strong> (bottom-right glowing button)
-        can answer any question along the way — switch it to <strong>Learn mode</strong> (the school icon in the chat header)
-        for beginner-friendly explanations.
-      </Tip>
+      <div className="rounded-2xl bg-gradient-to-r from-primary/8 to-secondary/8 border border-primary/15 p-4">
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined !text-lg text-primary/70 flex-shrink-0">tips_and_updates</span>
+          <div>
+            <p className="font-sans text-sm font-semibold text-on-surface/85 mb-1">Two traditions, one note system</p>
+            <p className="font-sans text-xs text-on-surface-variant/65 leading-relaxed">
+              Indian classical music has two main traditions — <strong className="text-on-surface/80">Hindustani</strong> (North India) and <strong className="text-on-surface/80">Carnatic</strong> (South India).
+              They share the same 7 swaras but have different ragas and styles. Switch between them in the sidebar's tradition toggle.
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <Note>
-        Indian classical music has two main traditions: <strong>Hindustani</strong> (North India) and
-        <strong> Carnatic</strong> (South India). They share the same note system but different ragas and styles.
-        Switch between them with the <strong>Hindustani / Carnatic</strong> toggle in the left sidebar.
-      </Note>
-    </>
+      <div className="flex items-center gap-3 p-4 rounded-2xl bg-surface-container-low/30 border border-outline-variant/10">
+        <span className="material-symbols-outlined !text-2xl text-secondary/60">school</span>
+        <div>
+          <p className="font-sans text-sm text-on-surface/70 leading-relaxed">
+            Use the chapters on the left to move at your own pace. The <strong className="text-on-surface/85">AI Assistant</strong> can answer any question — switch it to <strong className="text-on-surface/85">Learn mode</strong> (school icon in the chat header) for beginner-friendly explanations.
+          </p>
+        </div>
+      </div>
+    </div>
   )
 }
 
 function ChSwaras() {
-  const swaras = [
-    { s: 'Sa',  full: 'Shadja',     semi: 'C',   black: false, special: true  },
-    { s: 're',  full: 'Komal Re',   semi: 'C♯',  black: true,  special: false },
-    { s: 'Re',  full: 'Shuddha Re', semi: 'D',   black: false, special: false },
-    { s: 'ga',  full: 'Komal Ga',   semi: 'D♯',  black: true,  special: false },
-    { s: 'Ga',  full: 'Shuddha Ga', semi: 'E',   black: false, special: false },
-    { s: 'Ma',  full: 'Shuddha Ma', semi: 'F',   black: false, special: false },
-    { s: 'ma',  full: 'Tivra Ma',   semi: 'F♯',  black: true,  special: false },
-    { s: 'Pa',  full: 'Panchama',   semi: 'G',   black: false, special: true  },
-    { s: 'dha', full: 'Komal Dha',  semi: 'G♯',  black: true,  special: false },
-    { s: 'Dha', full: 'Shuddha Dha',semi: 'A',   black: false, special: false },
-    { s: 'ni',  full: 'Komal Ni',   semi: 'A♯',  black: true,  special: false },
-    { s: 'Ni',  full: 'Shuddha Ni', semi: 'B',   black: false, special: false },
-  ]
-
   return (
-    <>
-      <H1>The 7 Swaras (Notes)</H1>
-      <Sub>Sa Re Ga Ma Pa Dha Ni — the foundation of all Indian music</Sub>
-
-      <P>
-        Indian music uses <B>7 base notes</B> called <B>Swaras</B>. You've probably heard "Do Re Mi" from
-        Western music — Swaras are the Indian equivalent, but older and more nuanced.
-      </P>
-
-      <div className="grid grid-cols-7 gap-1.5 mb-5">
-        {['Sa','Re','Ga','Ma','Pa','Dha','Ni'].map((s, i) => (
-          <div key={s} className={`h-16 rounded-2xl flex items-center justify-center border ${
-            i === 0 || i === 4
-              ? 'bg-amber-400/15 border-amber-400/30'
-              : 'bg-surface-container-low border-outline-variant/10'
-          }`}>
-            <span className={`font-display text-xl font-medium ${i === 0 || i === 4 ? 'text-amber-300' : 'text-on-surface/80'}`}>
-              {s}
-            </span>
-          </div>
-        ))}
+    <div className="space-y-6">
+      <div className="rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/5 border border-amber-500/20 p-5">
+        <p className="font-display text-lg font-light text-on-surface mb-2">The Indian equivalent of Do Re Mi</p>
+        <p className="font-sans text-sm text-on-surface-variant/70 leading-relaxed">
+          Indian music uses <strong className="text-on-surface/85">7 base swaras</strong> — Sa Re Ga Ma Pa Dha Ni. From these 7, you get 12 distinct pitches by adding komal (flat ♭) and tivra (sharp ♯) variants.
+          <strong className="text-amber-300"> Sa and Pa are special</strong> — they never change, never have variants. They are the anchors.
+        </p>
       </div>
 
-      <Tip>
-        <strong>Sa</strong> and <strong>Pa</strong> (highlighted in gold) are called <strong>Achala Swaras</strong> — the
-        "fixed" or "immovable" notes. Every other swara has flat (komal) and sometimes sharp (tivra) variants.
-        That's how 7 base notes become 12 distinct pitches.
-      </Tip>
+      <SwaraExplorer />
 
-      <P>All 12 pitches — the 7 base notes plus their variants:</P>
-      <div className="flex flex-wrap gap-2 mb-5">
-        {swaras.map(s => (
-          <SwaraChip key={s.s} swara={s.s} fullName={s.full} semitone={s.semi} isBlack={s.black} isSpecial={s.special} />
-        ))}
-      </div>
-
-      <div className="rounded-2xl border border-outline-variant/10 overflow-hidden mb-4">
-        <div className="px-5 py-2 bg-surface-container-low/40 border-b border-outline-variant/10">
-          <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Notation rules</span>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="p-3 rounded-xl bg-surface-container-low/50 border border-outline-variant/10 text-center">
+          <span className="font-display text-2xl font-light text-on-surface/80 block mb-1">Uppercase</span>
+          <p className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Shuddha (natural)</p>
+          <p className="font-sans text-xs text-on-surface-variant/50 mt-1">Re, Ga, Ma, Dha, Ni</p>
         </div>
-        {[
-          ['Uppercase',  'Shuddha (natural) note — e.g., Re, Ga, Dha, Ni, Ma'],
-          ['Lowercase',  'Komal (flat) note — e.g., re, ga, dha, ni'],
-          ['Lowercase ma','Tivra Ma — the only sharp (raised) note'],
-          ["Sa' or Sa^", 'Higher octave — add a tick or caret after the name'],
-          ['.Sa or ,Sa',  'Lower octave — add a dot or comma before the name'],
-        ].map(([sym, desc]) => (
-          <div key={sym} className="flex items-start gap-3 px-5 py-2.5 border-b border-outline-variant/5 last:border-0">
-            <span className="font-mono text-xs font-bold text-primary/80 w-28 flex-shrink-0">{sym}</span>
-            <span className="font-sans text-xs text-on-surface-variant/65">{desc}</span>
-          </div>
-        ))}
+        <div className="p-3 rounded-xl bg-sky-500/8 border border-sky-500/15 text-center">
+          <span className="font-display text-2xl font-light text-sky-300 block mb-1">Lowercase</span>
+          <p className="font-mono text-[8px] uppercase tracking-widest text-sky-400/60">Komal (flat ♭)</p>
+          <p className="font-sans text-xs text-sky-300/50 mt-1">re, ga, dha, ni</p>
+        </div>
+        <div className="p-3 rounded-xl bg-orange-500/8 border border-orange-500/15 text-center">
+          <span className="font-display text-2xl font-light text-orange-300 block mb-1">ma</span>
+          <p className="font-mono text-[8px] uppercase tracking-widest text-orange-400/60">Tivra (sharp ♯)</p>
+          <p className="font-sans text-xs text-orange-300/50 mt-1">only Ma has a sharp variant</p>
+        </div>
       </div>
-
-      <DoThis title="Hear every swara on the Piano" steps={[
-        'Scroll down past the Step Sequencer until you see the <strong>Piano keyboard</strong>.',
-        'Make sure the <strong>Melody track</strong> is selected in the sidebar (it should be highlighted).',
-        'Press <kbd>A</kbd> on your keyboard — this is <strong>Sa</strong>, the root note. Hold it and listen.',
-        'Press <kbd>S</kbd> for Re, <kbd>D</kbd> for Ga, <kbd>F</kbd> for Ma, <kbd>G</kbd> for Pa, <kbd>H</kbd> for Dha, <kbd>J</kbd> for Ni.',
-        'Press <kbd>K</kbd> — this is Sa one octave higher. Notice how it sounds "the same but brighter".',
-        'For komal (flat) notes, use the top row: <kbd>W</kbd>=re, <kbd>E</kbd>=ga, <kbd>T</kbd>=ma, <kbd>Y</kbd>=dha, <kbd>U</kbd>=ni.',
-        'Each key letter is shown at the bottom of the corresponding piano key for reference.',
-      ]} />
-
-      <Note>
-        In Saptaswara, you will see these note names on the Piano keys and in the SwaPad. The AI assistant
-        will always use this notation when suggesting melodic patterns. Get familiar with it — it is the
-        language of Indian music notation.
-      </Note>
-    </>
+    </div>
   )
 }
 
 function ChScale() {
+  const registers = [
+    { name: 'Mandra',  label: 'Low Register',    icon: 'keyboard_double_arrow_down', color: 'violet', desc: 'Deep, resonant. The chest voice range. Use it for grounded, serious phrases.', key: 'Octave 3' },
+    { name: 'Madhya',  label: 'Middle Register',  icon: 'remove',                     color: 'primary', desc: 'The natural singing range. Where you will spend most of your practice time.', key: 'Octave 4' },
+    { name: 'Taar',    label: 'High Register',    icon: 'keyboard_double_arrow_up',   color: 'amber',  desc: 'Bright and intense. Upper notes have a piercing, urgent quality.', key: 'Octave 5' },
+  ]
+
   return (
-    <>
-      <H1>Scales & Octaves</H1>
-      <Sub>How notes are organised in space and pitch</Sub>
-
-      <P>
-        An <B>octave</B> is a doubling of frequency. If Sa is at 261 Hz, the next Sa up is at 522 Hz —
-        exactly twice as fast, but it feels like the "same" note in a higher voice. This is why the swara
-        cycle repeats — Sa Re Ga Ma Pa Dha Ni, then back to Sa.
-      </P>
-
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        {[
-          { name: 'Mandra', label: 'Low', desc: 'The deep register — the chest voice range. Played in octave 3 in Saptaswara.', color: 'bg-violet-500/10 border-violet-500/20 text-violet-400' },
-          { name: 'Madhya', label: 'Middle', desc: 'The natural singing range — where you will spend most of your time. Octave 4.', color: 'bg-primary/10 border-primary/20 text-primary' },
-          { name: 'Taar',   label: 'High', desc: 'The upper register — bright and intense. Octave 5 and above.', color: 'bg-amber-400/10 border-amber-400/20 text-amber-300' },
-        ].map(r => (
-          <div key={r.name} className={`rounded-2xl border p-4 ${r.color.split(' ').slice(0,2).join(' ')}`}>
-            <p className={`font-mono text-[9px] uppercase tracking-widest font-bold mb-1 ${r.color.split(' ')[2]}`}>{r.label}</p>
-            <p className="font-display text-xl font-light text-on-surface mb-2">{r.name}</p>
-            <p className="font-sans text-xs text-on-surface-variant/60 leading-relaxed">{r.desc}</p>
-          </div>
-        ))}
+    <div className="space-y-5">
+      <div className="rounded-2xl bg-surface-container-low/40 border border-outline-variant/10 p-4">
+        <p className="font-display text-base font-light text-on-surface mb-1">One note, three voices</p>
+        <p className="font-sans text-xs text-on-surface-variant/65 leading-relaxed">
+          An octave is a doubling of frequency. If Sa is at 261 Hz, the next Sa up is 522 Hz — twice as fast, but felt as <em>the same note in a higher voice</em>.
+          This is why Sa Re Ga Ma Pa Dha Ni repeats — the cycle continues in each register.
+        </p>
       </div>
 
-      <Tip>
-        In Saptaswara's SwaPad, use the <strong>Mandra / Madhya / Taar</strong> buttons to change register.
-        Beginners should start in Madhya — it is the most natural and is default.
-      </Tip>
+      <div className="space-y-3">
+        {registers.map(r => {
+          const bg  = r.color === 'violet' ? 'bg-violet-500/8 border-violet-500/15' : r.color === 'amber' ? 'bg-amber-500/8 border-amber-500/15' : 'bg-primary/8 border-primary/15'
+          const ico = r.color === 'violet' ? 'text-violet-400' : r.color === 'amber' ? 'text-amber-400' : 'text-primary'
+          return (
+            <div key={r.name} className={`flex items-center gap-4 p-4 rounded-2xl border ${bg}`}>
+              <div className="text-center w-14 flex-shrink-0">
+                <span className={`material-symbols-outlined !text-2xl ${ico}`}>{r.icon}</span>
+                <p className={`font-display text-xl font-light mt-1 ${ico}`}>{r.name}</p>
+                <p className="font-mono text-[7px] text-on-surface-variant/30 uppercase tracking-widest">{r.key}</p>
+              </div>
+              <div>
+                <p className="font-sans text-xs font-semibold text-on-surface/80 mb-0.5">{r.label}</p>
+                <p className="font-sans text-xs text-on-surface-variant/60 leading-relaxed">{r.desc}</p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
 
-      <P>
-        Within a single octave, there are <B>12 pitches</B> (7 natural + 5 altered). Not every raga uses
-        all 12 — most use only 5 to 7 specific ones. That selection is what makes each raga unique.
-      </P>
-
-      <DoThis title="Explore registers with SwaPad" steps={[
-        'In the sidebar, click <strong>+ Add Track</strong> if you only have Melody — or simply use the Melody track.',
-        'Scroll down to the instrument section. If you see a Piano keyboard, look for the layout buttons above it.',
-        'Switch to the <strong>SwaPad</strong> layout — you will see 7 large coloured pads labelled Sa Re Ga Ma Pa Dha Ni.',
-        'In the top-right of the SwaPad, find the <strong>Mandra / Madhya / Taar</strong> buttons. Click <strong>Mandra</strong>.',
-        'Press <kbd>A</kbd> (Sa) and listen — it is a deep, low note.',
-        'Click <strong>Madhya</strong> and press <kbd>A</kbd> again — same Sa, but in the natural singing range.',
-        'Click <strong>Taar</strong> and press <kbd>A</kbd> — now it sounds high and bright. Same note, three different octaves.',
-        'Switch back to <strong>Madhya</strong> — this is the register you will use most often.',
-      ]} />
-
-      <Note>
-        Western music calls these 12 pitches a "chromatic scale." Indian music does not use that term —
-        instead, the full set of 12 is called the <strong>Saptak</strong> (from "sapta" = seven, because
-        the 7 base swaras define the skeleton).
-      </Note>
-    </>
+      <div className="rounded-2xl bg-gradient-to-r from-primary/8 to-transparent border border-primary/15 p-4">
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined !text-lg text-primary/70 flex-shrink-0">piano</span>
+          <p className="font-sans text-sm text-on-surface-variant/65 leading-relaxed">
+            In the <strong className="text-on-surface/85">SwaPad</strong>, use the <Kbd>Mandra</Kbd> / <Kbd>Madhya</Kbd> / <Kbd>Taar</Kbd> buttons to change register.
+            Start in <strong className="text-on-surface/85">Madhya</strong> — it's the most natural and is the default.
+          </p>
+        </div>
+      </div>
+    </div>
   )
 }
 
 function ChRaga() {
   return (
-    <>
-      <H1>What is a Raga?</H1>
-      <Sub>A melodic framework — not just a scale, but a living entity</Sub>
-
-      <P>
-        A <B>raga</B> is far more than a scale. It is a precise set of rules about which notes to use,
-        how to move between them, which notes to emphasise, what emotion it should evoke, what time of
-        day it belongs to, and even what season it suits.
-      </P>
-      <P>
-        Think of a raga as a personality. Two ragas can share the same notes but sound completely
-        different because of how those notes are approached, ornated, and lingered upon.
-      </P>
-
-      <div className="rounded-3xl bg-gradient-to-br from-secondary/8 to-primary/8 border border-secondary/15 p-6 mb-5">
-        <h3 className="font-display text-base font-light text-on-surface mb-4">Elements of a Raga</h3>
-        <div className="space-y-3">
-          {[
-            ['Aroha',    'The ascending pattern — how you go up from low Sa to high Sa. Not always in strict order.'],
-            ['Avaroha',  'The descending pattern — how you come back down. Often different from Aroha.'],
-            ['Vadi',     'The most important swara — the "king" note. Always return to it; it defines the raga\'s character.'],
-            ['Samvadi',  'The second most important swara — the "minister." Works as a counterpoint to Vadi.'],
-            ['Pakad',    'A signature phrase — a short melodic fingerprint that identifies this raga immediately.'],
-            ['Rasa',     'The emotional colour — devotion, romance, courage, peace, longing. Each raga has its own.'],
-            ['Time',     'Traditional time of day — dawn, midday, evening, night. Playing a raga at its prescribed time deepens its effect.'],
-          ].map(([term, desc]) => (
-            <div key={term} className="flex gap-3">
-              <span className="font-mono text-xs font-bold text-primary/80 w-20 flex-shrink-0 pt-0.5">{term}</span>
-              <p className="font-sans text-xs text-on-surface-variant/70 leading-relaxed">{desc}</p>
-            </div>
-          ))}
-        </div>
+    <div className="space-y-5">
+      <div className="rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/5 border border-emerald-500/20 p-5">
+        <p className="font-display text-lg font-light text-on-surface mb-2">More than a scale — a living personality</p>
+        <p className="font-sans text-sm text-on-surface-variant/70 leading-relaxed">
+          Two ragas can share the exact same notes and still sound completely different — because of <em>how</em> those notes are approached, which are emphasised, and how they move between each other.
+          A raga has <strong className="text-on-surface/85">grammar, emotion, time of day, and season</strong>.
+        </p>
       </div>
 
-      <Tip>
-        Select any raga in the left sidebar and look at the Piano keys — they will glow with colour coding
-        showing the Vadi (amber) and Samvadi (blue). The Melodic Guide section below the keyboard shows
-        the actual Pakads (signature phrases) for that raga.
-      </Tip>
+      <div className="grid grid-cols-2 gap-2">
+        {RAGA_ELEMENTS.map(el => (
+          <ConceptCard key={el.term} icon={el.icon} title={el.term} desc={el.desc} color={el.color as any} />
+        ))}
+      </div>
 
-      <DoThis title="Select a raga and explore its structure" steps={[
-        'In the <strong>left sidebar</strong>, find the Raga section. Use the <strong>search box</strong> to type "Yaman".',
-        'Click <strong>Yaman</strong> — the Piano keys will immediately update their colour coding.',
-        'Scroll down and look at the Piano. Notice the <strong>amber glow bar</strong> on one key — that is the Vadi.',
-        'A <strong>blue glow bar</strong> on another key marks the Samvadi.',
-        'Scroll further down past the keyboard to find the <strong>Melodic Guide</strong> section.',
-        'Click <strong>Play Blueprint</strong> — listen to the raga\'s Aroha (ascending) and Avaroha (descending) played automatically.',
-        'Now try typing "Bhairav" in the search — notice how the colour coding on the Piano completely changes. A different personality.',
-        'Use <kbd>↑</kbd> <kbd>↓</kbd> arrow keys while the search box is focused to navigate the raga list quickly.',
-      ]} />
-
-      <Note>
-        There are hundreds of ragas — over 300 in common use across both traditions. You do not need to learn
-        them all. Start with one raga, practise it deeply, and let it reveal itself over time. Classical musicians
-        often spend months on a single raga.
-      </Note>
-    </>
+      <div className="rounded-2xl bg-surface-container-low/40 border border-outline-variant/10 p-4 space-y-4">
+        <p className="font-mono text-[9px] uppercase tracking-widest text-emerald-400/60 font-bold">Example — Raga Yaman (Hindustani, evening)</p>
+        <ArohaVisualizer notes={YAMAN_AROHA}  label="Aroha (ascending)" />
+        <ArohaVisualizer notes={YAMAN_AVAROHA} label="Avaroha (descending)" />
+        <p className="font-sans text-[10px] text-on-surface-variant/40 italic">
+          Notice tivra Ma (♯ F) in both directions — that single altered note gives Yaman its ethereal, evening character.
+        </p>
+      </div>
+    </div>
   )
 }
 
 function ChVadi() {
+  const hierarchy = [
+    {
+      rank: 1, title: 'Vadi', subtitle: 'The King',
+      icon: 'grade', color: 'amber',
+      bg: 'bg-amber-400/12 border-amber-400/30', text: 'text-amber-300',
+      desc: 'The most used, most important note. Begin phrases here. Rest here. Return here constantly.',
+      example: 'Yaman → Ga is Vadi (the amber key on the Piano)',
+    },
+    {
+      rank: 2, title: 'Samvadi', subtitle: 'The Minister',
+      icon: 'supervised_user_circle', color: 'sky',
+      bg: 'bg-sky-400/12 border-sky-400/30', text: 'text-sky-300',
+      desc: 'Second most important. Usually a fourth or fifth away from Vadi — creates natural tension and resolution.',
+      example: 'Yaman → Ni is Samvadi (the blue key on the Piano)',
+    },
+    {
+      rank: 3, title: 'Anuvadi', subtitle: 'Supporting Notes',
+      icon: 'people', color: 'primary',
+      bg: 'bg-primary/12 border-primary/30', text: 'text-primary',
+      desc: 'All other allowed notes. Use them freely to build phrases — just be sure to resolve back to Vadi.',
+      example: 'Yaman → Re, Ma, Pa, Dha are Anuvadi',
+    },
+    {
+      rank: 4, title: 'Varjya', subtitle: 'Forbidden Notes',
+      icon: 'block', color: 'rose',
+      bg: 'bg-rose-500/10 border-rose-500/25', text: 'text-rose-400',
+      desc: 'Notes explicitly excluded from this raga. Playing them breaks the raga\'s grammar.',
+      example: 'Turn on "Scale Lock" to block these automatically',
+    },
+  ]
+
   return (
-    <>
-      <H1>Vadi & Samvadi</H1>
-      <Sub>The hierarchy of notes — why some notes matter more than others</Sub>
+    <div className="space-y-4">
+      <div className="rounded-2xl bg-gradient-to-r from-yellow-500/10 to-amber-500/5 border border-yellow-500/20 p-4">
+        <p className="font-display text-base font-light text-on-surface mb-1">Every raga has a note hierarchy</p>
+        <p className="font-sans text-sm text-on-surface-variant/70 leading-relaxed">
+          Not all notes in a raga carry equal weight. The Vadi is so central that classical musicians orient their entire improvisation around it — like a planet with gravity pulling everything into orbit.
+        </p>
+      </div>
 
-      <P>
-        Every note in a raga does not have equal importance. Indian classical theory describes a <B>hierarchy</B>:
-        some notes are the pillars of a raga, others are passing tones, and some are forbidden entirely.
-      </P>
-
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        {[
-          {
-            title: 'Vadi',
-            subtitle: 'The King',
-            desc: 'The most important, frequently used note. A raga begins, rests on, and returns to its Vadi constantly. If you emphasise any single note, emphasise this one.',
-            color: 'bg-amber-400/10 border-amber-400/25',
-            text: 'text-amber-300',
-            icon: 'grade',
-          },
-          {
-            title: 'Samvadi',
-            subtitle: 'The Minister',
-            desc: 'The second most important note. It is usually a fourth or fifth away from the Vadi, creating a natural harmonic tension and resolution with it.',
-            color: 'bg-sky-400/10 border-sky-400/25',
-            text: 'text-sky-300',
-            icon: 'supervised_user_circle',
-          },
-          {
-            title: 'Anuvadi',
-            subtitle: 'Supporting Notes',
-            desc: 'All other allowed notes of the raga. They are used freely but without the special emphasis given to Vadi and Samvadi.',
-            color: 'bg-primary/10 border-primary/20',
-            text: 'text-primary/80',
-            icon: 'people',
-          },
-          {
-            title: 'Varjya',
-            subtitle: 'Forbidden Notes',
-            desc: 'Notes explicitly excluded from this raga. Playing them breaks the raga\'s grammar. In Saptaswara, these are shown dimmed on the Piano keyboard.',
-            color: 'bg-error/10 border-error/20',
-            text: 'text-error/70',
-            icon: 'block',
-          },
-        ].map(c => (
-          <div key={c.title} className={`rounded-2xl border p-4 ${c.color}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`material-symbols-outlined !text-base ${c.text}`}>{c.icon}</span>
-              <div>
-                <p className={`font-mono text-[9px] uppercase tracking-widest font-bold ${c.text}`}>{c.title}</p>
-                <p className="font-sans text-[10px] text-on-surface-variant/50">{c.subtitle}</p>
+      <div className="space-y-2">
+        {hierarchy.map(h => (
+          <div key={h.rank} className={`flex gap-4 p-4 rounded-2xl border ${h.bg}`}>
+            <div className="flex-shrink-0 w-10 text-center">
+              <div className={`w-10 h-10 rounded-full border ${h.bg} flex items-center justify-center mb-1`}>
+                <span className={`material-symbols-outlined !text-base ${h.text}`}>{h.icon}</span>
               </div>
+              <span className="font-mono text-[7px] text-on-surface-variant/30">#{h.rank}</span>
             </div>
-            <p className="font-sans text-xs text-on-surface-variant/65 leading-relaxed">{c.desc}</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className={`font-display text-base font-medium ${h.text}`}>{h.title}</span>
+                <span className="font-mono text-[8px] text-on-surface-variant/40 uppercase tracking-widest">{h.subtitle}</span>
+              </div>
+              <p className="font-sans text-xs text-on-surface-variant/65 leading-relaxed mb-1">{h.desc}</p>
+              <p className="font-mono text-[8px] text-on-surface-variant/35 italic">{h.example}</p>
+            </div>
           </div>
         ))}
       </div>
 
-      <Tip>
-        When composing, start your phrase on or near the Vadi, move through the anuvadis, and resolve
-        back to the Vadi or Sa. This simple structure already sounds like authentic raga improvisation.
-        The AI Assistant can suggest specific Vadi-centred phrases for any raga you select.
-      </Tip>
+      <div className="flex gap-2 p-3 rounded-xl bg-surface-container-low/30 border border-outline-variant/10">
+        <span className="material-symbols-outlined !text-base text-primary/60 flex-shrink-0 mt-0.5">tips_and_updates</span>
+        <p className="font-sans text-xs text-on-surface-variant/65 leading-relaxed">
+          The simplest raga phrase structure: start near Vadi → move through Anuvadis → resolve back to Vadi or Sa. Even that simple pattern already sounds like authentic raga improvisation.
+        </p>
+      </div>
+    </div>
+  )
+}
 
-      <P>
-        <B>Nyasa swaras</B> are valid resting points — notes where a phrase feels natural to pause or hold.
-        They are shown with a small dot on the Piano. Use them as landing points in your melodies.
-      </P>
+function ChGamakas() {
+  const types = [
+    { name: 'Meend',     icon: 'trending_up',           wave: '〜',  desc: 'A smooth continuous glide between two notes — pitch slides without breaking.' },
+    { name: 'Andolan',   icon: 'waves',                  wave: '≋',  desc: 'A slow, gentle oscillation on one note — like a note breathing in and out.' },
+    { name: 'Gamak',     icon: 'bolt',                   wave: '⚡', desc: 'Rapid, forceful alternation between two notes. Heavy and energetic.' },
+    { name: 'Kan',       icon: 'touch_app',              wave: '·',  desc: 'A quick grace note from a neighbour before landing on the main note.' },
+    { name: 'Murki',     icon: 'keyboard_double_arrow_down', wave: '↓↓', desc: 'A fast descending cluster of 3–4 notes that tumbles and resolves quickly.' },
+    { name: 'Khatka',    icon: 'electric_bolt',          wave: '⚡⚡', desc: 'A sharp, snapping group executed with crisp precision.' },
+    { name: 'Sparsh',    icon: 'arrow_upward',           wave: '↑',  desc: 'A light ascending grace note approaching the target from below.' },
+    { name: 'Pratyahat', icon: 'arrow_downward',         wave: '↓',  desc: 'A light descending grace note approaching from above — mirror of Sparsh.' },
+  ]
 
-      <DoThis title="Read Vadi & Samvadi on the Piano" steps={[
-        'Select <strong>Yaman</strong> from the raga list (search in the left sidebar).',
-        'Look at the Piano keyboard — find the key with an <strong>amber (gold) bar</strong> at the top. That is Ga — the Vadi of Yaman.',
-        'Find the key with a <strong>blue bar</strong> — that is Ni, the Samvadi.',
-        'Press the Vadi key (<kbd>D</kbd> for Ga in octave 4). Hold it for 2 seconds. Notice how it feels like the most "settled" note.',
-        'Now in the Piano HUD (above the keyboard), click <strong>"Scale Locked"</strong>. The forbidden keys (Varjya) turn grey and become unclickable.',
-        'Try pressing a grey key — nothing happens. Scale Lock protects you from playing outside the raga.',
-        'Open the <strong>AI Assistant</strong> (bottom-right FAB). Click <strong>Learn mode</strong> (school icon in chat header).',
-        'Ask: "How do I use the Vadi in Yaman?" — the assistant will give you a specific practice phrase.',
-      ]} />
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl bg-gradient-to-r from-rose-500/10 to-pink-500/5 border border-rose-500/20 p-5">
+        <p className="font-display text-lg font-light text-on-surface mb-2">Notes are just the starting point</p>
+        <p className="font-sans text-sm text-on-surface-variant/70 leading-relaxed">
+          In Western music, a note is a fixed pitch held for a duration. In Indian music, a note is a <em>journey</em>.
+          How it moves, oscillates, slides, and snaps — that's called a <strong className="text-on-surface/85">gamaka</strong>. Two musicians playing the same notes without gamakas sound mechanical. With the right gamakas, they instantly sound like a raga.
+        </p>
+      </div>
 
-      <Tip>
-        The AI Assistant's <strong>book icon</strong> (in the chat header) shows a Raga Summary panel with Vadi, Samvadi,
-        Aroha, Avaroha, and Pakad — all without leaving the conversation.
-      </Tip>
+      <div className="grid grid-cols-2 gap-2">
+        {types.map(t => (
+          <div key={t.name} className="flex gap-3 p-3 rounded-xl bg-surface-container-low/40 border border-outline-variant/8">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0 text-lg">
+              <span className="font-display text-base text-rose-400/70">{t.wave}</span>
+            </div>
+            <div>
+              <p className="font-sans text-sm font-semibold text-on-surface/85">{t.name}</p>
+              <p className="font-sans text-[10px] text-on-surface-variant/55 leading-snug">{t.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
 
-      <Note>
-        In Raga Bhairav, Sa is Vadi and Pa is Samvadi. In Raga Yaman, Ga is Vadi and Ni is Samvadi.
-        Ask the AI assistant "What is the Vadi of [raga name] and how should I use it?" for specific
-        practice guidance on any raga.
-      </Note>
-    </>
+      <div className="rounded-2xl bg-surface-container-low/30 border border-outline-variant/10 p-4">
+        <p className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold mb-3">Example — Raga Bhairav (dawn raga)</p>
+        {[
+          { swara: 're',  label: 'Komal Re',  type: 'komal', gamaka: 'Andolan', desc: 'Slow oscillation — the signature sound of Bhairav\'s meditative dawn character.' },
+          { swara: 'dha', label: 'Komal Dha', type: 'komal', gamaka: 'Andolan', desc: 'Also oscillates — these two andolans mirror each other across Sa, creating stillness.' },
+          { swara: 'Ga',  label: 'Shuddha Ga', type: 'shuddha', gamaka: 'Meend', desc: 'Approached with a glide from komal Ga — a characteristic ascending slide.' },
+        ].map(row => (
+          <div key={row.swara} className="flex gap-3 items-start py-2 border-b border-outline-variant/5 last:border-0">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+              row.type === 'komal' ? 'bg-sky-400/10' : 'bg-primary/10'
+            }`}>
+              <span className={`font-display text-lg font-medium ${row.type === 'komal' ? 'text-sky-300' : 'text-primary'}`}>{swaraDisplayName(row.swara)}</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="font-sans text-xs font-semibold text-on-surface/80">{row.gamaka}</span>
+                <Tag color={row.type === 'komal' ? 'sky' : 'primary'}>{row.label}</Tag>
+              </div>
+              <p className="font-sans text-[10px] text-on-surface-variant/55 leading-snug">{row.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
 function ChPractice() {
+  const steps = [
+    { num: 1, title: 'Unlock audio',       where: 'Any click',       desc: 'Click anywhere or press ▶ Play. The browser needs one user gesture before sound can play.' },
+    { num: 2, title: 'Select Raga Yaman',  where: 'Left Sidebar',    desc: 'Type "Yaman" in the raga search box and click it. The Piano keys update their colour coding immediately.' },
+    { num: 3, title: 'Turn on Scale Lock', where: 'Piano HUD',       desc: 'Click "Scale Locked" in the black bar above the Piano. Forbidden notes dim — you can\'t play a wrong note.' },
+    { num: 4, title: 'Click Melody track', where: 'Sequencer Grid',  desc: 'Click the "Melody" label on the left side of the grid. It highlights to show it\'s the active recording track.' },
+    { num: 5, title: 'Select Step 1',      where: 'Sequencer Grid',  desc: 'Click the first cell in the Melody row. It glows — this step is now selected and ready to record a note.' },
+    { num: 6, title: 'Record notes',       where: 'Keyboard',        desc: 'Press A (Sa), then click Step 2 and press D (Ga), then Step 3 and press G (Pa). Build a short melody.' },
+    { num: 7, title: 'Press Space to play', where: 'Keyboard shortcut', desc: 'Your loop plays on repeat. Click a filled cell to erase it. Click an empty cell then press a key to add.' },
+    { num: 8, title: 'Add the drone',      where: 'Transport Rail',  desc: 'Click the ≋ Drone button. It holds Sa and Pa continuously — this grounds your melody.' },
+    { num: 9, title: 'Try tabla rhythm',   where: 'Sidebar → Tabla', desc: 'Click the Tabla track. Select Step 1, press A (Dha). Step 5, press A again. Now melody + rhythm play together.' },
+    { num: 10, title: 'Adjust tempo',      where: 'Transport Rail',  desc: 'Drag the Tempo slider to ~80 BPM to slow down. Slower = hear each note more clearly while learning.' },
+  ]
+
   return (
-    <>
-      <H1>Your First Loop</H1>
-      <Sub>A step-by-step walkthrough for your first composition</Sub>
-
-      <P>
-        Follow these steps to create your first piece of music in Saptaswara. Don't worry about making
-        it perfect — the goal is to feel how the studio works and hear a raga in action.
-      </P>
-
-      <StepBox num={1} title="Unlock audio"
-        desc="Click anywhere on the screen or press the ▶ Play button in the bottom rail. The browser needs one user gesture before it can play sound." />
-      <StepBox num={2} title="Select Yaman from the raga list"
-        desc='In the left sidebar, type "Yaman" in the search box and click it. The tradition toggle should be set to Hindustani. The Piano keys immediately update with colour coding.' />
-      <StepBox num={3} title='Turn on Scale Lock'
-        desc='Find the Piano keyboard below the Step Sequencer. In the black HUD bar above it, click the "Scale Locked" button. Forbidden notes dim — you cannot play a wrong note.' />
-      <StepBox num={4} title="Click Melody in the Step Sequencer"
-        desc='Look at the Step Sequencer grid. On the left side you see track labels — click "Melody". It highlights, showing it is the active recording track.' />
-      <StepBox num={5} title="Select Step 1"
-        desc="Click the very first cell in the Melody row. It glows with a ring — this step is now selected and ready to record." />
-      <StepBox num={6} title="Press keyboard keys to record notes"
-        desc="Press A on your keyboard to record Sa. The note name appears in the cell. Click Step 2, press D (Ga). Click Step 3, press G (Pa). Build a short melody." />
-      <StepBox num={7} title="Press Space to hear your loop"
-        desc="Press Space or click the ▶ Play button. Your loop plays on repeat. To erase a note, click its filled cell. To add more, click an empty cell then press a key." />
-      <StepBox num={8} title="Add a drone"
-        desc='In the Playback Rail (bottom bar), click the ≋ Drone button (next to Play). It holds Sa and Pa continuously — this grounds your melody and makes it sound fuller.' />
-      <StepBox num={9} title="Add tabla rhythm"
-        desc='In the left sidebar, click the "Tabla" track. Select Step 1, press A (Dha). Select Step 5, press A again. Press Space — you now have melody + rhythm playing together.' />
-      <StepBox num={10} title="Adjust tempo"
-        desc='In the Playback Rail, drag the Tempo slider left to slow down (try 80 BPM) or right to speed up. Slower lets you hear each note more clearly while learning.' />
-
-      <DoThis title="Control all the knobs" steps={[
-        '<strong>Volume slider</strong> (Playback Rail, left): drag left to reduce master volume, right to increase.',
-        '<strong>Swing slider</strong> (Playback Rail, right of Tempo): adds rhythmic groove — try 20–30% for a natural feel.',
-        '<strong>Shift+click</strong> a filled step cell to cycle its velocity (loudness): 25% → 50% → 75% → 100%.',
-        '<strong>M button</strong> on a track (in sidebar) mutes that track. <strong>S button</strong> solos it (silences all others).',
-        '<strong>Volume slider per track</strong>: click a track to activate it, then drag its small volume slider below.',
-        'Press <kbd>Delete</kbd> or <kbd>Backspace</kbd> to clear the currently selected step.',
-        'Press <kbd>←</kbd> <kbd>→</kbd> arrows to move between steps. Press <kbd>↑</kbd> <kbd>↓</kbd> to switch tracks.',
-      ]} />
-
-      <Tip>
-        Click <strong>Play Blueprint</strong> (below the keyboard) to hear the raga's Aroha and Avaroha automatically.
-        Then recreate those notes in your loop — you will already be playing raga-correct music.
-      </Tip>
-
-      <Note>
-        Click <strong>Save</strong> in the top bar to save your composition to your account (sign-in required).
-        Click <strong>Export MIDI</strong> in the Playback Rail to download a .mid file you can open in any DAW.
-      </Note>
-    </>
+    <div className="space-y-3">
+      <div className="rounded-2xl bg-gradient-to-r from-primary/10 to-secondary/5 border border-primary/20 p-4">
+        <p className="font-display text-base font-light text-on-surface mb-1">Ten steps to your first composition</p>
+        <p className="font-sans text-xs text-on-surface-variant/65">Follow these in order. Don't aim for perfect — aim for <em>sound coming out</em>.</p>
+      </div>
+      <div className="space-y-2">
+        {steps.map(s => <PracticeStep key={s.num} {...s} />)}
+      </div>
+    </div>
   )
 }
 
 function ChTips() {
+  const tips = [
+    { icon: 'repeat',         title: 'One raga at a time',           desc: 'Spend at least a week with one raga. Explore its Aroha, Avaroha, Pakads, registers. Depth beats breadth.' },
+    { icon: 'hearing',        title: 'Listen before you play',        desc: 'Search for a recording of a master performing the raga. Even 5 minutes of listening gives your ear a template theory can\'t.' },
+    { icon: 'graphic_eq',     title: 'Always use the drone',          desc: 'Turn on the Drone button while practising. It holds Sa and Pa continuously, training your ear to hear every other note relative to root.' },
+    { icon: 'speed',          title: 'Slow down the tempo',           desc: 'Set BPM to 60 or lower. Speed hides mistakes; slowness reveals the character of each note. Increase gradually once comfortable.' },
+    { icon: 'stars',          title: 'Return to Vadi constantly',     desc: 'Whatever phrase you play, resolve it back to the Vadi. This one habit instantly makes your playing sound authentic.' },
+    { icon: 'auto_fix_high',  title: 'Use the AI assistant',          desc: 'Ask for a beginner exercise in your current raga, or ask it to suggest a Pakad phrase to memorise. It knows every raga\'s grammar.' },
+    { icon: 'psychology',     title: 'Sing what you play',            desc: 'Indian classical is built on the human voice. Even humming along connects your ear to the notes far faster than playing silently.' },
+    { icon: 'calendar_month', title: '15 minutes daily beats 2 hours weekly', desc: 'Short consistent sessions build muscle memory and ear training faster than occasional long ones.' },
+  ]
+
+  const beginnerRagas = [
+    { name: 'Yaman',   trad: 'Hindustani', note: 'Peaceful, evening — all 7 notes, tivra Ma gives it a bright quality' },
+    { name: 'Bhupali', trad: 'Hindustani', note: 'Serene, pentatonic — only 5 notes, no black keys, great for beginners' },
+    { name: 'Mohanam', trad: 'Carnatic',   note: 'Joyful, pentatonic — Carnatic equivalent of Bhupali' },
+    { name: 'Bilawal', trad: 'Hindustani', note: 'Morning raga — uses the natural scale, closest to Western major' },
+  ]
+
   return (
-    <>
-      <H1>Student Tips</H1>
-      <Sub>Habits and insights that will accelerate your learning</Sub>
-
-      <P>Learning Indian classical music is a long journey — but these practices will make every session count.</P>
-
-      <div className="space-y-3 mb-5">
-        {[
-          {
-            icon: 'repeat',
-            title: 'One raga at a time',
-            desc: 'Resist the urge to jump between ragas. Spend at least a week with one raga. Explore its Aroha, Avaroha, Pakads, and different registers. Depth beats breadth in Indian music.',
-          },
-          {
-            icon: 'hearing',
-            title: 'Listen before you play',
-            desc: 'Before composing in a raga, search for a recording of a master performing it. Even 5 minutes of listening gives your ear a template that no amount of theory can replace.',
-          },
-          {
-            icon: 'graphic_eq',
-            title: 'Always use the drone',
-            desc: 'Turn on the Drone button in the playback rail while practising. The drone holds Sa and Pa continuously, training your ear to hear every other note in relation to the root.',
-          },
-          {
-            icon: 'speed',
-            title: 'Slow down the tempo',
-            desc: 'Set BPM to 60 or lower when first exploring a raga. Speed hides mistakes; slowness reveals the character of each note. Once a phrase feels comfortable, gradually increase tempo.',
-          },
-          {
-            icon: 'stars',
-            title: 'Return to Vadi constantly',
-            desc: 'Whatever phrase you play, end it on or near the Vadi swara. This is the single most important habit in raga-based improvisation. It gives your phrases a sense of home and purpose.',
-          },
-          {
-            icon: 'auto_fix_high',
-            title: 'Use the AI assistant',
-            desc: 'Ask the Raga Assistant for a beginner exercise in the raga you\'re studying. Ask it to explain why a phrase sounds good, or to give you a Pakad to memorise. It knows the grammar of every raga.',
-          },
-          {
-            icon: 'psychology',
-            title: 'Sing what you play',
-            desc: 'Indian classical tradition is built on the human voice. Even if you can\'t sing well, hum along as you press keys. This connects your ear to the notes far faster than playing silently.',
-          },
-          {
-            icon: 'calendar_month',
-            title: 'Short daily sessions beat long occasional ones',
-            desc: '15 minutes every day builds muscle memory and ear training faster than 2 hours on weekends. Even just playing the Aroha of one raga daily will solidify it in a week.',
-          },
-        ].map(t => (
-          <div key={t.title} className="flex gap-3 p-4 rounded-2xl bg-surface-container-low/40 border border-outline-variant/10">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <span className="material-symbols-outlined !text-base text-primary">{t.icon}</span>
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-2">
+        {tips.map(t => (
+          <div key={t.title} className="flex gap-3 p-3 rounded-xl bg-surface-container-low/40 border border-outline-variant/8">
+            <div className="w-8 h-8 rounded-xl bg-lime-500/10 flex items-center justify-center flex-shrink-0">
+              <span className="material-symbols-outlined !text-sm text-lime-400/80">{t.icon}</span>
             </div>
             <div>
-              <p className="font-sans text-sm font-semibold text-on-surface/85 mb-0.5">{t.title}</p>
-              <p className="font-sans text-xs text-on-surface-variant/60 leading-relaxed">{t.desc}</p>
+              <p className="font-sans text-xs font-semibold text-on-surface/85 mb-0.5">{t.title}</p>
+              <p className="font-sans text-[10px] text-on-surface-variant/55 leading-snug">{t.desc}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <DoThis title="Use all your tools effectively" steps={[
-        '<strong>AI Assistant</strong>: click the glowing FAB (bottom-right). Enable <strong>Learn mode</strong> (school icon in chat header) for simple explanations. Click the <strong>book icon</strong> to see the Raga Summary (Vadi, Samvadi, Aroha, Pakad) without typing anything.',
-        '<strong>Instrument switching</strong>: in the Piano HUD, click the instrument name dropdown. Try Veena or Bansuri to hear the same notes with a different timbre.',
-        '<strong>Layout switching</strong>: try the SwaPad layout — 7 large coloured pads are easier to hit than piano keys. Use A–J keyboard shortcuts, and toggle ♭/♯ below each pad for komal/tivra variants.',
-        '<strong>Percussion</strong>: click the Tabla track, then scroll down — the DrumPad appears. Keys A–J trigger Tabla strokes. Switch to Mridangam with the toggle in the DrumPad header.',
-        '<strong>Raga constraint</strong>: the Lock/Free toggle (next to the raga search in sidebar) prevents recording notes outside the raga. Turn it on while composing to stay raga-correct.',
-        '<strong>Melodic Guide</strong>: scroll below the keyboard to find signature phrases (Pakads). Click Play Blueprint to hear the raga\'s shape, then copy those phrases into your loop.',
-        '<strong>Studio Guide</strong>: click <strong>?</strong> in the top-right for a full technical reference of every button and shortcut.',
-        '<strong>Keyboard shortcut summary</strong>: <kbd>Space</kbd>=Play/Stop · <kbd>→←</kbd>=Next/Prev step · <kbd>↑↓</kbd>=Switch track · <kbd>Del</kbd>=Clear step · <kbd>Esc</kbd>=Deselect.',
-      ]} />
-
-      <div className="rounded-3xl bg-gradient-to-br from-primary/10 to-secondary/8 border border-primary/15 p-6">
-        <h3 className="font-display text-lg font-light text-on-surface mb-2">Ragas for beginners</h3>
-        <p className="font-sans text-xs text-on-surface-variant/60 mb-4 leading-relaxed">
-          Start your journey with one of these — they have simple note sets and clear emotional identities.
-        </p>
+      <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/5 border border-primary/15 p-5">
+        <p className="font-display text-base font-light text-on-surface mb-1">Ragas for beginners</p>
+        <p className="font-sans text-xs text-on-surface-variant/50 mb-4">Start your journey with one of these — simple note sets, clear emotional identities.</p>
         <div className="grid grid-cols-2 gap-2">
-          {[
-            { name: 'Yaman',    trad: 'Hindustani', note: 'Peaceful, evening — uses all 7 notes but with tivra Ma' },
-            { name: 'Bhupali',  trad: 'Hindustani', note: 'Serene, pentatonic — only 5 notes, no black keys' },
-            { name: 'Mohanam',  trad: 'Carnatic',   note: 'Joyful, pentatonic — equivalent to Bhupali' },
-            { name: 'Bilawal',  trad: 'Hindustani', note: 'Morning raga — uses the natural scale, closest to major' },
-          ].map(r => (
-            <div key={r.name} className="p-3 rounded-2xl bg-surface-container-low/50 border border-outline-variant/10">
+          {beginnerRagas.map(r => (
+            <div key={r.name} className="p-3 rounded-xl bg-surface-container-low/50 border border-outline-variant/10">
               <p className="font-mono text-xs font-bold text-on-surface/80">{r.name}</p>
-              <p className="font-mono text-[8px] text-secondary/70 uppercase tracking-widest mb-1">{r.trad}</p>
-              <p className="font-sans text-[10px] text-on-surface-variant/55 leading-relaxed">{r.note}</p>
+              <Tag color="primary">{r.trad}</Tag>
+              <p className="font-sans text-[10px] text-on-surface-variant/55 leading-relaxed mt-1">{r.note}</p>
             </div>
           ))}
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
+// ── Chapter registry ──────────────────────────────────────────────────────────
 const CHAPTER_CONTENT: Record<ChapterId, React.ReactNode> = {
   welcome:  <ChWelcome />,
   swaras:   <ChSwaras />,
   scale:    <ChScale />,
   raga:     <ChRaga />,
   vadi:     <ChVadi />,
+  gamakas:  <ChGamakas />,
   practice: <ChPractice />,
   tips:     <ChTips />,
 }
@@ -680,117 +727,166 @@ interface LearnerGuideProps {
 
 export function LearnerGuide({ open, onClose }: LearnerGuideProps) {
   const [active, setActive] = useState<ChapterId>('welcome')
-
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [open, onClose])
-
-  if (!open) return null
+  const [visited, setVisited] = useState<Set<ChapterId>>(new Set(['welcome']))
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const currentIdx = CHAPTERS.findIndex(c => c.id === active)
   const prev = currentIdx > 0 ? CHAPTERS[currentIdx - 1] : null
   const next = currentIdx < CHAPTERS.length - 1 ? CHAPTERS[currentIdx + 1] : null
+  const chapter = CHAPTERS[currentIdx]
+
+  const goTo = useCallback((id: ChapterId) => {
+    setActive(id)
+    setVisited(v => new Set([...v, id]))
+    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key === 'ArrowRight' && next) goTo(next.id)
+      if (e.key === 'ArrowLeft' && prev) goTo(prev.id)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, onClose, next, prev, goTo])
+
+  if (!open) return null
 
   return (
-    <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden />
+    <div className="fixed inset-0 z-[400] flex flex-col bg-[#08080f] animate-fade-in">
 
-      {/* Panel */}
-      <div className="fixed right-0 top-0 bottom-0 z-[301] w-full max-w-2xl bg-[#0b0b16] border-l border-outline-variant/15 shadow-2xl flex flex-col animate-slide-in-right">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-8 py-5 border-b border-outline-variant/10 flex-shrink-0 bg-gradient-to-r from-secondary/5 to-transparent">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-secondary/15 flex items-center justify-center">
-              <span className="material-symbols-outlined !text-base text-secondary">school</span>
-            </div>
-            <div>
-              <h2 className="font-display text-xl font-light text-on-surface tracking-wide">Learner's Guide</h2>
-              <p className="font-mono text-[8px] uppercase tracking-widest text-secondary/50">Indian Classical Music · Beginner</p>
-            </div>
+      {/* ── Top bar ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/10 bg-surface-lowest/60 backdrop-blur-md flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-secondary/15 flex items-center justify-center">
+            <span className="material-symbols-outlined !text-base text-secondary">school</span>
+          </div>
+          <div>
+            <span className="font-display text-lg font-light text-on-surface">Learner's Guide</span>
+            <span className="font-mono text-[8px] uppercase tracking-widest text-secondary/40 ml-3">Indian Classical Music</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/30">
+            {currentIdx + 1} / {CHAPTERS.length}
+          </span>
+          <div className="hidden sm:flex items-center gap-1 font-mono text-[8px] text-on-surface-variant/30">
+            <Kbd>←</Kbd><Kbd>→</Kbd> to navigate
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl border border-outline-variant/10 flex items-center justify-center text-on-surface-variant/40 hover:text-on-surface hover:border-outline-variant/30 transition-all"
-            aria-label="Close guide"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-outline-variant/20 bg-surface-container-high/60 text-on-surface/70 hover:text-on-surface hover:border-outline-variant/40 hover:bg-surface-container-high transition-all"
           >
-            <span className="material-symbols-outlined !text-base">close</span>
-          </button>
-        </div>
-
-        {/* Progress bar */}
-        <div className="h-0.5 bg-surface-container-high flex-shrink-0">
-          <div
-            className="h-full bg-gradient-to-r from-secondary to-primary transition-all duration-500"
-            style={{ width: `${((currentIdx + 1) / CHAPTERS.length) * 100}%` }}
-          />
-        </div>
-
-        {/* Body */}
-        <div className="flex flex-1 overflow-hidden">
-
-          {/* Nav */}
-          <nav className="w-48 flex-shrink-0 border-r border-outline-variant/10 py-4 overflow-y-auto">
-            {CHAPTERS.map((c, i) => {
-              const done = i < currentIdx
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => setActive(c.id)}
-                  className={`w-full flex items-center gap-2.5 px-5 py-2.5 text-left transition-all ${
-                    active === c.id
-                      ? 'text-secondary bg-secondary/8 border-r-2 border-secondary'
-                      : done
-                      ? 'text-on-surface-variant/40 hover:text-on-surface hover:bg-white/3'
-                      : 'text-on-surface-variant/40 hover:text-on-surface hover:bg-white/3'
-                  }`}
-                >
-                  <span className={`material-symbols-outlined !text-sm ${
-                    active === c.id ? 'text-secondary' : done ? 'text-primary/50' : 'text-on-surface-variant/25'
-                  }`}>
-                    {done && active !== c.id ? 'check_circle' : c.icon}
-                  </span>
-                  <span className="font-mono text-[9px] uppercase tracking-widest font-bold whitespace-nowrap">
-                    {c.label}
-                  </span>
-                </button>
-              )
-            })}
-          </nav>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto px-8 py-6 scroll-thin">
-            {CHAPTER_CONTENT[active]}
-          </div>
-        </div>
-
-        {/* Footer nav */}
-        <div className="px-8 py-4 border-t border-outline-variant/10 flex items-center justify-between flex-shrink-0">
-          <button
-            onClick={() => prev && setActive(prev.id)}
-            disabled={!prev}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/50 hover:text-on-surface border border-outline-variant/10 hover:border-outline-variant/25 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined !text-sm">arrow_back</span>
-            {prev?.label ?? ''}
-          </button>
-          <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/25">
-            {currentIdx + 1} / {CHAPTERS.length}
-          </span>
-          <button
-            onClick={() => next && setActive(next.id)}
-            disabled={!next}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-[9px] uppercase tracking-widest text-secondary/70 hover:text-secondary border border-secondary/20 hover:border-secondary/40 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
-          >
-            {next?.label ?? ''}
-            <span className="material-symbols-outlined !text-sm">arrow_forward</span>
+            <span className="material-symbols-outlined !text-sm leading-none">close</span>
+            <span className="font-mono text-[9px] uppercase tracking-widest font-bold">Close</span>
           </button>
         </div>
       </div>
-    </>
+
+      {/* ── Progress bar ─────────────────────────────────────────────────────── */}
+      <div className="h-0.5 bg-surface-container-high flex-shrink-0">
+        <div
+          className="h-full bg-gradient-to-r from-secondary to-primary transition-all duration-500"
+          style={{ width: `${((currentIdx + 1) / CHAPTERS.length) * 100}%` }}
+        />
+      </div>
+
+      {/* ── Body ────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Left chapter nav */}
+        <nav className="w-52 flex-shrink-0 border-r border-outline-variant/10 py-4 overflow-y-auto bg-surface-lowest/30">
+          {CHAPTERS.map((c, i) => {
+            const isActive = active === c.id
+            const isDone = visited.has(c.id) && !isActive
+            return (
+              <button
+                key={c.id}
+                onClick={() => goTo(c.id)}
+                className={`w-full flex items-center gap-3 px-5 py-3 text-left transition-all ${
+                  isActive
+                    ? 'bg-secondary/10 border-r-2 border-secondary text-secondary'
+                    : 'text-on-surface-variant/40 hover:text-on-surface hover:bg-white/3'
+                }`}
+              >
+                <span className={`material-symbols-outlined !text-sm flex-shrink-0 ${
+                  isActive ? 'text-secondary' : isDone ? 'text-primary/50' : 'text-on-surface-variant/25'
+                }`}>
+                  {isDone && !isActive ? 'check_circle' : c.icon}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-mono text-[9px] uppercase tracking-widest font-bold truncate">{c.label}</p>
+                  {isActive && (
+                    <p className="font-sans text-[10px] text-secondary/50 truncate mt-0.5">{c.tagline}</p>
+                  )}
+                </div>
+                {isActive && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-secondary flex-shrink-0" />
+                )}
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* Main content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+
+          {/* Chapter hero */}
+          <div className={`flex-shrink-0 px-8 py-6 bg-gradient-to-r ${chapter.gradient} border-b border-outline-variant/8`}>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                <span className="material-symbols-outlined !text-2xl text-white/70">{chapter.icon}</span>
+              </div>
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-widest text-white/40 mb-0.5">
+                  Chapter {currentIdx + 1}
+                </p>
+                <h1 className="font-display text-2xl font-light text-on-surface tracking-tight">{chapter.label}</h1>
+                <p className="font-sans text-sm text-on-surface-variant/60">{chapter.tagline}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Scrollable content */}
+          <div ref={contentRef} className="flex-1 overflow-y-auto px-8 py-6 scroll-thin">
+            {CHAPTER_CONTENT[active]}
+
+            {/* ── Chapter footer nav ── */}
+            <div className="flex items-center justify-between mt-10 pt-6 border-t border-outline-variant/8">
+              <button
+                onClick={() => prev && goTo(prev.id)}
+                disabled={!prev}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/50 hover:text-on-surface border border-outline-variant/10 hover:border-outline-variant/25 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+              >
+                <span className="material-symbols-outlined !text-sm">arrow_back</span>
+                {prev?.label}
+              </button>
+              <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/20">
+                {currentIdx + 1} of {CHAPTERS.length}
+              </span>
+              {next ? (
+                <button
+                  onClick={() => goTo(next.id)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-[9px] uppercase tracking-widest bg-secondary/15 text-secondary border border-secondary/25 hover:bg-secondary/25 hover:border-secondary/40 transition-all"
+                >
+                  {next.label}
+                  <span className="material-symbols-outlined !text-sm">arrow_forward</span>
+                </button>
+              ) : (
+                <button
+                  onClick={onClose}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-[9px] uppercase tracking-widest bg-primary/15 text-primary border border-primary/25 hover:bg-primary/25 transition-all"
+                >
+                  Back to Studio
+                  <span className="material-symbols-outlined !text-sm">arrow_forward</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

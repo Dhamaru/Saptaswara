@@ -63,9 +63,11 @@ export function GlobalAssistant() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput]       = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const bottomRef  = useRef<HTMLDivElement>(null)
-  const inputRef   = useRef<HTMLInputElement>(null)
+  const bottomRef   = useRef<HTMLDivElement>(null)
+  const inputRef    = useRef<HTMLInputElement>(null)
   const prevRagaRef = useRef<string | null>(null)
+  // BUG-010: AbortController ref — cancel in-flight stream on new send or unmount
+  const abortRef    = useRef<AbortController | null>(null)
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -76,6 +78,11 @@ export function GlobalAssistant() {
   useEffect(() => {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 100)
   }, [isOpen])
+
+  // BUG-010: abort in-flight stream on unmount to prevent setState after unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
 
   // Reset conversation when raga context changes
   useEffect(() => {
@@ -90,6 +97,11 @@ export function GlobalAssistant() {
     const text = (overrideText ?? input).trim()
     if (!text || isTyping) return
 
+    // BUG-009: cancel any previous in-flight stream before starting a new one
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     const userMsg: Message = { role: 'user', content: text }
     setMessages(prev => [...prev, userMsg])
     setInput('')
@@ -99,7 +111,6 @@ export function GlobalAssistant() {
       const { data: { session } } = await createClient().auth.getSession()
       if (!session) {
         setMessages(prev => [...prev, { role: 'assistant', content: 'Please sign in to use the assistant.' }])
-        setIsTyping(false)
         return
       }
 
@@ -113,6 +124,7 @@ export function GlobalAssistant() {
           messages: [...messages, userMsg],
           ragaContext: ragaContext ?? undefined,
         }),
+        signal: controller.signal,
       })
 
       if (!res.ok) {
@@ -120,7 +132,6 @@ export function GlobalAssistant() {
           : res.status === 429 ? 'Too many requests — wait a moment.'
           : 'Assistant unavailable. Please try again.'
         setMessages(prev => [...prev, { role: 'assistant', content: msg }])
-        setIsTyping(false)
         return
       }
 
@@ -128,28 +139,38 @@ export function GlobalAssistant() {
 
       const reader  = res.body!.getReader()
       const decoder = new TextDecoder()
-      let buf = ''
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        for (const line of chunk.split('\n')) {
-          if (!line.startsWith('data: ')) continue
-          const data = line.slice(6)
-          if (data === '[DONE]') break
-          buf += data
-          setMessages(prev => {
-            const copy = [...prev]
-            copy[copy.length - 1] = { role: 'assistant', content: buf }
-            return copy
-          })
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done || controller.signal.aborted) break
+          const chunk = decoder.decode(value, { stream: true })
+          for (const line of chunk.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6)
+            if (data === '[DONE]') break
+            // BUG-009: use functional setState to accumulate — avoids stale buf closure
+            setMessages(prev => {
+              const copy = [...prev]
+              const last = copy[copy.length - 1]
+              if (last?.role === 'assistant') {
+                copy[copy.length - 1] = { role: 'assistant', content: last.content + data }
+              }
+              return copy
+            })
+          }
         }
+      } finally {
+        // BUG-010: always release the reader lock, even on abort or error
+        reader.cancel().catch(() => {})
       }
-    } catch {
+    } catch (err) {
+      // BUG-011: suppress error display for deliberate aborts (new send / unmount)
+      if (err instanceof Error && err.name === 'AbortError') return
       setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
     } finally {
-      setIsTyping(false)
+      // Only clear typing indicator if this request wasn't superseded by a new one
+      if (abortRef.current === controller) setIsTyping(false)
     }
   }, [input, messages, ragaContext, isTyping])
 
@@ -166,7 +187,7 @@ export function GlobalAssistant() {
         </>
       )}
       {isOpen && (
-        <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col md:inset-auto md:bottom-6 md:right-6 md:w-[380px] max-h-[85dvh] md:max-h-[560px] rounded-t-[28px] md:rounded-[28px] bg-surface border border-outline-variant/15 shadow-2xl animate-slide-up overflow-hidden">
+        <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col md:inset-auto md:bottom-6 md:right-6 md:w-[380px] max-h-[calc(100dvh-4.5rem)] md:max-h-[560px] rounded-t-[28px] md:rounded-[28px] bg-surface border border-outline-variant/15 shadow-2xl animate-slide-up overflow-hidden">
           {/* Mobile drag handle */}
           <div className="flex justify-center pt-3 pb-1 md:hidden flex-shrink-0">
             <div className="w-10 h-1 rounded-full bg-outline-variant/30" />
@@ -230,7 +251,7 @@ export function GlobalAssistant() {
             ) : (
               messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl ${
+                  <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl break-words overflow-hidden ${
                     msg.role === 'user'
                       ? 'bg-primary/20 border border-primary/20 text-on-surface ml-4 rounded-br-md'
                       : 'bg-surface-container-high border border-outline-variant/10 text-on-surface mr-4 rounded-bl-md'

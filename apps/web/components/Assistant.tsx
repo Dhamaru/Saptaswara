@@ -51,6 +51,14 @@ function parseInline(text: string): React.ReactNode[] {
   })
 }
 
+// ── Metadata normalization ───────────────────────────────────────────────────
+function formatMeta(val: string | undefined | null): string | null {
+  if (!val) return null
+  const v = val.trim()
+  if (v.toLowerCase() === 'unknown' || v.toLowerCase() === 'none' || v === '-') return null
+  return v
+}
+
 // ── Chip suggestions ──────────────────────────────────────────────────────────
 function getChips(ragaContext: any | undefined, learnMode: boolean): string[] {
   if (!ragaContext) {
@@ -60,9 +68,9 @@ function getChips(ragaContext: any | undefined, learnMode: boolean): string[] {
   }
 
   const name = ragaContext.name || 'this raga'
-  const vadi = ragaContext.vadi
-  const samvadi = ragaContext.samvadi
-  const time = ragaContext.time_of_day
+  const vadi = formatMeta(ragaContext.vadi)
+  const samvadi = formatMeta(ragaContext.samvadi)
+  const time = formatMeta(ragaContext.time_of_day)
 
   if (learnMode) {
     return [
@@ -75,12 +83,16 @@ function getChips(ragaContext: any | undefined, learnMode: boolean): string[] {
     ]
   }
 
+  const timeQuery = time
+    ? (time.toLowerCase() === 'any' ? `Why can ${name} be played at any time?` : `Why is ${name} a ${time} raga?`)
+    : `What mood does ${name} evoke?`
+
   return [
     `What makes ${name} unique?`,
     vadi ? `Phrases centred on Vadi ${vadi} in ${name}` : `Give me a palta for ${name}`,
     `Analyse my composition in ${name}`,
     `Suggest a bandish in ${name}`,
-    time ? `Why is ${name} a ${time} raga?` : `What mood does ${name} evoke?`,
+    timeQuery,
     samvadi ? `Vadi–Samvadi interplay in ${name}` : `Characteristic ornaments in ${name}`,
   ]
 }
@@ -108,22 +120,27 @@ function RagaSummary({ raga }: { raga: any }) {
         <p className="font-display text-base font-light text-on-surface">{raga.name}</p>
 
         {/* Vadi / Samvadi */}
-        {(raga.vadi || raga.samvadi) && (
-          <div className="flex gap-2">
-            {raga.vadi && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-400/10 border border-amber-400/20">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span className="font-mono text-[9px] font-bold text-amber-300">Vadi: {raga.vadi}</span>
-              </div>
-            )}
-            {raga.samvadi && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-sky-400/10 border border-sky-400/20">
-                <div className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                <span className="font-mono text-[9px] font-bold text-sky-300">Samvadi: {raga.samvadi}</span>
-              </div>
-            )}
-          </div>
-        )}
+        {(() => {
+          const vadi = formatMeta(raga.vadi)
+          const samvadi = formatMeta(raga.samvadi)
+          if (!vadi && !samvadi) return null
+          return (
+            <div className="flex gap-2">
+              {vadi && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-400/10 border border-amber-400/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span className="font-mono text-[9px] font-bold text-amber-300">Vadi: {vadi}</span>
+                </div>
+              )}
+              {samvadi && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-sky-400/10 border border-sky-400/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                  <span className="font-mono text-[9px] font-bold text-sky-300">Samvadi: {samvadi}</span>
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Aroha / Avaroha */}
         {aroha && (
@@ -181,11 +198,13 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
       const saved = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
       if (saved) return JSON.parse(saved)
     } catch {}
+    
+    const vadi = formatMeta(ragaContext?.vadi)
     return [
       {
         role: 'assistant' as const,
         content: ragaContext
-          ? `I'm analysing **${ragaContext.name}**${ragaContext.vadi ? ` — a raga whose soul lives in the note **${ragaContext.vadi}** (Vadi)` : ''}. Ask me about its grammar, suggest a practice exercise, or request a melodic pattern.`
+          ? `I'm analysing **${ragaContext.name}**${vadi ? ` — a raga whose soul lives in the note **${vadi}** (Vadi)` : ''}. Ask me about its grammar, suggest a practice exercise, or request a melodic pattern.`
           : 'I am your Raga Assistant. Select a raga from the sidebar to begin — I\'ll guide you through its grammar, mood, and characteristic phrases.',
       },
     ]
@@ -201,6 +220,31 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
   const lastNotifiedIndex = useRef<number>(-1)
+  // BUG-026: AbortController — cancel previous stream before starting a new one
+  const abortRef = useRef<AbortController | null>(null)
+
+  // BUG-026: cancel stream on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
+
+  // ── Context Switch Detection ──
+  const prevRagaId = useRef<string | null>(ragaContext?.id || null)
+  useEffect(() => {
+    if (ragaContext && ragaContext.id !== prevRagaId.current) {
+      if (prevRagaId.current !== null) {
+        const vadi = formatMeta(ragaContext.vadi)
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `Now exploring **${ragaContext.name}**${vadi ? ` — remember, **${vadi}** is the heart of this raga` : ''}. How can I help with this new context?`
+          }
+        ])
+      }
+      prevRagaId.current = ragaContext.id
+    }
+  }, [ragaContext])
 
   // Persist history
   useEffect(() => {
@@ -214,10 +258,16 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages])
 
-  // Unread counter — only increment for brand new assistant messages
+  // Unread counter — only increment once per completed assistant message (BUG-029)
+  // Check content is non-empty so the empty streaming placeholder doesn't trigger it
   useEffect(() => {
     const lastIdx = messages.length - 1
-    if (isMinimized && lastIdx > lastNotifiedIndex.current && messages[lastIdx]?.role === 'assistant') {
+    if (
+      isMinimized &&
+      lastIdx > lastNotifiedIndex.current &&
+      messages[lastIdx]?.role === 'assistant' &&
+      messages[lastIdx]?.content
+    ) {
       setUnread(u => u + 1)
       lastNotifiedIndex.current = lastIdx
     }
@@ -235,6 +285,11 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
   const handleSend = useCallback(async (overrideText?: string) => {
     const text = (overrideText ?? input).trim()
     if (!text) return
+
+    // BUG-026: cancel any in-flight stream before starting a new one
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
 
     // Prefix with learn mode context if active
     const sendText = learnMode && !overrideText?.includes('student')
@@ -264,6 +319,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
           ragaContext,
           studioContext,
         }),
+        signal: controller.signal,
       })
 
       if (!res.ok) {
@@ -280,40 +336,48 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
 
       const reader  = res.body!.getReader()
       const decoder = new TextDecoder()
-      let accumulated = ''
 
       try {
         while (true) {
           const { done, value } = await reader.read()
-          if (done) break
+          if (done || controller.signal.aborted) break
           const chunk = decoder.decode(value, { stream: true })
           for (const line of chunk.split('\n')) {
             if (!line.startsWith('data: ')) continue
             const data = line.slice(6).trim()
             if (data === '[DONE]') break
-            accumulated += data
+            // BUG-026: functional setState accumulates without stale closure
             setMessages(prev => {
               const updated = [...prev]
-              updated[updated.length - 1] = { role: 'assistant', content: accumulated }
+              const last = updated[updated.length - 1]
+              if (last?.role === 'assistant') {
+                updated[updated.length - 1] = { role: 'assistant', content: last.content + data }
+              }
               return updated
             })
           }
         }
-      } catch {
+      } catch (streamErr) {
+        // BUG-027: don't overwrite content on deliberate abort
+        if (streamErr instanceof Error && streamErr.name === 'AbortError') return
         setMessages(prev => {
           const updated = [...prev]
-          updated[updated.length - 1] = {
-            role: 'assistant',
-            content: accumulated || 'Stream interrupted. Please try again.',
+          const last = updated[updated.length - 1]
+          if (last?.role === 'assistant' && !last.content) {
+            updated[updated.length - 1] = { role: 'assistant', content: 'Stream interrupted. Please try again.' }
           }
           return updated
         })
+      } finally {
+        reader.cancel().catch(() => {})
       }
     } catch (err) {
+      // BUG-027: suppress AbortError — caused by deliberate cancellation
+      if (err instanceof Error && err.name === 'AbortError') return
       console.error('Assistant error:', err)
       setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
     } finally {
-      setIsTyping(false)
+      if (abortRef.current === controller) setIsTyping(false)
     }
   }, [input, messages, ragaContext, studioContext, learnMode])
 
@@ -322,8 +386,8 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
   const containerClass = isMinimized
     ? 'w-14 h-14'
     : isExpanded
-    ? 'w-[calc(100vw-2rem)] md:w-[600px] h-[90vh] md:h-[750px]'
-    : 'w-[calc(100vw-2rem)] md:w-[400px] h-[560px]'
+    ? 'w-[calc(100vw-2rem)] md:w-[600px] h-[calc(100dvh-5rem)] md:h-[750px]'
+    : 'w-[calc(100vw-2rem)] md:w-[400px] h-[calc(100dvh-5rem)] md:h-[560px]'
 
   return (
     <div className={`fixed right-4 bottom-4 md:right-8 md:bottom-8 z-[200] transition-all duration-500 ease-in-out ${containerClass}`}>
@@ -391,14 +455,15 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
               {/* Clear */}
               <button
                 onClick={() => {
+                  const vadi = formatMeta(ragaContext?.vadi)
                   const fresh: Message[] = [{
                     role: 'assistant',
                     content: ragaContext
-                      ? `Starting fresh. Let's explore **${ragaContext.name}**${ragaContext.vadi ? ` — remember, **${ragaContext.vadi}** is the heart of this raga` : ''}. What would you like to know?`
+                      ? `Starting fresh. Let's explore **${ragaContext.name}**${vadi ? ` — remember, **${vadi}** is the heart of this raga` : ''}. What would you like to know?`
                       : 'Conversation cleared. Select a raga and I\'ll guide you through it.',
                   }]
                   setMessages(fresh)
-                  localStorage.removeItem(STORAGE_KEY)
+                  try { localStorage.removeItem(STORAGE_KEY) } catch {}
                 }}
                 title="Clear conversation"
                 className="w-8 h-8 rounded-xl flex items-center justify-center text-on-surface-variant/30 hover:text-error hover:bg-error/10 transition-all"
@@ -447,7 +512,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-4 scroll-thin">
             {messages.map((m, i) => (
               <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-sm ${
+                <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-sm break-words overflow-hidden ${
                   m.role === 'assistant'
                     ? 'bg-gradient-to-br from-primary/90 to-primary-container text-white shadow-glow'
                     : 'bg-surface-container-high text-on-surface border border-outline-variant/5 shadow-sm'

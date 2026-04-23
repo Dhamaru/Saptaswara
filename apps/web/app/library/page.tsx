@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import RagaCard from '@/components/RagaCard'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
+import { getSwaraType, swaraAccent, swaraFullLabel, swaraDisplayName } from '@/lib/swaraUtils'
+import { getGamakaProfile, GAMAKA_LABELS, GAMAKA_DESCRIPTIONS, type GamakaType } from '@/lib/gamakaData'
+import { MoodPicker } from '@/components/MoodPicker'
 
 const TIME_FILTERS = ['ALL', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT']
 const TRADITION_FILTERS = ['ALL', 'HINDUSTANI', 'CARNATIC']
@@ -17,6 +20,55 @@ const displaySwara = (val: string | null | undefined): string => {
   return val.trim()
 }
 
+// ── Swara pill: color-coded by note type ─────────────────────────────────────
+function SwaraPill({ swara }: { swara: string }) {
+  const type    = getSwaraType(swara)
+  const display = swaraDisplayName(swara)
+  const accent  = swaraAccent(swara)
+  const full    = swaraFullLabel(swara)
+
+  const cls =
+    type === 'komal'  ? 'bg-blue-500/10 border-blue-400/25 text-blue-300' :
+    type === 'tivra'  ? 'bg-amber-500/10 border-amber-400/25 text-amber-300' :
+    type === 'achala' ? 'bg-white/5 border-outline-variant/15 text-on-surface/70' :
+                        'bg-primary/10 border-primary/20 text-primary/80'
+
+  return (
+    <span
+      title={full}
+      className={`inline-flex items-center gap-1 font-label text-sm px-3 py-1.5 rounded-xl border transition-all ${cls}`}
+    >
+      {display}
+      {accent && (
+        <span className="font-mono text-[10px] opacity-60 leading-none">{accent}</span>
+      )}
+    </span>
+  )
+}
+
+// ── Gamaka type badge ─────────────────────────────────────────────────────────
+const GAMAKA_COLORS: Record<GamakaType, string> = {
+  meend:     'bg-violet-500/10 border-violet-400/20 text-violet-300',
+  andolan:   'bg-amber-500/10 border-amber-400/20 text-amber-300',
+  gamak:     'bg-rose-500/10 border-rose-400/20 text-rose-300',
+  kan:       'bg-emerald-500/10 border-emerald-400/20 text-emerald-300',
+  murki:     'bg-sky-500/10 border-sky-400/20 text-sky-300',
+  khatka:    'bg-orange-500/10 border-orange-400/20 text-orange-300',
+  sparsh:    'bg-cyan-500/10 border-cyan-400/20 text-cyan-300',
+  pratyahat: 'bg-pink-500/10 border-pink-400/20 text-pink-300',
+}
+
+function GamakaTag({ type }: { type: GamakaType }) {
+  return (
+    <span
+      title={GAMAKA_DESCRIPTIONS[type]}
+      className={`inline-flex items-center px-2 py-0.5 rounded-lg border font-mono text-[8px] uppercase tracking-widest font-bold ${GAMAKA_COLORS[type]}`}
+    >
+      {GAMAKA_LABELS[type]}
+    </span>
+  )
+}
+
 export default function LibraryPage() {
   const [ragas, setRagas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -26,6 +78,12 @@ export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedRaga, setSelectedRaga] = useState<any | null>(null)
   const [focusedIdx, setFocusedIdx] = useState(-1)
+  const [showMoodPicker, setShowMoodPicker] = useState(false)
+  // BUG-007: refs so the keyboard handler always reads current values without
+  // being in the effect's dependency array — prevents listener re-registration on
+  // every Arrow key press (focusedIdx) and every filter change (filteredRagas).
+  const filteredRagasRef = useRef<any[]>([])
+  const focusedIdxRef    = useRef(-1)
   const router = useRouter()
   const { setRagaContext, openAssistant } = useGlobalAssistant()
 
@@ -64,7 +122,11 @@ export default function LibraryPage() {
     return matchesTradition && matchesFilter && matchesSearch
   })
 
-  // Keyboard navigation for raga grid — placed after filteredRagas declaration
+  // BUG-007: keep refs in sync so the keyboard handler reads current values
+  filteredRagasRef.current = filteredRagas
+  focusedIdxRef.current    = focusedIdx
+
+  // Keyboard navigation — stable listener (empty deps); reads via refs (BUG-007)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
@@ -76,23 +138,24 @@ export default function LibraryPage() {
         return
       }
 
-      if (!filteredRagas.length) return
+      const list = filteredRagasRef.current
+      if (!list.length) return
 
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault()
-        setFocusedIdx(prev => Math.min(prev + 1, filteredRagas.length - 1))
+        setFocusedIdx(prev => Math.min(prev + 1, list.length - 1))
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         e.preventDefault()
         setFocusedIdx(prev => Math.max(prev - 1, 0))
-      } else if (e.key === 'Enter' && focusedIdx >= 0) {
+      } else if (e.key === 'Enter' && focusedIdxRef.current >= 0) {
         e.preventDefault()
-        const raga = filteredRagas[focusedIdx]
+        const raga = list[focusedIdxRef.current]
         setSelectedRaga((prev: any) => prev?.id === raga.id ? null : raga)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [filteredRagas, focusedIdx])
+  }, [])
 
   const atmosphereImg = (time_of_day: string | null) => {
     const t = time_of_day?.toLowerCase() || ''
@@ -171,6 +234,15 @@ export default function LibraryPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Mood picker trigger */}
+                <button
+                  onClick={() => setShowMoodPicker(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-secondary/25 bg-secondary/8 text-secondary font-mono text-[9px] uppercase tracking-widest font-bold hover:bg-secondary/15 transition-all w-full justify-center"
+                >
+                  <span className="material-symbols-outlined !text-sm">mood</span>
+                  Find a Raga by Mood
+                </button>
               </div>
             </div>
           </header>
@@ -366,12 +438,16 @@ export default function LibraryPage() {
                     <div className="h-px flex-1 bg-primary/10" />
                   </div>
                   <div>
-                    <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 block mb-3">Aroha (Ascending)</span>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Aroha (Ascending)</span>
+                      <div className="flex items-center gap-2 ml-auto">
+                        <span className="inline-flex items-center gap-1 font-mono text-[7px] text-blue-400/70"><span className="text-[9px]">♭</span>komal</span>
+                        <span className="inline-flex items-center gap-1 font-mono text-[7px] text-amber-400/70"><span className="text-[9px]">♯</span>tivra</span>
+                      </div>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedRaga.aroha?.map((s: string, i: number) => (
-                        <span key={i} className="font-label text-sm text-on-surface border border-outline-variant/10 px-3 py-1.5 rounded-xl bg-surface-container-low/20">
-                          {s}
-                        </span>
+                        <SwaraPill key={i} swara={s} />
                       ))}
                     </div>
                   </div>
@@ -379,9 +455,7 @@ export default function LibraryPage() {
                     <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 block mb-3">Avaroha (Descending)</span>
                     <div className="flex flex-wrap gap-2">
                       {selectedRaga.avaroha?.map((s: string, i: number) => (
-                        <span key={i} className="font-label text-sm text-on-surface border border-outline-variant/10 px-3 py-1.5 rounded-xl bg-surface-container-low/20">
-                          {s}
-                        </span>
+                        <SwaraPill key={i} swara={s} />
                       ))}
                     </div>
                   </div>
@@ -400,20 +474,87 @@ export default function LibraryPage() {
                         <div key={i} className="p-4 rounded-2xl bg-surface-container-low/20 border border-outline-variant/10 hover:border-primary/20 transition-all">
                           <div className="font-mono text-[8px] uppercase tracking-widest text-primary/60 mb-1.5 font-bold">{phrase.label}</div>
                           <p className="font-label text-base text-on-surface font-medium tracking-wide">
-                            {phrase.sequence?.join(' — ')}
+                            {phrase.sequence?.map(swaraDisplayName).join(' — ')}
                           </p>
                         </div>
                       ))
                     ) : (
                       <div className="p-4 rounded-2xl bg-surface-container-low/10 border border-dashed border-outline-variant/10">
                         <p className="font-label text-base text-on-surface/50 font-medium leading-relaxed tracking-wide italic">
-                          {selectedRaga.aroha?.slice(0, 4).join(' — ')}
-                          {selectedRaga.avaroha ? ` … ${selectedRaga.avaroha.slice(-3).join(' — ')}` : ''}
+                          {selectedRaga.aroha?.slice(0, 4).map(swaraDisplayName).join(' — ')}
+                          {selectedRaga.avaroha ? ` … ${selectedRaga.avaroha.slice(-3).map(swaraDisplayName).join(' — ')}` : ''}
                         </p>
                       </div>
                     )}
                   </div>
                 </section>
+
+                {/* Gamakas & Ornaments */}
+                {(() => {
+                  const profile = getGamakaProfile(selectedRaga.name)
+                  if (!profile) return null
+                  return (
+                    <section>
+                      <div className="font-mono text-[9px] uppercase tracking-widest text-primary/60 mb-5 font-bold flex items-center gap-2">
+                        <div className="h-px flex-1 bg-primary/10" />
+                        Gamakas &amp; Ornaments
+                        <div className="h-px flex-1 bg-primary/10" />
+                      </div>
+
+                      {/* Characteristic ornament badge */}
+                      {profile.characteristicOrnament && (
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Signature ornament</span>
+                          <GamakaTag type={profile.characteristicOrnament} />
+                        </div>
+                      )}
+
+                      {/* General note */}
+                      <p className="font-sans text-sm text-on-surface-variant/60 leading-relaxed italic mb-5 px-1">
+                        {profile.generalNotes}
+                      </p>
+
+                      {/* Per-swara specs */}
+                      <div className="space-y-3">
+                        {profile.specs.map((spec, i) => (
+                          <div key={i} className={`p-4 rounded-2xl border transition-all ${spec.required ? 'bg-primary/5 border-primary/15' : 'bg-surface-container-low/20 border-outline-variant/10'}`}>
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                              <SwaraPill swara={spec.swara} />
+                              <GamakaTag type={spec.type} />
+                              {spec.required && (
+                                <span className="font-mono text-[7px] uppercase tracking-widest text-primary/50 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                  required
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-sans text-xs text-on-surface-variant/70 leading-relaxed">
+                              {spec.description}
+                            </p>
+                            {spec.details && (
+                              <p className="font-mono text-[9px] text-on-surface-variant/40 mt-1.5 tracking-wide">
+                                {spec.details}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Gamaka legend */}
+                      <div className="mt-5 pt-4 border-t border-outline-variant/5 grid grid-cols-2 gap-1.5">
+                        {(Object.entries(GAMAKA_LABELS) as [GamakaType, string][])
+                          .filter(([k]) => profile.specs.some(s => s.type === k))
+                          .map(([type, label]) => (
+                            <div key={type} className="flex items-start gap-2">
+                              <GamakaTag type={type} />
+                              <span className="font-sans text-[10px] text-on-surface-variant/40 leading-tight pt-0.5">
+                                {GAMAKA_DESCRIPTIONS[type]}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    </section>
+                  )
+                })()}
 
                 {/* Spacer so content clears the sticky button */}
                 <div className="h-4" />
@@ -431,7 +572,7 @@ export default function LibraryPage() {
                 Ask AI about {selectedRaga.name}
               </button>
               <button
-                onClick={() => router.push(`/studio?project_id=${selectedRaga.id}&guest=true`)}
+                onClick={() => router.push(`/studio?raga_id=${selectedRaga.id}`)}
                 className="w-full py-4 bg-gradient-to-r from-primary to-primary/70 rounded-2xl font-medium text-white shadow-glow hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 cursor-pointer"
               >
                 <span className="material-symbols-outlined">auto_fix_high</span>
@@ -442,6 +583,22 @@ export default function LibraryPage() {
         )}
         </div>
       )}
+
+      {/* Mood Picker overlay */}
+      <MoodPicker
+        open={showMoodPicker}
+        onClose={() => setShowMoodPicker(false)}
+        onSelectRaga={(name) => {
+          // Find raga in the loaded list by name (case-insensitive)
+          const match = ragas.find(r => r.name.toLowerCase() === name.toLowerCase())
+          if (match) {
+            setSelectedRaga(match)
+          } else {
+            // Not in DB — fall back to search so user can see the name
+            setSearchQuery(name)
+          }
+        }}
+      />
     </div>
   )
 }

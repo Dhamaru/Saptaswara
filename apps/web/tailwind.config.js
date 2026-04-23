@@ -10,6 +10,7 @@ module.exports = {
         primary: {
           DEFAULT: '#c3c0ff',
           container: '#4338ca',
+          light: '#e8e5ff',
         },
         secondary: {
           DEFAULT: '#84d6b9',
@@ -23,6 +24,7 @@ module.exports = {
           DEFAULT: '#ffb4ab',
           container: '#93000a',
         },
+        accent: '#7c3aed',
         background: '#0e0e10',
         surface: '#131315',
         // Shorthand aliases used throughout components
@@ -36,8 +38,9 @@ module.exports = {
         'surface-container-highest': '#353437',
         'surface-bright':   '#39393b',
         'surface-variant':  '#353437',
-        'on-surface':         '#e5e1e4',
-        'on-surface-variant': '#c7c4d7',
+        // Text — brighter than before for readability at low opacities
+        'on-surface':         '#f2efff',  // near-white with a touch of violet
+        'on-surface-variant': '#d5d0ec',  // lighter purple-grey, readable at /40 and /60
         'on-primary':         '#1a0070',
         outline:         '#918fa0',
         'outline-variant': '#464554',

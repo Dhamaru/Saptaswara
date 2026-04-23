@@ -1,7 +1,9 @@
+import * as Sentry from '@sentry/nextjs'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { checkRateLimit } from '@/lib/rateLimit'
+import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
 import {
   embedCache,
   ragaCache,
@@ -12,6 +14,13 @@ import {
 } from '@/lib/ragCache'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+
+const nvidiaClient = process.env.NVIDIA_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.NVIDIA_API_KEY,
+      baseURL: 'https://integrate.api.nvidia.com/v1',
+    })
+  : null
 
 const SYSTEM_PROMPT = `You are Saptaswara, a Raga-Guided AI Musical Assistant and teacher specializing in Indian Classical Music (both Hindustani and Carnatic traditions).
 
@@ -181,9 +190,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!checkRateLimit(activeUser.id)) {
-      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
-    }
+    const rl = await checkRateLimit(activeUser.id, 'ai')
+    if (!rl.allowed) return rateLimitedResponse(rl)
 
     const { messages, ragaContext, studioContext } = await req.json()
 
@@ -240,56 +248,103 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join('\n')
 
-    // ── Compact + format history for Gemini ───────────────────────────────────
+    // ── Compact history ───────────────────────────────────────────────────────
     const compacted = compactHistory(priorMessages)
     const firstUserIndex = compacted.findIndex(m => m.role === 'user')
-    const history = (firstUserIndex === -1 ? [] : compacted.slice(firstUserIndex))
+    const compactedValid = (firstUserIndex === -1 ? [] : compacted.slice(firstUserIndex))
       .filter(m => m.content?.trim())
-      .map(m => ({
+
+    // ── Try Gemini first, fall back to NVIDIA on quota errors ────────────────
+    const SSE_HEADERS = {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    }
+
+    try {
+      const geminiHistory = compactedValid.map(m => ({
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }],
       }))
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.0-flash',
+        systemInstruction: { role: 'system', parts: [{ text: systemContext }] },
+      })
+      const chat = model.startChat({ history: geminiHistory })
+      const result = await chat.sendMessageStream(lastUserMessage)
 
-    // ── Generate streaming response ───────────────────────────────────────────
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: {
-        role: 'system',
-        parts: [{ text: systemContext }],
-      },
-    })
-
-    const chat = model.startChat({ history })
-    const result = await chat.sendMessageStream(lastUserMessage)
-
-    const encoder = new TextEncoder()
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of result.stream) {
-            const text = chunk.text()
-            if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
+      const encoder = new TextEncoder()
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of result.stream) {
+              const text = chunk.text()
+              if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
+            }
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          } catch (err) {
+            controller.error(err)
           }
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-          controller.close()
-        } catch (err) {
-          controller.error(err)
-        }
-      },
-    })
+        },
+      })
+      return new Response(stream, { headers: SSE_HEADERS })
+    } catch (geminiError: any) {
+      const isQuota =
+        geminiError?.status === 429 ||
+        geminiError?.response?.status === 429 ||
+        geminiError?.message?.includes('429') ||
+        geminiError?.message?.includes('Quota') ||
+        geminiError?.message?.includes('Too Many Requests')
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
-    })
+      if (!isQuota || !nvidiaClient) {
+        Sentry.captureException(geminiError, { tags: { route: 'ai/chat', provider: 'gemini' } })
+        return new Response(
+          JSON.stringify({ error: 'Resonance disrupted. Please try again.' }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // ── NVIDIA fallback ───────────────────────────────────────────────────
+      const nvidiaMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        { role: 'system', content: systemContext },
+        ...compactedValid.map(m => ({
+          role: (m.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
+          content: m.content,
+        })),
+        { role: 'user', content: lastUserMessage },
+      ]
+
+      const nvidiaStream = await nvidiaClient.chat.completions.create({
+        model: 'meta/llama-3.3-70b-instruct',
+        messages: nvidiaMessages,
+        stream: true,
+        max_tokens: 1024,
+        temperature: 0.7,
+      })
+
+      const encoder = new TextEncoder()
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of nvidiaStream) {
+              const text = chunk.choices[0]?.delta?.content
+              if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
+            }
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          } catch (err) {
+            controller.error(err)
+          }
+        },
+      })
+      return new Response(stream, { headers: SSE_HEADERS })
+    }
   } catch (error: any) {
-    console.error('AI Error:', error)
-    return NextResponse.json(
-      { error: 'Resonance disrupted. Please try again.' },
-      { status: 500 }
+    Sentry.captureException(error, { tags: { route: 'ai/chat' } })
+    return new Response(
+      JSON.stringify({ error: 'Resonance disrupted. Please try again.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
 }

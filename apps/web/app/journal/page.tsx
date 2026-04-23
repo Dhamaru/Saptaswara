@@ -64,6 +64,8 @@ export default function JournalPage() {
   
   const handleLogSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // BUG-037: prevent double-submission from rapid clicks or keyboard
+    if (submitting) return
     setSubmitting(true)
     
     try {
@@ -89,7 +91,8 @@ export default function JournalPage() {
 
       const json = await res.json()
       if (res.ok) {
-        setDbLogs([json.data, ...dbLogs])
+        // BUG-038: functional setState avoids stale closure over dbLogs
+        setDbLogs(prev => [json.data, ...prev])
         setShowLogForm(false)
         setFormRaga('')
         setFormNotes('')
@@ -150,14 +153,17 @@ export default function JournalPage() {
     fetchRecommendation()
   }, [tradition, timePeriod])
 
-  // Recalculate time period every minute in case they leave tab open
+  // BUG-039: stable interval — functional setState removes timePeriod from deps
+  // so the interval is not recreated every time the period changes.
   useEffect(() => {
     const interval = setInterval(() => {
-      const newPeriod = getCurrentTimePeriod()
-      if (newPeriod !== timePeriod) setTimePeriod(newPeriod)
+      setTimePeriod(prev => {
+        const newPeriod = getCurrentTimePeriod()
+        return newPeriod !== prev ? newPeriod : prev
+      })
     }, 60000)
     return () => clearInterval(interval)
-  }, [timePeriod])
+  }, [])
 
   return (
     <div className="min-h-screen bg-surface-lowest flex flex-col overflow-x-hidden">
