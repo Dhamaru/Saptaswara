@@ -15,17 +15,25 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     document.title = 'New password — Saptaswara'
-    // Supabase sets the session in the URL hash after the callback redirect.
-    // Listen for the PASSWORD_RECOVERY event to confirm session is active.
+
+    // After the auth callback exchanges the token server-side, the session is
+    // stored in cookies. getSession() picks it up immediately on mount.
+    // onAuthStateChange also fires PASSWORD_RECOVERY (hash-flow) or SIGNED_IN
+    // (PKCE flow) — either path marks the session as ready.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
         setSessionReady(true)
       }
+      // If a non-recovery user somehow lands here without a session, redirect
+      if (event === 'SIGNED_OUT') {
+        router.replace('/login')
+      }
     })
-    // Also check if already signed in (callback already exchanged the token)
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setSessionReady(true)
     })
+
     return () => subscription.unsubscribe()
   }, [])
 
