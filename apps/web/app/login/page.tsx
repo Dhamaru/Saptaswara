@@ -15,13 +15,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
 
   const [success, setSuccess] = useState<string | null>(null)
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
 
   useEffect(() => {
     document.title = 'Sign in — Saptaswara'
-    // Read query params client-side to avoid useSearchParams + Suspense requirement
     const params = new URLSearchParams(window.location.search)
     if (params.get('error') === 'confirmation_failed') {
-      setError('The confirmation link has expired. Please sign up again.')
+      setError('The confirmation link has expired. Please sign up again or request a new link.')
     }
     if (params.get('reset') === 'success') {
       setSuccess('Password updated. Sign in with your new password.')
@@ -31,17 +32,38 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setUnconfirmedEmail(null)
     setLoading(true)
 
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      setError(error.message)
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        setUnconfirmedEmail(email)
+        setError("Your email isn't confirmed yet. Check your inbox or resend the link.")
+      } else {
+        setError(error.message)
+      }
       setLoading(false)
       return
     }
 
     router.push('/dashboard')
+  }
+
+  const handleResendConfirmation = async () => {
+    if (!unconfirmedEmail) return
+    setResending(true)
+    const siteOrigin = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
+    await supabase.auth.resend({
+      type: 'signup',
+      email: unconfirmedEmail,
+      options: { emailRedirectTo: `${siteOrigin}/auth/callback?next=/dashboard` },
+    })
+    setResending(false)
+    setSuccess('Confirmation email resent — check your inbox.')
+    setUnconfirmedEmail(null)
+    setError(null)
   }
 
   return (
@@ -123,9 +145,21 @@ export default function LoginPage() {
             )}
 
             {error && (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-error/10 border border-error/20">
-                <span className="material-symbols-outlined !text-base text-error/80">error</span>
-                <span className="font-sans text-xs text-error/80">{error}</span>
+              <div className="flex flex-col gap-2 px-4 py-3 rounded-xl bg-error/10 border border-error/20">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined !text-base text-error/80">error</span>
+                  <span className="font-sans text-xs text-error/80">{error}</span>
+                </div>
+                {unconfirmedEmail && (
+                  <button
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    disabled={resending}
+                    className="self-start font-mono text-[9px] uppercase tracking-widest text-primary/70 hover:text-primary transition-colors disabled:opacity-50"
+                  >
+                    {resending ? 'Sending…' : 'Resend confirmation email →'}
+                  </button>
+                )}
               </div>
             )}
 

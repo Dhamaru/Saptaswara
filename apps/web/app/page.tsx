@@ -1,8 +1,23 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function LandingPage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    // Supabase sends auth errors (expired links, access denied) to the Site URL
+    // root. Detect them here and forward to login with a friendly message.
+    const params = new URLSearchParams(window.location.search)
+    const hash = new URLSearchParams(window.location.hash.replace('#', ''))
+    const errorCode = params.get('error_code') || hash.get('error_code')
+    if (errorCode) {
+      router.replace('/login?error=confirmation_failed')
+    }
+  }, [router])
+
   return (
     <div className="relative min-h-[calc(100vh-80px)] flex flex-col items-center justify-center px-6 overflow-hidden bg-background">
       {/* Mesh Gradient Background */}
