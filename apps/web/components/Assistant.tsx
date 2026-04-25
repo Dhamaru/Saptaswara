@@ -15,40 +15,45 @@ interface AssistantProps {
 }
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
-function RenderMessage({ content }: { content: string }) {
-  const lines = content.split('\n')
-  return (
-    <div className="space-y-1">
-      {lines.map((line, i) => {
-        if (line.startsWith('```') || line === '```') return null
-        return (
-          <p key={i} className="leading-relaxed text-sm">
-            {parseInline(line)}
-          </p>
-        )
-      })}
-    </div>
-  )
-}
-
 function parseInline(text: string): React.ReactNode[] {
-  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g)
+  // Split on backtick code, **bold**, *italic* — in that priority order
+  const parts = text.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*)/g)
   return parts.map((part, i) => {
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return (
-        <code key={i} className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded-md text-yellow-200 border border-yellow-400/10">
-          {part.slice(1, -1)}
-        </code>
-      )
-    }
-    if (part.startsWith('**') && part.endsWith('**')) {
+    if (part.startsWith('`') && part.endsWith('`') && part.length > 2)
+      return <code key={i} className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded-md text-yellow-200 border border-yellow-400/10 whitespace-nowrap">{part.slice(1, -1)}</code>
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4)
       return <strong key={i} className="font-semibold text-white">{part.slice(2, -2)}</strong>
-    }
-    if (part.startsWith('*') && part.endsWith('*')) {
-      return <em key={i} className="text-white/80">{part.slice(1, -1)}</em>
-    }
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2)
+      return <em key={i} className="italic text-white/80">{part.slice(1, -1)}</em>
     return part
   })
+}
+
+function RenderMessage({ content }: { content: string }) {
+  const lines = content.split('\n')
+  const nodes: React.ReactNode[] = []
+  let inCodeBlock = false
+
+  lines.forEach((line, i) => {
+    if (line.startsWith('```')) { inCodeBlock = !inCodeBlock; return }
+    if (inCodeBlock) {
+      nodes.push(<code key={i} className="block font-mono text-[11px] bg-black/30 px-2 py-0.5 text-yellow-200">{line}</code>)
+      return
+    }
+    if (line.startsWith('### '))
+      return nodes.push(<p key={i} className="font-semibold text-white text-sm mt-2">{parseInline(line.slice(4))}</p>)
+    if (line.startsWith('## '))
+      return nodes.push(<p key={i} className="font-bold text-white text-sm mt-2">{parseInline(line.slice(3))}</p>)
+    if (line.startsWith('- ') || line.startsWith('• '))
+      return nodes.push(<p key={i} className="leading-relaxed text-sm pl-3 before:content-['·'] before:mr-2 before:opacity-50">{parseInline(line.slice(2))}</p>)
+    if (line.trim() === '---')
+      return nodes.push(<hr key={i} className="border-white/10 my-1" />)
+    if (line.trim() === '')
+      return nodes.push(<div key={i} className="h-1" />)
+    nodes.push(<p key={i} className="leading-relaxed text-sm">{parseInline(line)}</p>)
+  })
+
+  return <div className="space-y-0.5">{nodes}</div>
 }
 
 // ── Metadata normalization ───────────────────────────────────────────────────
@@ -344,7 +349,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
           const chunk = decoder.decode(value, { stream: true })
           for (const line of chunk.split('\n')) {
             if (!line.startsWith('data: ')) continue
-            const data = line.slice(6).trim()
+            const data = line.slice(6)
             if (data === '[DONE]') break
             // BUG-026: functional setState accumulates without stale closure
             setMessages(prev => {
@@ -512,7 +517,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-4 scroll-thin">
             {messages.map((m, i) => (
               <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-sm break-words overflow-hidden ${
+                <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-sm break-words overflow-x-hidden word-spacing-normal ${
                   m.role === 'assistant'
                     ? 'bg-gradient-to-br from-primary/90 to-primary-container text-white shadow-glow'
                     : 'bg-surface-container-high text-on-surface border border-outline-variant/5 shadow-sm'
