@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -20,7 +21,7 @@ export default function ResetPasswordPage() {
     // stored in cookies. getSession() picks it up immediately on mount.
     // onAuthStateChange also fires PASSWORD_RECOVERY (hash-flow) or SIGNED_IN
     // (PKCE flow) — either path marks the session as ready.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
       if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
         setSessionReady(true)
       }
@@ -30,8 +31,8 @@ export default function ResetPasswordPage() {
       }
     })
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setSessionReady(true)
+    supabase.auth.getSession().then((res: { data: { session: Session | null } }) => {
+      if (res.data.session) setSessionReady(true)
     })
 
     return () => subscription.unsubscribe()

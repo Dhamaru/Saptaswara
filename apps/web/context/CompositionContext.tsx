@@ -6,6 +6,7 @@ export { STEPS, DRAFT_STORAGE_KEY, INITIAL_STATE, compositionReducer } from './c
 import { compositionReducer, INITIAL_STATE } from './compositionReducer'
 import type { CompositionState, CompositionAction } from './compositionReducer'
 import { createClient } from '@/lib/supabase/client'
+import type { User } from '@supabase/supabase-js'
 
 interface CompositionContextType {
   state: CompositionState
@@ -25,7 +26,8 @@ export function CompositionProvider({ children }: { children: React.ReactNode })
 
   // On mount: resolve user → derive storage key → load draft
   useEffect(() => {
-    createClient().auth.getUser().then(({ data: { user } }) => {
+    createClient().auth.getUser().then((res: { data: { user: User | null } }) => {
+      const user = res.data.user
       const key = user ? `composition_${user.id}` : 'composition_guest'
       setStorageKey(key)
       try {

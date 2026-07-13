@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { usePlayback } from '@/context/PlaybackContext'
 import { createClient } from '@/lib/supabase/client'
+import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
 import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
 import { useTheme } from '@/components/ThemeProvider'
 import { Sun, Moon } from 'lucide-react'
@@ -28,11 +29,11 @@ export default function Navbar() {
   const supabase = createClient()
 
   React.useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user)
+    supabase.auth.getUser().then((res: { data: { user: User | null } }) => {
+      setUser(res.data.user)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user || null)
     })
 
