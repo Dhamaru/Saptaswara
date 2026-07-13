@@ -196,7 +196,12 @@ export default function LibraryPage() {
     }
     try {
       const supabase = createClient()
-      const { data, error } = await supabase.from('ragas').select('*, raga_phrases(*)').order('name')
+      // Exclude `embedding` (vector(768) = 3KB/row) — never used client-side.
+      // At 200 ragas this saves ~600KB per library load.
+      const { data, error } = await supabase
+        .from('ragas')
+        .select('id,name,tradition,thaat,time_of_day,vadi,samvadi,aroha,avaroha,mood,prahara,melakarta_number,modern_moods,starter_raga,grammar,raga_phrases(*)')
+        .order('name')
       if (error) throw error
       const fresh = data || []
       setRagas(fresh)

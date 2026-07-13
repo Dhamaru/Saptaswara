@@ -154,17 +154,22 @@ export default function ProfilePage() {
         const prefs      = prefsJson.preferences ?? {}
         const projectCount = Array.isArray(projectsJson) ? projectsJson.length : 0
 
-        // 3. Practice logs: dates for streak + total count
+        // 3. Practice logs: dates for streak + total count.
+        // Select log_date (DATE column) not the nonexistent logged_at.
+        // Filter to the last 2 years and limit 730 rows (2 sessions/day × 365)
+        // so computeStreak has enough data even for frequent practitioners.
+        const twoYearsAgo = new Date(Date.now() - 2 * 365 * 86400000).toISOString().slice(0, 10)
         const { data: logRows } = await supabase
           .from('practice_logs')
-          .select('logged_at')
+          .select('log_date')
           .eq('user_id', user.id)
-          .order('logged_at', { ascending: false })
-          .limit(365)
+          .gte('log_date', twoYearsAgo)
+          .order('log_date', { ascending: false })
+          .limit(730)
         const logsCount = logRows?.length ?? 0
-        setPracticeDates((logRows ?? []).map((r: any) => (r.logged_at ?? r.created_at ?? '').slice(0, 10)))
+        setPracticeDates((logRows ?? []).map((r: any) => (r.log_date ?? '').slice(0, 10)))
         const { current: streak, longest: longest_streak } = computeStreak(
-          (logRows ?? []).map((r: any) => r.logged_at ?? r.created_at ?? '')
+          (logRows ?? []).map((r: any) => r.log_date ?? '')
         )
 
         // 4. Favourite ragas from localStorage

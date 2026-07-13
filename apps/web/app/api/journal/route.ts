@@ -53,11 +53,14 @@ export async function GET(req: Request) {
     const rl = await checkRateLimit(user.id, 'read')
     if (!rl.allowed) return rateLimitedResponse(rl)
 
+    // Limit to 200 entries to prevent unbounded scans for users with
+    // multi-year journals. Client-side pagination handles display.
     const { data, error } = await supabase
       .from('practice_logs')
       .select('*')
       .eq('user_id', user.id)
       .order('log_date', { ascending: false })
+      .limit(200)
 
     if (error) {
       console.error('Journal GET error:', error)

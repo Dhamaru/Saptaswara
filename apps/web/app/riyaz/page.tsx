@@ -263,9 +263,10 @@ export default function RiyazPage() {
   useEffect(() => {
     async function fetchRagas() {
       setLoading(true)
+      // Exclude `embedding` (vector(768) = 3KB/row) — not used in Riyaz UI.
       const { data, error } = await supabase
         .from('ragas')
-        .select('*')
+        .select('id,name,tradition,thaat,time_of_day,vadi,samvadi,aroha,avaroha,mood,prahara,melakarta_number,modern_moods,starter_raga,grammar')
         .order('name', { ascending: true })
 
       if (error) {
