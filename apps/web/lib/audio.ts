@@ -99,6 +99,12 @@ export class AudioEngine {
   private percHighType: 'metal' | 'membrane' = 'membrane'
   private masterOutput!: Tone.Gain
 
+  // ── Ornament node caps (prevents node accumulation during rapid play) ─────
+  private _sympNode: { synth: Tone.PolySynth; fverb: Tone.Freeverb } | null = null
+  private _andolanDispose: (() => void) | null = null
+  private _meendDispose: (() => void) | null = null
+  private _seqToken = 0
+
   // ── State ─────────────────────────────────────────────────────────────────
   public isStarted = false
   public isSequencing = false
@@ -632,6 +638,10 @@ export class AudioEngine {
   ) {
     if (!this.isStarted) return
     try {
+      // Dispose previous meend so rapid drag doesn't accumulate nodes
+      this._meendDispose?.()
+      this._meendDispose = null
+
       const meend = new Tone.Synth({
         oscillator: { type: 'sine' },
         envelope: { attack: 0.02, decay: 0, sustain: 1, release: 0.15 },
@@ -646,8 +656,12 @@ export class AudioEngine {
         meend.frequency.linearRampTo(toFreq, durationSeconds, now)
       }
       meend.triggerRelease(now + durationSeconds)
-      // clean up after release
-      setTimeout(() => { try { meend.dispose() } catch { /* ignore */ } }, (durationSeconds + 0.5) * 1000)
+      const dispose = () => { try { meend.dispose() } catch { /* ignore */ } }
+      this._meendDispose = dispose
+      setTimeout(() => {
+        if (this._meendDispose === dispose) this._meendDispose = null
+        dispose()
+      }, (durationSeconds + 0.5) * 1000)
     } catch { /* ignore */ }
   }
 
@@ -665,6 +679,10 @@ export class AudioEngine {
   ) {
     if (!this.isStarted) return
     try {
+      // Dispose previous andolan so repeated calls don't stack nodes
+      this._andolanDispose?.()
+      this._andolanDispose = null
+
       const synth = new Tone.Synth({
         oscillator: { type: 'sine' },
         envelope: { attack: 0.06, decay: 0, sustain: 1, release: 0.3 },
@@ -688,8 +706,13 @@ export class AudioEngine {
       lfo.start(now)
       synth.triggerAttack(frequency, now)
       synth.triggerRelease(now + durationSeconds)
-      setTimeout(() => {
+      const dispose = () => {
         try { lfo.dispose(); lfoScaled.dispose(); synth.dispose() } catch { /* ignore */ }
+      }
+      this._andolanDispose = dispose
+      setTimeout(() => {
+        if (this._andolanDispose === dispose) this._andolanDispose = null
+        dispose()
       }, (durationSeconds + 0.5) * 1000)
     } catch { /* ignore */ }
   }
@@ -738,8 +761,6 @@ export class AudioEngine {
       const isTabla   = this.percussionType === 'tabla'
       const strokeMap = isTabla ? TABLA_STROKES : MRIDANGAM_STROKES
       const drumType  = strokeMap[stroke]
-      
-      console.log(`AudioEngine: playStroke('${stroke}') -> type: ${drumType} (perc: ${this.percussionType})`)
       
       if (!drumType) return
 
@@ -865,10 +886,14 @@ export class AudioEngine {
       const recording = await this.recorder.stop()
       const arrayBuffer = await recording.arrayBuffer()
       const audioCtx = new AudioContext()
-      const decoded = await audioCtx.decodeAudioData(arrayBuffer)
-      audioCtx.close()
+      let decoded: AudioBuffer
+      try {
+        decoded = await audioCtx.decodeAudioData(arrayBuffer)
+      } finally {
+        audioCtx.close()
+      }
 
-      const wav = encodeWav(decoded)
+      const wav = encodeWav(decoded!)
       const blob = new Blob([wav], { type: 'audio/wav' })
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
@@ -891,6 +916,9 @@ export class AudioEngine {
     this.isSequencing = false
     await new Promise(res => setTimeout(res, 50))
     this.isSequencing = true
+    // Unique token per invocation — prevents ghost notes when called twice in rapid succession.
+    // Without this, both invocations share the same isSequencing boolean and both play.
+    const token = ++this._seqToken
 
     const gap          = 0.45
     const peakNote     = aroha[aroha.length - 1]
@@ -901,7 +929,7 @@ export class AudioEngine {
 
     combined.forEach((swara, idx) => {
       setTimeout(() => {
-        if (!this.isSequencing) return
+        if (!this.isSequencing || this._seqToken !== token) return
         const freq         = swaraToFrequency(swara)
         const displaySwara = swara.replace('^', '')
         const UI_OCTAVE    = swara.includes('^') ? '5' : '4'
@@ -911,12 +939,20 @@ export class AudioEngine {
     })
 
     setTimeout(() => {
-      if (this.isSequencing) { this.isSequencing = false; onPlayNote?.('') }
+      if (this.isSequencing && this._seqToken === token) {
+        this.isSequencing = false
+        onPlayNote?.('')
+      }
     }, combined.length * gap * 1000)
   }
 
   dispose() {
     this.stopAll()
+    this._meendDispose?.(); this._meendDispose = null
+    this._andolanDispose?.(); this._andolanDispose = null
+    try { this._sympNode?.synth.dispose() } catch { /* ignore */ }
+    try { this._sympNode?.fverb.dispose() } catch { /* ignore */ }
+    this._sympNode = null
     try { Tone.getTransport().cancel() } catch { /* ignore */ }
     try { Tone.getTransport().stop() } catch { /* ignore */ }
     try { this.sampler?.dispose() } catch { /* ignore */ }
@@ -1013,6 +1049,11 @@ export class AudioEngine {
     if (!this.isStarted || !this.timbreGain) return
     if (this._instrument !== 'sitar' && this._instrument !== 'veena') return
     try {
+      // Dispose previous sympathetic node — 4s decay means fast playing accumulates many nodes
+      try { this._sympNode?.synth.dispose() } catch { /* ignore */ }
+      try { this._sympNode?.fverb.dispose() } catch { /* ignore */ }
+      this._sympNode = null
+
       const symp = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'sine' },
         envelope: { attack: 0.10, decay: 1.8, sustain: 0, release: 0.4 },
@@ -1022,7 +1063,11 @@ export class AudioEngine {
       symp.connect(fverb)
       fverb.connect(this.timbreGain)
       symp.triggerAttackRelease([frequency * 1.5, frequency * 2], '2n', Tone.now(), 0.28)
-      setTimeout(() => { try { symp.dispose(); fverb.dispose() } catch { /* ignore */ } }, 4000)
+      this._sympNode = { synth: symp, fverb }
+      setTimeout(() => {
+        if (this._sympNode?.synth === symp) this._sympNode = null
+        try { symp.dispose(); fverb.dispose() } catch { /* ignore */ }
+      }, 4000)
     } catch { /* ignore */ }
   }
 
@@ -1049,11 +1094,7 @@ let _instance: AudioEngine | null = null
 
 export function getAudioEngine(): AudioEngine | null {
   if (typeof window === 'undefined') return null
-  if (!_instance) {
-    _instance = new AudioEngine()
-  } else {
-    console.warn('AudioEngine: getAudioEngine() called after instance exists — returning existing instance.')
-  }
+  if (!_instance) _instance = new AudioEngine()
   return _instance
 }
 
