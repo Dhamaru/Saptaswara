@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { usePlayback } from '@/context/PlaybackContext'
 import { createClient } from '@/lib/supabase/client'
 import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
+import { useTheme } from '@/components/ThemeProvider'
+import { Sun, Moon } from 'lucide-react'
 import React from 'react'
 
 export default function Navbar() {
@@ -12,6 +14,7 @@ export default function Navbar() {
   const router = useRouter()
   const { isPlaying, setIsPlaying, triggerSave, isImmersive, setIsImmersive } = usePlayback()
   const { isOpen, openAssistant, closeAssistant } = useGlobalAssistant()
+  const { theme, toggle: toggleTheme } = useTheme()
 
   const navLinks = [
     { name: 'Naad', href: '/studio' },
@@ -44,6 +47,10 @@ export default function Navbar() {
     }
   }
 
+  if (pathname?.includes('preview')) {
+    return null;
+  }
+
   return (
     <>
     <nav className={`fixed top-0 left-0 right-0 h-16 md:h-20 z-[100] px-4 md:px-8 flex items-center justify-between border-b border-outline-variant/5 bg-surface-lowest/40 backdrop-blur-xl transition-transform duration-300 ${isImmersive ? '-translate-y-full pointer-events-none' : 'translate-y-0'}`}>
@@ -74,6 +81,18 @@ export default function Navbar() {
       </div>
 
       <div className="flex items-center gap-3 md:gap-6">
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-surface-container-high border border-outline-variant/10 flex items-center justify-center text-on-surface-variant/50 hover:text-primary hover:border-primary/30 transition-all active:scale-95"
+        >
+          {theme === 'dark'
+            ? <Sun className="w-4 h-4" />
+            : <Moon className="w-4 h-4" />
+          }
+        </button>
+
         {/* AI Assistant toggle */}
         <button
           onClick={() => isOpen ? closeAssistant() : openAssistant()}
@@ -97,7 +116,7 @@ export default function Navbar() {
               className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                 isPlaying
                   ? 'bg-primary text-on-primary shadow-glow scale-105'
-                  : 'text-on-surface-variant/40 hover:text-on-surface hover:bg-white/5'
+                  : 'text-on-surface-variant/40 hover:text-on-surface hover:bg-primary/5'
               }`}
             >
               <span className="material-symbols-outlined !text-xl leading-none">
@@ -108,7 +127,7 @@ export default function Navbar() {
             <button
               onClick={triggerSave}
               title="Save Composition [Ctrl+S]"
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant/40 hover:text-primary hover:bg-white/5 transition-all active:scale-95"
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant/40 hover:text-primary hover:bg-primary/5 transition-all active:scale-95"
             >
               <span className="material-symbols-outlined !text-xl leading-none">save</span>
             </button>
@@ -119,7 +138,7 @@ export default function Navbar() {
               className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
                 isImmersive
                   ? 'bg-primary/20 text-primary shadow-glow-sm'
-                  : 'text-on-surface-variant/40 hover:text-primary hover:bg-white/5'
+                  : 'text-on-surface-variant/40 hover:text-primary hover:bg-primary/5'
               }`}
             >
               <span className="material-symbols-outlined !text-xl leading-none">
@@ -144,7 +163,7 @@ export default function Navbar() {
         {/* Hamburger — mobile only */}
         <button
           onClick={() => setMobileMenuOpen(v => !v)}
-          className="md:hidden w-9 h-9 rounded-xl flex items-center justify-center text-on-surface-variant/60 hover:text-on-surface hover:bg-white/5 transition-all border border-outline-variant/10"
+          className="md:hidden w-9 h-9 rounded-xl flex items-center justify-center text-on-surface-variant/60 hover:text-on-surface hover:bg-primary/5 transition-all border border-outline-variant/10"
         >
           <span className="material-symbols-outlined !text-xl">{mobileMenuOpen ? 'close' : 'menu'}</span>
         </button>

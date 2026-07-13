@@ -3,10 +3,75 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: #0A0E14;
+    --surface: #0F1520;
+    --surface-lowest: #080C12;
+    --surface-highest: #1E2D42;
+    --surface-container-lowest: #080C12;
+    --surface-container-low: #111827;
+    --surface-container: #172033;
+    --surface-container-high: #1E2A3D;
+    --surface-container-highest: #253447;
+    --surface-bright: #243049;
+    --surface-variant: #1A2638;
+    --on-surface: #E8F4FD;
+    --on-surface-variant: #A8C8E8;
+    --on-primary: #031526;
+    --primary: #7DD3FC;
+    --primary-container: #0C4A6E;
+    --primary-light: #E0F2FE;
+    --secondary: #34D399;
+    --secondary-container: #065F46;
+    --outline: #4A6FA5;
+    --outline-variant: #1E3A5F;
+    --accent: #38BDF8;
+  }
+
+  [data-theme="light"] {
+    /* Warm parchment surfaces — aged paper hierarchy */
+    --background: #F7F3EC;
+    --surface: #FDFAF4;
+    --surface-lowest: #FFFFFF;
+    --surface-highest: #EDE4D5;
+    --surface-container-lowest: #FFFFFF;
+    --surface-container-low: #F2EBE0;
+    --surface-container: #EAE1D4;
+    --surface-container-high: #DED4C4;
+    --surface-container-highest: #D1C6B5;
+    --surface-bright: #FFFFFF;
+    --surface-variant: #EAE1D4;
+
+    /* Warm dark text — deep brown-black */
+    --on-surface: #1A140E;
+    --on-surface-variant: #6B5A47;
+    --on-primary: #FFFFFF;
+
+    /* Deep indigo primary — 7:1 contrast on cream */
+    --primary: #4C35C9;
+    --primary-container: #EAE4FF;
+    --primary-light: #7458F0;
+
+    /* Warm amber-gold secondary */
+    --secondary: #7A5800;
+    --secondary-container: #FAEDC4;
+
+    /* Warm taupe borders */
+    --outline: #9C8A77;
+    --outline-variant: #D8CCBF;
+    --accent: #7238E0;
+  }
+
   body {
-    @apply bg-background text-on-surface font-sans selection:bg-primary/30;
+    background-color: var(--background);
+    color: var(--on-surface);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: var(--primary);
+    color: var(--on-primary);
   }
 
   /* Reset link styles */
@@ -17,7 +82,7 @@
 
 @layer components {
   .bg-mesh {
-    background: radial-gradient(circle at 50% 50%, rgba(67, 56, 202, 0.08) 0%, rgba(14, 14, 16, 0) 70%);
+    background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--primary) 8%, transparent) 0%, transparent 70%);
   }
   
   .noise-texture {
@@ -26,35 +91,39 @@
   }
   
   .text-glow {
-    text-shadow: 0 0 30px rgba(195, 192, 255, 0.15);
+    text-shadow: 0 0 30px color-mix(in srgb, var(--primary) 15%, transparent);
   }
 
   /* ── Glass utilities (dashboard + shared) ─────────────────────── */
   .glass {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--surface-container) 40%, transparent);
+    border: 1px solid color-mix(in srgb, var(--outline-variant) 20%, transparent);
     backdrop-filter: blur(20px);
   }
 
   .glass-light {
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+    border: 1px solid color-mix(in srgb, var(--outline-variant) 30%, transparent);
     backdrop-filter: blur(20px);
   }
 
   .glass-gold {
-    background: linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(124, 58, 237, 0.08));
-    border: 1px solid rgba(167, 139, 250, 0.25);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 15%, transparent), color-mix(in srgb, var(--accent) 8%, transparent));
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
   }
 
   /* ── Button ───────────────────────────────────────────────────── */
   .btn-primary {
-    @apply px-6 py-3 bg-gradient-to-r from-[#7c3aed] to-[#3b82f6] rounded-2xl font-semibold text-white tracking-tight shadow-glow hover:scale-105 active:scale-95 transition-all;
+    @apply px-6 py-3 rounded-2xl font-semibold tracking-tight hover:scale-105 active:scale-95 transition-all;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: var(--on-primary);
+    box-shadow: 0 0 40px -8px color-mix(in srgb, var(--primary) 25%, transparent);
   }
 
   /* ── Card ────────────────────────────────────────────────────── */
   .card {
-    @apply bg-surface-container-low border border-outline-variant/20 rounded-3xl p-6 transition-all duration-300;
+    @apply bg-surface-container-low border rounded-3xl p-6 transition-all duration-300;
+    border-color: color-mix(in srgb, var(--outline-variant) 20%, transparent);
   }
 
   /* ── Dot pattern background ──────────────────────────────────── */
@@ -65,14 +134,16 @@
 
   /* ── Text gradients ──────────────────────────────────────────── */
   .text-gradient-subtle {
-    background: linear-gradient(135deg, #f4f0ff 0%, #a78bfa 100%);
+    background: linear-gradient(135deg, var(--on-surface) 0%, var(--primary) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .glass-panel {
-    @apply bg-surface-container-lowest/80 backdrop-blur-2xl border border-outline-variant/10;
+    @apply backdrop-blur-2xl border;
+    background-color: color-mix(in srgb, var(--surface-container-lowest) 80%, transparent);
+    border-color: color-mix(in srgb, var(--outline-variant) 10%, transparent);
   }
 
   .material-symbols-outlined {
@@ -89,7 +160,11 @@
     @apply bg-transparent;
   }
   .scroll-thin::-webkit-scrollbar-thumb {
-    @apply bg-outline-variant/20 rounded-full hover:bg-outline-variant/40 transition-colors;
+    @apply rounded-full transition-colors;
+    background-color: color-mix(in srgb, var(--outline-variant) 20%, transparent);
+  }
+  .scroll-thin::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--outline-variant) 40%, transparent);
   }
 
   .scroller-none::-webkit-scrollbar,
@@ -101,6 +176,40 @@
   .scrollbar-none {
     scrollbar-width: none;
     -ms-overflow-style: none;
+  }
+
+  /* ── Theme utility aliases used in RagaCard and shared components ── */
+  .theme-txt     { color: var(--on-surface); }
+  .theme-primary { color: var(--primary); }
+  .theme-sec     { color: var(--on-surface-variant); }
+  .theme-border  { border-color: var(--outline-variant); }
+
+  /* ── Light-mode overrides for hardcoded dark-only colors ────────── */
+  /* Note/gamaka pill text — too pale on beige without these */
+  [data-theme="light"] .text-blue-300   { color: #1d4ed8 !important; }
+  [data-theme="light"] .text-amber-300  { color: #92400e !important; }
+  [data-theme="light"] .text-violet-300 { color: #5b21b6 !important; }
+  [data-theme="light"] .text-rose-300   { color: #9f1239 !important; }
+  [data-theme="light"] .text-emerald-300{ color: #065f46 !important; }
+  [data-theme="light"] .text-sky-300    { color: #0369a1 !important; }
+  [data-theme="light"] .text-orange-300 { color: #c2410c !important; }
+  [data-theme="light"] .text-cyan-300   { color: #0e7490 !important; }
+  [data-theme="light"] .text-pink-300   { color: #9d174d !important; }
+
+  /* Pill backgrounds — white/5 is invisible on light surfaces */
+  [data-theme="light"] .bg-white\/5     { background-color: rgba(0,0,0,0.08) !important; }
+
+  /* inner-glow on beige — white shimmer looks harsh, use subtle dark instead */
+  [data-theme="light"] .shadow-inner-glow {
+    box-shadow: inset 0 1px 0 0 rgba(0, 0, 0, 0.06) !important;
+  }
+
+  /* Ambient layout orbs — warm on beige, cool blue in dark */
+  [data-theme="light"] .layout-orb-top {
+    background-color: color-mix(in srgb, var(--primary) 7%, transparent) !important;
+  }
+  [data-theme="light"] .layout-orb-bottom {
+    background-color: color-mix(in srgb, var(--secondary) 6%, transparent) !important;
   }
 }
 

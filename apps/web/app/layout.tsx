@@ -7,6 +7,7 @@ import { PlaybackProvider } from '@/context/PlaybackContext'
 import { ToastProvider } from '@/components/Toast'
 import { GlobalAssistantProvider } from '@/context/GlobalAssistantContext'
 import { GlobalAssistant } from '@/components/GlobalAssistant'
+import { ThemeProvider } from '@/components/ThemeProvider'
 
 const manrope = Manrope({ 
   subsets: ['latin'],
@@ -45,11 +46,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
+        {/* Anti-flash: set data-theme before first paint */}
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('saptaswara-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}` }} />
       </head>
-      <body className={`${manrope.variable} ${dmSans.variable} ${dmMono.variable} ${spaceGrotesk.variable} font-sans bg-background text-on-surface min-h-screen selection:bg-primary/30 antialiased`}>
+      <body className={`${manrope.variable} ${dmSans.variable} ${dmMono.variable} ${spaceGrotesk.variable} font-sans bg-background text-on-surface min-h-screen selection:bg-primary/30 antialiased transition-colors duration-300`}>
+        <ThemeProvider>
         <PlaybackProvider>
           <GlobalAssistantProvider>
           <AuthListener />
@@ -58,8 +62,8 @@ export default function RootLayout({
           <div className="fixed inset-0 z-0 pointer-events-none">
             <div className="absolute inset-0 bg-mesh opacity-60"></div>
             <div className="absolute inset-0 noise-texture"></div>
-            <div className="absolute -top-[20%] -right-[10%] w-[60%] h-[60%] bg-primary-container/10 blur-[120px] rounded-full"></div>
-            <div className="absolute -bottom-[20%] -left-[10%] w-[50%] h-[50%] bg-indigo-900/10 blur-[120px] rounded-full"></div>
+            <div className="layout-orb-top absolute -top-[20%] -right-[10%] w-[60%] h-[60%] bg-primary-container/10 blur-[120px] rounded-full"></div>
+            <div className="layout-orb-bottom absolute -bottom-[20%] -left-[10%] w-[50%] h-[50%] bg-indigo-900/10 blur-[120px] rounded-full"></div>
           </div>
 
           <Navbar />
@@ -70,6 +74,7 @@ export default function RootLayout({
           </ToastProvider>
           </GlobalAssistantProvider>
         </PlaybackProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

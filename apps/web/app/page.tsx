@@ -36,7 +36,7 @@ export default function LandingPage() {
 
         <h1 className="font-display text-5xl sm:text-7xl md:text-9xl font-light text-on-surface tracking-tighter leading-[0.9] mb-8 md:mb-10 text-glow">
           Create music <br />
-          <span className="italic font-light opacity-90 text-primary-container brightness-150">guided by ragas.</span>
+          <span className="italic font-light text-primary opacity-70">guided by ragas.</span>
         </h1>
 
         <p className="font-sans text-base md:text-lg lg:text-xl text-on-surface-variant/70 max-w-2xl mx-auto font-light leading-relaxed mb-10 md:mb-16 text-balance">
@@ -58,9 +58,10 @@ export default function LandingPage() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6">
           <Link
             href="/studio"
-            className="group relative w-full sm:w-auto px-8 md:px-12 py-4 md:py-5 bg-gradient-to-r from-[#7C3AED] to-[#3B82F6] rounded-2xl font-medium text-white shadow-glow hover:scale-105 active:scale-95 transition-all overflow-hidden"
+            className="group relative w-full sm:w-auto px-8 md:px-12 py-4 md:py-5 rounded-2xl font-medium shadow-glow hover:scale-105 active:scale-95 transition-all overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent))', color: 'var(--on-primary)' }}
           >
-            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
             <span className="relative flex items-center justify-center gap-3">
               Start Creating
               <span className="material-symbols-outlined !text-xl md:!text-2xl">arrow_forward</span>
@@ -79,7 +80,7 @@ export default function LandingPage() {
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 max-w-7xl mx-auto w-full mb-16 md:mb-32 px-4">
         <div className="lg:col-span-2 group relative h-64 md:h-80 bg-surface-lowest rounded-[32px] md:rounded-[40px] border border-outline-variant/5 hover:border-outline-variant/20 transition-all p-6 md:p-12 overflow-hidden shadow-2xl">
            <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none group-hover:opacity-20 transition-opacity">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,_#3B82F6_0%,_transparent_70%)]" />
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 70% 30%, var(--primary) 0%, transparent 70%)' }} />
               <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-200" />
            </div>
            

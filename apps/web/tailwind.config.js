@@ -8,13 +8,13 @@ module.exports = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#c3c0ff',
-          container: '#4338ca',
-          light: '#e8e5ff',
+          DEFAULT: 'var(--primary)',
+          container: 'var(--primary-container)',
+          light: 'var(--primary-light)',
         },
         secondary: {
-          DEFAULT: '#84d6b9',
-          container: '#026951',
+          DEFAULT: 'var(--secondary)',
+          container: 'var(--secondary-container)',
         },
         tertiary: {
           DEFAULT: '#ffb59e',
@@ -24,26 +24,26 @@ module.exports = {
           DEFAULT: '#ffb4ab',
           container: '#93000a',
         },
-        accent: '#7c3aed',
-        background: '#0e0e10',
-        surface: '#131315',
+        accent: 'var(--accent)',
+        background: 'var(--background)',
+        surface: 'var(--surface)',
         // Shorthand aliases used throughout components
-        'surface-lowest':  '#0e0e10',
-        'surface-highest': '#353437',
+        'surface-lowest':  'var(--surface-lowest)',
+        'surface-highest': 'var(--surface-highest)',
         // Full Material Design surface scale
-        'surface-container-lowest':  '#0e0e10',
-        'surface-container-low':     '#1b1b1d',
-        'surface-container':         '#201f21',
-        'surface-container-high':    '#2a2a2c',
-        'surface-container-highest': '#353437',
-        'surface-bright':   '#39393b',
-        'surface-variant':  '#353437',
+        'surface-container-lowest':  'var(--surface-container-lowest)',
+        'surface-container-low':     'var(--surface-container-low)',
+        'surface-container':         'var(--surface-container)',
+        'surface-container-high':    'var(--surface-container-high)',
+        'surface-container-highest': 'var(--surface-container-highest)',
+        'surface-bright':   'var(--surface-bright)',
+        'surface-variant':  'var(--surface-variant)',
         // Text — brighter than before for readability at low opacities
-        'on-surface':         '#f2efff',  // near-white with a touch of violet
-        'on-surface-variant': '#d5d0ec',  // lighter purple-grey, readable at /40 and /60
-        'on-primary':         '#1a0070',
-        outline:         '#918fa0',
-        'outline-variant': '#464554',
+        'on-surface':         'var(--on-surface)',
+        'on-surface-variant': 'var(--on-surface-variant)',
+        'on-primary':         'var(--on-primary)',
+        outline:         'var(--outline)',
+        'outline-variant': 'var(--outline-variant)',
       },
       fontFamily: {
         sans:     ['var(--font-manrope)', 'system-ui', 'sans-serif'],
@@ -55,10 +55,10 @@ module.exports = {
       // Let Tailwind defaults drive border-radius (rounded-lg=8px, rounded-xl=12px, etc.)
       // Do NOT override — components use Tailwind defaults + explicit arbitrary values
       boxShadow: {
-        'glow':        '0 0 40px -8px rgba(195, 192, 255, 0.25)',
-        'glow-sm':     '0 0 20px -6px rgba(195, 192, 255, 0.18)',
-        'inner-glow':  'inset 0 1px 0 0 rgba(255, 255, 255, 0.05)',
-        'step-active': '0 0 0 2px rgba(195, 192, 255, 0.6), 0 0 16px 2px rgba(195, 192, 255, 0.2)',
+        'glow':        '0 0 40px -8px rgba(125, 211, 252, 0.30)',
+        'glow-sm':     '0 0 20px -6px rgba(125, 211, 252, 0.22)',
+        'inner-glow':  'inset 0 1px 0 0 rgba(125, 211, 252, 0.08)',
+        'step-active': '0 0 0 2px rgba(125, 211, 252, 0.6), 0 0 16px 2px rgba(125, 211, 252, 0.2)',
       },
       animation: {
         'float':          'float 6s ease-in-out infinite',

@@ -41,10 +41,10 @@ export default function RagaCard({ raga, onClick, isSelected }: RagaCardProps) {
         <div>
           <div className="flex flex-col gap-2 mb-4">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-primary/60 font-semibold">
+              <span className="font-mono text-[9px] uppercase tracking-[0.2em] theme-primary opacity-60 font-semibold">
                 {raga.time_of_day || 'Universal'}
               </span>
-              <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">
+              <span className="font-mono text-[9px] uppercase tracking-widest theme-sec opacity-40">
                 {raga.thaat || 'Classic'}
               </span>
             </div>
@@ -53,32 +53,32 @@ export default function RagaCard({ raga, onClick, isSelected }: RagaCardProps) {
                 {raga.tradition || 'HINDUSTANI'}
               </span>
               {raga.melakarta_number && (
-                <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
+                <span className="font-mono text-[8px] uppercase tracking-widest theme-sec opacity-40">
                   M#{raga.melakarta_number}
                 </span>
               )}
             </div>
           </div>
-          <h3 className="font-display text-4xl font-light text-on-surface tracking-tight group-hover:text-primary transition-colors leading-tight">
+          <h3 className="font-display text-4xl font-light theme-txt tracking-tight group-hover:theme-primary transition-colors leading-tight">
             {raga.name}
           </h3>
-          <p className="font-sans text-xs text-on-surface-variant/60 font-light mt-2 max-w-[200px]">
+          <p className="font-sans text-xs theme-sec opacity-60 font-light mt-2 max-w-[200px]">
             {raga.mood || 'Traditional melodic structure'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 overflow-hidden">
            {raga.aroha?.slice(0, 5).map((s: string, i: number) => (
-             <span key={i} className="font-label text-[10px] text-on-surface-variant/30 border border-outline-variant/10 px-2 py-1 rounded-md">
+             <span key={i} className="font-label text-[10px] theme-sec opacity-30 border theme-border px-2 py-1 rounded-md">
                {s}
              </span>
            ))}
-           <span className="text-[10px] text-on-surface-variant/20">...</span>
+           <span className="text-[10px] theme-sec opacity-20">...</span>
         </div>
       </div>
 
       {/* Tonal Layering Overlay */}
-      <div className="absolute inset-0 ring-1 ring-inset ring-white/5 rounded-[32px] pointer-events-none" />
+      <div className="absolute inset-0 ring-1 ring-inset ring-outline-variant/10 rounded-[32px] pointer-events-none" />
     </button>
   )
 }
