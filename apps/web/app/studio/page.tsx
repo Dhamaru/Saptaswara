@@ -1067,7 +1067,7 @@ function StudioContent() {
   }
 
   return (
-    <div className={`flex overflow-hidden bg-background transition-all duration-300 ${isImmersive ? 'h-screen' : 'h-[calc(100vh-64px)] md:h-[calc(100vh-80px)]'}`}>
+    <div className={`flex overflow-hidden bg-background transition-all duration-300 ${isImmersive ? 'fixed inset-0 z-[100]' : 'h-[calc(100vh-64px)] md:h-[calc(100vh-80px)]'}`}>
 
       {/* Save project modal */}
       {showSaveModal && (
@@ -2474,6 +2474,7 @@ function StudioContent() {
           <ImmersiveHUD
             bpm={bpm}
             loopLength={loopLength}
+            beatFlash={beatFlash}
             transcriberActive={immersiveTranscriber}
             onToggleTranscriber={() => setImmersiveTranscriber(v => !v)}
           />

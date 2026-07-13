@@ -1,17 +1,40 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { usePlayback } from '@/context/PlaybackContext'
 
 interface ImmersiveHUDProps {
   bpm: number
   loopLength: number
+  beatFlash: boolean
   onToggleTranscriber: () => void
   transcriberActive: boolean
 }
 
-export function ImmersiveHUD({ bpm, loopLength, onToggleTranscriber, transcriberActive }: ImmersiveHUDProps) {
+export function ImmersiveHUD({ bpm, loopLength, beatFlash, onToggleTranscriber, transcriberActive }: ImmersiveHUDProps) {
   const { isPlaying, setIsPlaying, setIsImmersive } = usePlayback()
+  const [visible, setVisible] = useState(true)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const resetHideTimer = useCallback(() => {
+    setVisible(true)
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    hideTimer.current = setTimeout(() => setVisible(false), 3000)
+  }, [])
+
+  useEffect(() => {
+    resetHideTimer()
+    window.addEventListener('mousemove', resetHideTimer)
+    window.addEventListener('keydown', resetHideTimer)
+    return () => {
+      window.removeEventListener('mousemove', resetHideTimer)
+      window.removeEventListener('keydown', resetHideTimer)
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+    }
+  }, [resetHideTimer])
+
+  // Always show HUD when playback state changes
+  useEffect(() => { resetHideTimer() }, [isPlaying, resetHideTimer])
 
   const exit = () => {
     setIsImmersive(false)
@@ -19,7 +42,16 @@ export function ImmersiveHUD({ bpm, loopLength, onToggleTranscriber, transcriber
   }
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-5 py-3 rounded-full bg-surface-lowest/80 border border-outline-variant/20 backdrop-blur-xl shadow-2xl animate-fade-in">
+    <div
+      className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-5 py-3 rounded-full bg-surface-lowest/80 border border-outline-variant/20 backdrop-blur-xl shadow-2xl transition-all duration-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+    >
+      {/* Beat flash dot */}
+      <div
+        className={`w-2 h-2 rounded-full flex-shrink-0 transition-all duration-75 ${isPlaying ? (beatFlash ? 'bg-primary scale-125 shadow-[0_0_6px_var(--color-primary)]' : 'bg-primary/20') : 'bg-outline-variant/15'}`}
+      />
+
+      <div className="w-px h-5 bg-outline-variant/20" />
+
       {/* Play / Stop */}
       <button
         onClick={() => setIsPlaying(!isPlaying)}
