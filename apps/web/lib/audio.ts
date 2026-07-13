@@ -93,15 +93,16 @@ export class AudioEngine {
 
     // ── Master Output ───────────────────────────────────────────────────────
     this.masterOutput = new Tone.Gain(1)
-    this.masterOutput.toDestination()
-    
-    // Connect metering + recording
+
+    // Metering + recording tap pre-EQ (raw signal level)
     this.masterOutput.connect(this.recorder)
     this.masterOutput.connect(this.meter)
 
-    // Mastering chain
-    this.limiter = new Tone.Limiter(-1).connect(this.masterOutput)
-    this.masterEQ = new Tone.EQ3(0, 0, 0).connect(this.limiter)
+    // Mastering chain: masterOutput → EQ → limiter → destination
+    // All instruments connect to masterOutput, signal flows through EQ before output
+    this.masterEQ = new Tone.EQ3(0, 0, 0)
+    this.limiter = new Tone.Limiter(-1)
+    this.masterOutput.chain(this.masterEQ, this.limiter, Tone.getDestination())
 
     // Metronome synth
     this.clickSynth = new Tone.MembraneSynth({
