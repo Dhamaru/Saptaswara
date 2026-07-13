@@ -37,7 +37,7 @@ export function MobileSwaraStrip({ onPlay, onRelease, allowedSwaras, vadiSwara, 
 
   const handlePress = useCallback((swara: string, rawSwara: string) => {
     const base = stripOctave(rawSwara)
-    const oct = rawSwara.endsWith("'") ? octave + 1 : octave
+    const oct = Math.min(8, rawSwara.endsWith("'") ? octave + 1 : octave)
     const freq = swaraToFrequency(base, 261.63, oct)
     if (freq) onPlay(freq, base)
     setPressed(swara)

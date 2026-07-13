@@ -32,7 +32,7 @@ export function RagaDetector() {
       mediaRef.current = mr
       setState('recording')
     } catch {
-      setError('Mic access denied.')
+      setError('Mic access denied. Allow microphone in browser settings and try again.')
       setState('error')
     }
   }

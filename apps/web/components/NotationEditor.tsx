@@ -70,7 +70,7 @@ export function NotationEditor({ allowedSwaras, ragaName }: Props) {
     playTimeoutsRef.current.push(tEnd)
   }, [sequence, tempo, octave, stopPlayback])
 
-  const addSwara = (s: Swara) => setSequence(prev => [...prev, s])
+  const addSwara = (s: Swara) => setSequence(prev => prev.length >= 32 ? prev : [...prev, s])
   const removeLastSwara = () => setSequence(prev => prev.slice(0, -1))
 
   const swaras = allowedSwaras

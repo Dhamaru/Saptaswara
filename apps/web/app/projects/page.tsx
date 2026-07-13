@@ -110,7 +110,7 @@ export default async function ProjectsPage() {
 
                   <div className="mt-auto pt-6 border-t border-outline-variant/5 flex items-center justify-between">
                     <Link 
-                      href={`/studio?project=${project.id}`}
+                      href={`/studio?raga_id=${project.raga_id}`}
                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-surface-container-highest text-on-surface font-medium hover:bg-primary hover:text-on-primary transition-all active:scale-95 group/btn"
                     >
                       Open in Studio

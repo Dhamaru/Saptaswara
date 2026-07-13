@@ -63,7 +63,7 @@ export default function JournalPage() {
 
   // Pre-fill form from ?raga= URL param (set by studio "Log Session" prompt)
   useEffect(() => {
-    const raga = new URLSearchParams(window.location.search).get('raga')
+    const raga = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('raga') : null
     if (raga) {
       setFormRaga(raga)
       setShowLogForm(true)

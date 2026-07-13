@@ -89,7 +89,7 @@ export default function LandingPage() {
                 <span className="font-mono text-[10px] uppercase tracking-widest text-primary mb-4 md:mb-6 block font-semibold opacity-60">Raga Intelligence</span>
                 <h3 className="font-display text-3xl md:text-5xl font-light text-on-surface mb-2 leading-tight">Melodic <br/> DNA.</h3>
               </div>
-              <div className="flex items-center gap-3 md:gap-4 py-3 md:py-4 overflow-hidden mask-fade-edges">
+              <div className="flex items-center gap-3 md:gap-4 py-3 md:py-4 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
                  {['सा', 'रे', 'ग', 'म', 'प', 'ध', 'नी'].map((s, j) => (
                    <div key={j} className="flex flex-col items-center gap-2 group/swara">
                      <div className="w-1.5 h-8 md:h-12 bg-primary/20 rounded-full group-hover/swara:bg-primary group-hover/swara:shadow-glow transition-all" />

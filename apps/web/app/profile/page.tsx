@@ -366,7 +366,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ── Stats grid ──────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             {
               icon: <Music className="w-5 h-5" />,
