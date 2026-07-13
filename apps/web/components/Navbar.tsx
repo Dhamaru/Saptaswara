@@ -19,8 +19,7 @@ export default function Navbar() {
   const navLinks = [
     { name: 'Naad', href: '/studio' },
     { name: 'Ragam', href: '/library' },
-    { name: 'Riyaz', href: '/riyaz' },
-    { name: 'Saadhana', href: '/journal' },
+    { name: 'Saadhana', href: '/riyaz' },
     { name: 'Profile', href: '/profile' },
   ]
 

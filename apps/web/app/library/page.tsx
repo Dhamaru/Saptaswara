@@ -9,8 +9,6 @@ import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
 import { getSwaraType, swaraAccent, swaraFullLabel, swaraDisplayName } from '@/lib/swaraUtils'
 import { getGamakaProfile, GAMAKA_LABELS, GAMAKA_DESCRIPTIONS, type GamakaType } from '@/lib/gamakaData'
 import { MoodPicker } from '@/components/MoodPicker'
-import { getAudioEngine } from '@/lib/audio'
-import { swaraToFrequency } from '@/lib/musicalMath'
 
 const TIME_FILTERS = ['ALL', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT']
 const TRADITION_FILTERS = ['ALL', 'HINDUSTANI', 'CARNATIC', 'SAVED']
@@ -110,7 +108,7 @@ export default function LibraryPage() {
   // every Arrow key press (focusedIdx) and every filter change (filteredRagas).
   const filteredRagasRef  = useRef<any[]>([])
   const focusedIdxRef     = useRef(-1)
-  const previewTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const previewTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null) // kept for hover focus only
   const router = useRouter()
   const { setRagaContext, openAssistant } = useGlobalAssistant()
 
@@ -170,19 +168,6 @@ export default function LibraryPage() {
     } finally {
       setDescLoading(false)
     }
-  }
-
-  const triggerPreview = async (raga: any) => {
-    const { getAudioEngine } = await import('@/lib/audio')
-    const { swaraToFrequency } = await import('@/lib/musicalMath')
-    const engine = getAudioEngine()
-    if (!engine) return
-    if (!engine.isStarted) await engine.start()
-    const aroha: string[] = raga.aroha || []
-    aroha.slice(0, 4).forEach((swara: string, i: number) => {
-      const freq = swaraToFrequency(swara)
-      if (freq) setTimeout(() => engine.playSwara(freq, '4n'), i * 420)
-    })
   }
 
   const toggleFavourite = (id: string, e: React.MouseEvent) => {
@@ -605,7 +590,7 @@ export default function LibraryPage() {
                 <div
                   key={raga.id}
                   className={`relative group/card rounded-[32px] transition-all duration-150 ${focusedIdx === idx ? 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background' : ''}`}
-                  onMouseEnter={() => { setFocusedIdx(idx); previewTimerRef.current = setTimeout(() => triggerPreview(raga), 700) }}
+                  onMouseEnter={() => { setFocusedIdx(idx) }}
                   onMouseLeave={() => { if (previewTimerRef.current) { clearTimeout(previewTimerRef.current); previewTimerRef.current = null } }}
                 >
                   <button

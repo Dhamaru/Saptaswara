@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { SwaraTranscriber, type SessionStats } from '@/components/SwaraTranscriber'
 import { createClient } from '@/lib/supabase/client'
@@ -417,13 +418,22 @@ export default function RiyazPage() {
       <main className="flex-1 pt-20 md:pt-24 pb-16 px-4 md:px-8 max-w-7xl mx-auto w-full">
 
         {/* Page header */}
-        <div className="mb-8 md:mb-10">
-          <h1 className="font-display text-4xl md:text-5xl font-light tracking-tight text-on-surface">
-            Riyaz
-          </h1>
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-widest text-on-surface-variant/40">
-            Focused practice · One raga at a time
-          </p>
+        <div className="mb-8 md:mb-10 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-display text-4xl md:text-5xl font-light tracking-tight text-on-surface">
+              Saadhana
+            </h1>
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-widest text-on-surface-variant/40">
+              Focused practice · One raga at a time
+            </p>
+          </div>
+          <Link
+            href="/journal"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-container-high border border-outline-variant/10 text-on-surface-variant/50 hover:text-primary hover:border-primary/25 transition-all shrink-0 mt-1"
+          >
+            <span className="material-symbols-outlined !text-sm">book_2</span>
+            <span className="font-mono text-[9px] uppercase tracking-widest">Journal</span>
+          </Link>
         </div>
 
         {/* Top controls row */}
