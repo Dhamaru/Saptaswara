@@ -207,6 +207,10 @@ export default function RiyazPage() {
   const [andolanMode, setAndolanMode] = useState(false)
   const [gamakaHistory, setGamakaHistory] = useState<{ swara: string; ornament: string; ts: number }[]>([])
   const [sessionStats, setSessionStats] = useState<SessionStats | null>(null)
+  const [swaraFeedback, setSwaraFeedback] = useState<string | null>(null)
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastFeedbackSwaraRef = useRef<string | null>(null)
 
   // ── Record / Playback ──────────────────────────────────────────────────────
   type RecordedNote = { swara: string; freq: number; delayMs: number }
@@ -383,6 +387,55 @@ export default function RiyazPage() {
     if (autoTimer.current) clearTimeout(autoTimer.current)
   }, [selectedRaga, playMode])
 
+  // ── AI swara feedback (debounced, 1 sentence per note played) ───────────────
+  const fetchSwaraFeedback = useCallback(async (swara: string) => {
+    if (!selectedRaga) return
+    const bare = displaySwara(swara)
+    if (lastFeedbackSwaraRef.current === bare) return
+    lastFeedbackSwaraRef.current = bare
+
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+    feedbackTimerRef.current = setTimeout(async () => {
+      setFeedbackLoading(true)
+      setSwaraFeedback(null)
+      try {
+        const { data: { session } } = await createClient().auth.getSession()
+        const token = session?.access_token
+        const res = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            messages: [{
+              role: 'user',
+              content: `In raga ${selectedRaga.name}, the student just played ${bare}. Give exactly one sentence of musical insight about this note's role — mention if it's vadi, samvadi, komal, or its characteristic usage. Be concise.`
+            }],
+            ragaContext: { name: selectedRaga.name, vadi: selectedRaga.vadi, samvadi: selectedRaga.samvadi }
+          })
+        })
+        if (!res.ok || !res.body) return
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let text = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value)
+          for (const line of chunk.split('\n')) {
+            if (line.startsWith('data: ')) {
+              const d = line.slice(6).trim()
+              if (d && d !== '[DONE]') text += d
+            }
+          }
+        }
+        if (text) setSwaraFeedback(text.trim())
+      } catch {
+        // silent — feedback is non-critical
+      } finally {
+        setFeedbackLoading(false)
+      }
+    }, 600)
+  }, [selectedRaga])
+
   // ── Free-mode: play swara directly ────────────────────────────────────────
   const handleSwaraClick = useCallback(async (idx: number) => {
     if (!selectedRaga) return
@@ -397,7 +450,8 @@ export default function RiyazPage() {
       // In Aroha/Avaroha mode: click to jump to that swara and continue from there
       playAtIndex(idx)
     }
-  }, [selectedRaga, playMode, sequence, ensureAudio, playAtIndex])
+    fetchSwaraFeedback(sequence[idx])
+  }, [selectedRaga, playMode, sequence, ensureAudio, playAtIndex, fetchSwaraFeedback])
 
   // ── Grammar queries ────────────────────────────────────────────────────────
   const isVadi    = (swara: string) => selectedRaga ? bareName(swara) === bareName(selectedRaga.vadi)    : false
@@ -745,6 +799,22 @@ export default function RiyazPage() {
                   />
                 ))}
               </div>
+
+              {/* AI swara feedback */}
+              {(feedbackLoading || swaraFeedback) && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-primary/8 border border-primary/15 animate-fade-in">
+                  <span className="material-symbols-outlined !text-base text-primary/50 mt-0.5 shrink-0">auto_awesome</span>
+                  {feedbackLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  ) : (
+                    <p className="font-sans text-sm text-on-surface-variant/80 font-light leading-relaxed">{swaraFeedback}</p>
+                  )}
+                </div>
+              )}
 
               {/* Playback controls for sequential modes */}
               {playMode !== 'free' && (

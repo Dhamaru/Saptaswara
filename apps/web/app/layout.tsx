@@ -4,6 +4,7 @@ import Script from 'next/script'
 import { Manrope, DM_Sans, DM_Mono, Space_Grotesk } from 'next/font/google'
 import Navbar from '@/components/Navbar'
 import AuthListener from '@/components/AuthListener'
+import SupabaseWarmup from '@/components/SupabaseWarmup'
 import { PlaybackProvider } from '@/context/PlaybackContext'
 import { ToastProvider } from '@/components/Toast'
 import { GlobalAssistantProvider } from '@/context/GlobalAssistantContext'
@@ -59,6 +60,7 @@ export default function RootLayout({
         <PlaybackProvider>
           <GlobalAssistantProvider>
           <AuthListener />
+          <SupabaseWarmup />
           <ToastProvider>
           {/* Ambient Background Elements */}
           <div className="fixed inset-0 z-0 pointer-events-none">

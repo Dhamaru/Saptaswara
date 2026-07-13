@@ -9,7 +9,11 @@ import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
 import { getSwaraType, swaraAccent, swaraFullLabel, swaraDisplayName } from '@/lib/swaraUtils'
 import { getGamakaProfile, GAMAKA_LABELS, GAMAKA_DESCRIPTIONS, type GamakaType } from '@/lib/gamakaData'
 import { MoodPicker } from '@/components/MoodPicker'
-import { PakadQuiz } from '@/components/PakadQuiz'
+import dynamic from 'next/dynamic'
+import { getCachedRagas, cacheRagas } from '@/lib/ragaCache'
+import RagaGraph from '@/components/RagaGraph'
+
+const PakadQuiz = dynamic(() => import('@/components/PakadQuiz').then(m => ({ default: m.PakadQuiz })), { ssr: false })
 
 const TIME_FILTERS = ['ALL', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT']
 const TRADITION_FILTERS = ['ALL', 'HINDUSTANI', 'CARNATIC', 'SAVED']
@@ -81,6 +85,7 @@ function GamakaTag({ type }: { type: GamakaType }) {
 
 export default function LibraryPage() {
   const [ragas, setRagas] = useState<any[]>([])
+  const [cacheStale, setCacheStale] = useState(false)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState('ALL')
@@ -94,6 +99,7 @@ export default function LibraryPage() {
   const [sortBy, setSortBy] = useState<SortOption>('name-asc')
   const [activeMoods, setActiveMoods] = useState<Set<string>>(new Set())
   const [activeSwaras, setActiveSwaras] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'grid' | 'graph'>('grid')
   const [showQuiz, setShowQuiz] = useState(false)
   const [visibleCount, setVisibleCount] = useState(24)
   const [ragaDescription, setRagaDescription] = useState<string>('')
@@ -183,23 +189,46 @@ export default function LibraryPage() {
     })
   }
 
-  const fetchRagas = async () => {
-    setFetchError(null)
-    setLoading(true)
+  const fetchRagas = async (background = false) => {
+    if (!background) {
+      setFetchError(null)
+      setLoading(true)
+    }
     try {
       const supabase = createClient()
       const { data, error } = await supabase.from('ragas').select('*, raga_phrases(*)').order('name')
       if (error) throw error
-      setRagas(data || [])
+      const fresh = data || []
+      setRagas(fresh)
+      setCacheStale(false)
+      await cacheRagas(fresh)
     } catch (err) {
-      console.error('Failed to fetch ragas:', err)
-      setFetchError('Could not load the raga library. Check your connection and try again.')
+      if (!background) {
+        console.error('Failed to fetch ragas:', err)
+        setFetchError('Could not load the raga library. Check your connection and try again.')
+      }
     } finally {
-      setLoading(false)
+      if (!background) setLoading(false)
     }
   }
 
-  useEffect(() => { fetchRagas() }, [])
+  useEffect(() => {
+    // Load from IndexedDB instantly, then refresh from network in background
+    getCachedRagas().then(cached => {
+      if (cached) {
+        setRagas(cached.ragas)
+        setLoading(false)
+        if (cached.stale) {
+          setCacheStale(true)
+          fetchRagas(true)
+        } else {
+          fetchRagas(true) // silent refresh even if fresh
+        }
+      } else {
+        fetchRagas(false)
+      }
+    })
+  }, [])
 
   // Read initial filter state from URL on mount
   useEffect(() => {
@@ -323,7 +352,15 @@ export default function LibraryPage() {
 
           {/* Header */}
           <header className="mb-8 md:mb-16">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-primary mb-4 md:mb-6 opacity-60">Raga Library</div>
+            <div className="flex items-center gap-3 mb-4 md:mb-6">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-primary opacity-60">Raga Library</div>
+              {cacheStale && (
+                <span className="inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-amber-500 border border-amber-500/25 bg-amber-500/8 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Updating…
+                </span>
+              )}
+            </div>
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 md:gap-10">
               <div className="max-w-xl">
                 <h1 className="font-display text-5xl md:text-7xl font-light text-on-surface tracking-tight mb-4 md:mb-6">Explore.</h1>
@@ -505,7 +542,7 @@ export default function LibraryPage() {
                 <span className="font-sans text-sm text-error/80">{fetchError}</span>
               </div>
               <button
-                onClick={fetchRagas}
+                onClick={() => fetchRagas(false)}
                 className="font-mono text-[10px] uppercase tracking-widest text-error/80 hover:text-error border border-error/20 hover:border-error/40 px-4 py-1.5 rounded-xl transition-all"
               >
                 Retry
@@ -544,8 +581,50 @@ export default function LibraryPage() {
             )
           })()}
 
+          {/* View toggle */}
+          {!loading && (
+            <div className="flex items-center justify-between mb-6">
+              <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/30">
+                {sortedRagas.length} raga{sortedRagas.length !== 1 ? 's' : ''}
+              </div>
+              <div className="flex gap-1 p-1 rounded-xl bg-surface-container-low/30 border border-outline-variant/8">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono text-[9px] uppercase tracking-widest transition-all ${
+                    viewMode === 'grid'
+                      ? 'bg-primary/20 text-primary border border-primary/25'
+                      : 'text-on-surface-variant/40 hover:text-on-surface-variant/60'
+                  }`}
+                >
+                  <span className="material-symbols-outlined !text-[13px]">grid_view</span>
+                  Grid
+                </button>
+                <button
+                  onClick={() => setViewMode('graph')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono text-[9px] uppercase tracking-widest transition-all ${
+                    viewMode === 'graph'
+                      ? 'bg-primary/20 text-primary border border-primary/25'
+                      : 'text-on-surface-variant/40 hover:text-on-surface-variant/60'
+                  }`}
+                >
+                  <span className="material-symbols-outlined !text-[13px]">hub</span>
+                  Graph
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Graph view */}
+          {!loading && viewMode === 'graph' && (
+            <RagaGraph
+              ragas={ragas}
+              selectedId={selectedRaga?.id}
+              onSelect={(r) => setSelectedRaga(r)}
+            />
+          )}
+
           {/* Raga grid */}
-          {loading ? (
+          {!loading && viewMode === 'graph' ? null : loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-8">
               {[0, 1, 2, 3, 4, 5].map(i => (
                 <div
