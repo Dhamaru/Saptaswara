@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAnonClient } from '@supabase/supabase-js'
+import { z } from 'zod'
 
 async function resolveUser(req: Request) {
   try {
@@ -22,6 +23,15 @@ async function resolveUser(req: Request) {
   if (!user) return null
   return { user, supabase: client }
 }
+
+// Fix 8-9: Strict schema validation for all preference fields.
+const PreferencesSchema = z.object({
+  skill_level:           z.enum(['Beginner', 'Student', 'Musician']).optional(),
+  onboarding_mood:       z.string().max(100).optional(),
+  onboarding_done:       z.boolean().optional(),
+  preferred_ragas:       z.array(z.string().max(100)).max(50).optional(),
+  preferred_instruments: z.array(z.string().max(100)).max(20).optional(),
+}).strict()
 
 export async function GET(req: Request) {
   try {
@@ -49,21 +59,31 @@ export async function PATCH(req: Request) {
     if (!resolved) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const { user, supabase } = resolved
 
-    let body: Record<string, unknown>
+    let rawBody: unknown
     try {
-      body = await req.json()
+      rawBody = await req.json()
     } catch {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
 
-    const ALLOWED = ['skill_level', 'onboarding_mood', 'preferred_ragas', 'preferred_instruments', 'onboarding_done']
-    const update: Record<string, unknown> = { user_id: user.id, updated_at: new Date().toISOString() }
-    for (const key of ALLOWED) {
-      if (key in body) update[key] = body[key]
+    // Fix 9: Validate all preference fields with Zod — prevents arbitrary data storage
+    // and ensures type safety (e.g. preferred_ragas must be string[], not a string).
+    const parsed = PreferencesSchema.safeParse(rawBody)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
     }
 
-    if (update.skill_level && !['Beginner', 'Student', 'Musician'].includes(update.skill_level as string)) {
-      return NextResponse.json({ error: 'Invalid skill_level' }, { status: 400 })
+    // Fix 8: Short-circuit if the body contains no recognized preference fields —
+    // previously an empty body still triggered an upsert that created a row with
+    // only user_id + updated_at.
+    if (Object.keys(parsed.data).length === 0) {
+      return NextResponse.json({ error: 'No preference fields provided' }, { status: 400 })
+    }
+
+    const update = {
+      user_id:    user.id,
+      updated_at: new Date().toISOString(),
+      ...parsed.data,
     }
 
     const { data, error } = await supabase

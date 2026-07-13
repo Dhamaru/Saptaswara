@@ -56,6 +56,11 @@ export async function POST(
     // 2. Await dynamic route param (Next.js 15+/16 params are async)
     const { id: layerId } = await params
 
+    // Fix 10: Validate layerId from URL before using it in any DB query.
+    if (!UUID_RE.test(layerId)) {
+      return NextResponse.json({ error: 'Invalid layer id' }, { status: 400 })
+    }
+
     // 3. Parse + validate request body
     let body: AnalyseBody
     try {
