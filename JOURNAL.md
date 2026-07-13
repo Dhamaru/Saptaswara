@@ -4,6 +4,58 @@ This file tracks daily progress, next steps, and serves as a continuous learning
 
 ---
 
+## 📅 Date: 2026-05-08
+
+### ✅ Work Completed
+
+1. **Triple AI Fallback**: AI chat and suggest routes now cascade through three providers: Gemini 2.0 Flash → Groq llama-3.3-70b → NVIDIA NIM llama-3.3-70b. Each tier activates only on quota or connectivity failure of the previous one. Added `GROQ_API_KEY` to env docs.
+
+2. **New Pages shipped**:
+   - `/riyaz` — grammar-aware swara practice surface with vadi/samvadi/varjya encoding, mic pitch detection, meend + andolan gamaka, gamaka history log, session stats overlay, record + playback, tradition filter (Hindustani / Carnatic).
+   - `/profile` — practice streak computed from `practice_logs` consecutive-day algorithm.
+   - `/import` — detect-raga from audio via `/api/audio/detect-raga`.
+   - `/explore/mood` — browse ragas by mood using `ragas.modern_moods[]`.
+
+3. **New API routes**:
+   - `POST /api/ai/beat-suggest` — AI-powered beat/rhythm suggestions.
+   - `POST /api/ai/generate` — structured AI melody generation for studio injection.
+   - `POST /api/audio/detect-raga` — raga detection from audio input.
+   - `GET /api/layers/[id]/analyse` — analyse a layer's swara conformance against raga grammar.
+   - `GET /api/ragas/mood/[mood]` — ragas filtered by `modern_moods[]` array.
+   - `GET /api/ragas/starter` — ragas where `starter_raga = true` for onboarding.
+   - `GET/PUT /api/users/preferences` — user preferences CRUD backed by `user_preferences` table.
+
+4. **DB Migrations**:
+   - `user_preferences` table — stores per-user UI and practice preferences.
+   - `ragas.modern_moods TEXT[]` — array of mood tags for mood explorer.
+   - `ragas.starter_raga BOOLEAN` — flags entry-level ragas for onboarding.
+   - `conformance_scores` table — stores per-session raga grammar conformance scores.
+   - `raga_embeddings` RLS hardened — owner-scoped policies applied.
+   - `match_ragas` function: `SET search_path = public` added to prevent search-path injection.
+   - `storage.recordings` — owner-scoped RLS so users can only read/write their own recordings.
+   - Grammar seed (`20260503000000_raga_grammar_seed.sql`) already shipped in prior session; now consumed by Riyaz grammar feedback.
+
+5. **Library enhancements**: mood filter chips, swara filter chips, load-more pagination.
+
+6. **Journal**: AI "Inspire me" writing prompt button — calls `/api/ai/chat` to stream a journaling prompt when the user wants a creative nudge before logging.
+
+7. **Studio**: ConformanceScore now wired and displayed. MIDI export via `midi-writer-js` (already existed; UI and API path confirmed end-to-end).
+
+8. **Auth**: `middleware.ts` added for Next.js route protection — unauthenticated users redirected to `/login` from protected routes. Magic link login (`signInWithOtp`) added to login page.
+
+9. **Riyaz grammar feedback**: after each swara play, feedback classifies the swara as vadi / samvadi / wrong-variety / varjya and shows a colour-coded callout. Uses `packages/core/src/ragaEngine.ts` grammar helpers (`getSwaraMeta`, `isVarjya`, `getVadiSamvadi`).
+
+10. **Documentation**: Updated `README.md`, `ARCHITECTURE.md`, `DESIGN.md`, `JOURNAL.md`. Deleted `Saptaswara_PRD_v2_Core.md` (all features shipped).
+
+### 🎯 Next Tasks
+1. **Chord mode in Studio** — hold Shift + click Piano key to add chord notes to same step.
+2. **Auth: password reset flow** — `/forgot-password` + `/reset-password` pages.
+3. **Library: offline mode** — IndexedDB cache with stale-while-revalidate indicator.
+4. **Raga relationship graph** — SVG/D3 thaat cluster visualization in Library.
+5. **Riyaz: Stage 2 mastery progression** — seven-stage model per raga (aroha → free improvisation).
+
+---
+
 ## 📅 Date: 2026-05-03
 
 ### ✅ Work Completed Today

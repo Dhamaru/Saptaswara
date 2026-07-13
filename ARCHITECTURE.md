@@ -52,7 +52,7 @@ Saptaswara is a full-stack Indian classical music studio built on **Next.js 16.2
 | Backend | Next.js API routes (route.ts) + Proxy (proxy.ts) |
 | Auth | Supabase Auth + Proxy Session Handling |
 | Database | Supabase (PostgreSQL) + pgvector |
-| AI generation | Google Generative AI — gemini-2.0-flash (primary), NVIDIA NIM llama-3.3-70b (429 fallback) |
+| AI generation | Google Generative AI — gemini-2.0-flash (primary) → Groq llama-3.3-70b (fallback) → NVIDIA NIM llama-3.3-70b (final fallback) |
 | AI embeddings | Google Generative AI — gemini-embedding-001 (768-dim) |
 | Input validation | Zod on all POST endpoints |
 | Rate limiting | Upstash Redis sliding window (ai: 20/60s, write: 60/60s, read: 200/60s); in-memory fallback in local dev |
@@ -67,20 +67,33 @@ Saptaswara is a full-stack Indian classical music studio built on **Next.js 16.2
 Saptaswara/
 ├── apps/
 │   └── web/                        # Next.js 16 application
+│       ├── middleware.ts             # Route protection — redirects unauthenticated users
 │       ├── app/
 │       │   ├── layout.tsx           # Root layout — ToastProvider > PlaybackProvider > CompositionProvider
 │       │   ├── page.tsx             # Landing page
+│       │   ├── loading.tsx          # Animated Sanskrit swaras shown during hydration
+│       │   ├── not-found.tsx        # 404 page with mesh gradient and CTAs
 │       │   ├── studio/page.tsx      # Main studio editor
 │       │   ├── library/page.tsx     # Raga library browser
-│       │   ├── journal/page.tsx     # Practice journal
-│       │   ├── login/page.tsx       # Email / OAuth login + Remember Me
+│       │   ├── journal/page.tsx     # Practice journal (log, heatmap, AI inspire prompt)
+│       │   ├── riyaz/page.tsx       # Grammar-aware swara practice surface
+│       │   ├── profile/page.tsx     # User profile + practice streak
+│       │   ├── import/page.tsx      # Detect-raga from audio
+│       │   ├── explore/mood/page.tsx # Browse ragas by mood
+│       │   ├── login/page.tsx       # Email / Google OAuth / magic link + Remember Me
 │       │   ├── signup/page.tsx      # Signup form
 │       │   ├── auth/callback/       # OAuth callback handler
 │       │   └── api/
-│       │       ├── ai/chat/route.ts
-│       │       ├── ai/suggest/route.ts
-│       │       ├── ai/generate/route.ts
+│       │       ├── ai/chat/route.ts         # SSE chat (triple AI fallback)
+│       │       ├── ai/suggest/route.ts      # Semantic raga suggestion (RAG)
+│       │       ├── ai/generate/route.ts     # Structured melody generation
+│       │       ├── ai/beat-suggest/route.ts # AI beat/rhythm suggestions
 │       │       ├── ai/mood/route.ts
+│       │       ├── audio/detect-raga/route.ts  # Raga detection from audio
+│       │       ├── layers/[id]/analyse/route.ts # Layer conformance analysis
+│       │       ├── ragas/mood/[mood]/route.ts   # Ragas by modern_moods[]
+│       │       ├── ragas/starter/route.ts        # Starter ragas for onboarding
+│       │       ├── users/preferences/route.ts    # User preferences CRUD
 │       │       ├── journal/route.ts
 │       │       ├── export/midi/route.ts
 │       │       └── projects/route.ts
@@ -143,7 +156,8 @@ Saptaswara/
         ├── 20260407120000_raga_phrases.sql
         ├── 20260408000000_fix_tradition_column.sql
         ├── 20260408120000_grant_anon_access.sql
-        └── 20260424000000_rls_hardening.sql
+        ├── 20260424000000_rls_hardening.sql
+        └── 20260503000000_raga_grammar_seed.sql
 ```
 
 **High-level service interaction:**
@@ -173,10 +187,14 @@ Browser
 | Route | File | Purpose |
 |---|---|---|
 | `/` | `app/page.tsx` | Landing page |
-| `/studio` | `app/studio/page.tsx` | Main studio editor (Piano, DrumPad, Assistant) |
-| `/library` | `app/library/page.tsx` | Raga library browser |
-| `/journal` | `app/journal/page.tsx` | Practice journal (log + history) |
-| `/login` | `app/login/page.tsx` | Email / OAuth login form |
+| `/studio` | `app/studio/page.tsx` | Multi-track sequencer, Piano, DrumPad, MIDI export, ConformanceScore |
+| `/library` | `app/library/page.tsx` | Raga browser — mood/swara filters, sort, compare, load-more |
+| `/riyaz` | `app/riyaz/page.tsx` | Grammar-aware swara practice — gamaka, mic pitch detection, stats |
+| `/journal` | `app/journal/page.tsx` | Practice log, AI "Inspire me" prompt, monthly heatmap, streak |
+| `/profile` | `app/profile/page.tsx` | User profile, practice streak from `practice_logs` |
+| `/import` | `app/import/page.tsx` | Detect-raga from audio |
+| `/explore/mood` | `app/explore/mood/page.tsx` | Browse ragas by mood tag |
+| `/login` | `app/login/page.tsx` | Email / Google OAuth / magic link + Remember Me |
 | `/signup` | `app/signup/page.tsx` | Signup form |
 | `/auth/callback` | `app/auth/callback/` | OAuth callback handler |
 
@@ -353,7 +371,8 @@ All API routes live under `apps/web/app/api/**/route.ts`. Validation uses **Zod*
 |---|---|
 | Auth | Bearer token → `anonClient.auth.getUser(token)` → 401 if fails |
 | Rate limit | `checkRateLimit(user.id, 'ai')` → 429 if exceeded (20 req/60s) |
-| External | Gemini 2.0 Flash (primary SSE stream); NVIDIA NIM llama-3.3-70b (429 fallback) |
+| Runtime | Edge Runtime (`export const runtime = 'edge'`) for low cold-start latency |
+| External | **Triple fallback**: Gemini 2.0 Flash (primary SSE) → Groq llama-3.3-70b → NVIDIA NIM llama-3.3-70b |
 
 **Request body:**
 ```json
@@ -629,7 +648,7 @@ API Route
     ├── Verify token (getUser)
     ├── Check rate limit
     ├── Build system prompt (Neural Resonance Engine persona + raga context)
-    └── Call generateContentStream() on gemini-flash-latest
+    └── Try Gemini 2.0 Flash → on quota/error: Groq llama-3.3-70b → on error: NVIDIA NIM llama-3.3-70b
             │
             ▼
         Stream chunks back as SSE:
@@ -701,6 +720,9 @@ API Route
 | tradition | TEXT | CHECK ('Hindustani', 'Carnatic') |
 | melakarta_number | INTEGER | Carnatic only |
 | embedding | vector(768) | For semantic search |
+| grammar | JSONB | Per-swara metadata (weight/direction/varjya/nyasa/ornaments) |
+| modern_moods | TEXT[] | Array of mood tags for mood explorer |
+| starter_raga | BOOLEAN | Flags entry-level ragas for onboarding |
 | created_at | TIMESTAMPTZ | DEFAULT now() |
 
 #### projects
@@ -745,6 +767,26 @@ API Route
 | raga_id | UUID FK | → ragas ON DELETE CASCADE |
 | label | TEXT | e.g. 'Arohi' |
 | sequence | TEXT[] | e.g. ['Sa', 'Re', 'Ga'] |
+| created_at | TIMESTAMPTZ | |
+
+#### user_preferences
+
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | gen_random_uuid() |
+| user_id | UUID FK | → auth.users ON DELETE CASCADE |
+| preferences | JSONB | UI and practice preference bag |
+| updated_at | TIMESTAMPTZ | |
+
+#### conformance_scores
+
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | gen_random_uuid() |
+| user_id | UUID FK | → auth.users ON DELETE CASCADE |
+| raga_id | UUID FK | → ragas |
+| session_id | TEXT | Studio session identifier |
+| score | FLOAT | 0–1 raga grammar conformance |
 | created_at | TIMESTAMPTZ | |
 
 ### Row-Level Security (RLS) Policies
@@ -804,6 +846,8 @@ Supabase verifies the JWT and sets `auth.uid()` to the user's UUID for that conn
 | 4 | `20260407120000_raga_phrases.sql` | Creates `raga_phrases` table, adds `melakarta_number` to `ragas`, seeds 72 Melakarta ragas |
 | 5 | `20260408000000_fix_tradition_column.sql` | Adds CHECK constraint, removes DEFAULT from `tradition` column |
 | 6 | `20260408120000_grant_anon_access.sql` | `GRANT SELECT ON ALL TABLES TO anon` role |
+| 7 | `20260424000000_rls_hardening.sql` | Explicit per-operation RLS policies (INSERT/SELECT/UPDATE/DELETE) on `projects`, `layers`, `practice_logs` |
+| 8 | `20260503000000_raga_grammar_seed.sql` | `ALTER TABLE ragas ADD COLUMN grammar JSONB`; adds `modern_moods TEXT[]`, `starter_raga BOOLEAN`; creates `user_preferences` + `conformance_scores` tables; seeds grammar for 10 ragas (Yaman, Bhairav, Bhairavi, Darbari, Kafi, Todi, Bilawal, Khamaj, Bhoopali, Bageshri); `match_ragas` function patched with `SET search_path = public`; `storage.recordings` owner-scoped RLS added |
 
 ---
 
@@ -817,11 +861,18 @@ Supabase verifies the JWT and sets `auth.uid()` to the user's UUID for that conn
        ├── OAuth: supabase.auth.signInWithOAuth({ provider: 'google' })
        │       └── Redirect to Google → redirect to /auth/callback → session set
        │
-       └── Email: supabase.auth.signInWithPassword({ email, password })
-               └── Session cookie set by Supabase
+       ├── Email/password: supabase.auth.signInWithPassword({ email, password })
+       │       └── Session cookie set by Supabase
+       │
+       └── Magic link: supabase.auth.signInWithOtp({ email })
+               └── Email with login link → redirect to /auth/callback → session set
 
 2. Supabase issues a JWT stored as an httpOnly session cookie
 ```
+
+### Route Protection (`middleware.ts`)
+
+`apps/web/middleware.ts` intercepts all requests. Protected routes (`/studio`, `/journal`, `/riyaz`, `/profile`, `/import`, `/explore/*`) redirect unauthenticated users to `/login`. Public routes (`/`, `/library`, `/login`, `/signup`, `/auth/*`, `/api/*`) pass through without auth check.
 
 ### Token Lifecycle in API Calls
 
@@ -1059,7 +1110,8 @@ Tests for `AudioEngine` (singleton):
 
 | Variable | Service | Notes |
 |---|---|---|
-| `NVIDIA_API_KEY` | NVIDIA NIM | Gemini 429 quota fallback (llama-3.3-70b) |
+| `GROQ_API_KEY` | Groq | Second AI fallback (llama-3.3-70b) |
+| `NVIDIA_API_KEY` | NVIDIA NIM | Third AI fallback (llama-3.3-70b) |
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Upstash | Distributed rate limiting; falls back to in-memory without these |
 | `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_ORG` + `SENTRY_PROJECT` + `SENTRY_AUTH_TOKEN` | Sentry | Error tracking (production only) |
 
@@ -1213,44 +1265,46 @@ curl -X DELETE "http://localhost:3000/api/projects?id=<project-uuid>" \
 
 ---
 
-## 13. Product Roadmap — Musical Intelligence
+## 13. Musical Intelligence — Shipped & Roadmap
 
-This section records the output of the six-area musical intelligence analysis conducted in April 2026. Each area was analyzed across multiple approaches; this section documents only the **chosen approach and its staged implementation plan**. The full tradeoff analysis lives in JOURNAL.md.
+This section records the six-area musical intelligence plan from April 2026. Status updated as of 2026-05-08.
 
-The dependency graph across all six areas:
+**Shipped summary:**
+- Raga Grammar Engine (Stage 1 — per-swara metadata): ✅ shipped in `ragaEngine.ts` + grammar seed migration
+- Ornament synthesis primitives (`playMeend`, `playAndolan`, `playGamak`): ✅ shipped in `audio.ts`
+- Authentic Mode (auto-ornamentation in Studio + Riyaz): ✅ shipped
+- Tala Layer + Tala Visualizer (TransportBar): ✅ shipped
+- Swara Pad + Session Tracking + Journal heatmap + streak: ✅ shipped
+- `/riyaz` practice surface (Stage 1 + Stage 2 feedback): ✅ shipped
+- Inline Phrase Validator (Studio live notation panel): ✅ shipped
+- ConformanceScore wired: ✅ shipped
+
+**Remaining roadmap (not yet shipped):**
 
 ```
-Raga Grammar Engine  ←  foundation for everything below
+Raga Grammar Engine Stage 2 (transition constraints) → Stage 3 (probabilistic weighting)
         │
-        ├── Tala Layer
-        │
-        ├── Swara Data Model
-        │         └── Ornament Synthesis Primitives
-        │                     └── Auto Ornamentation
-        │
-        ├── Composition-Aware AI Chat
-        │         └── Inline Phrase Validator → Phrase Generator
-        │
-        └── Session Tracking
-                  └── Mastery Progression → Alankar Engine → Riyaz Companion
+        ├── Chord mode in Studio (StepEvent[] per step — schema change)
+        ├── Phrase Generator with Ghost Preview
+        ├── Riyaz Stage 2–4 (mastery progression → alankar engine → Riyaz Companion)
+        ├── Raga relationship graph (SVG/D3 thaat clusters)
+        └── Guru Mode / Saptaswara Learn (future product surface)
 ```
-
-The single highest-leverage investment is the **Raga Grammar Engine**. Every other system either depends on it or is significantly stronger with it.
 
 ---
 
 ### 13.1 Raga-Aware Scale System
 
-**Chosen approach: Layered Grammar (staged as A → D)**
+**Status: Stage 1 ✅ shipped. Stages 2–4 pending.**
 
 The raga is modeled in four layers, implemented incrementally:
 
-| Stage | Layer | What it adds |
-|---|---|---|
-| 1 (now) | Note metadata | Per-swara tags: `direction` (aroha/avaroha/both), `weight` (vadi/samvadi/normal), `nyasa` (boolean), `varjya` (boolean) |
-| 2 | Phrase layer | Pakad and 2–3 chalan phrases stored per raga; surfaced as seed phrases in the studio |
-| 3 | Transition constraints | Permitted swara-to-swara transitions encode movement grammar; validates phrase sequences |
-| 4 | Probabilistic weighting | Transition rules become weighted distributions; used by AI suggestion sampling |
+| Stage | Layer | What it adds | Status |
+|---|---|---|---|
+| 1 | Note metadata | Per-swara tags: `direction`, `weight`, `nyasa`, `varjya` | ✅ Shipped |
+| 2 | Phrase layer | Pakad and chalan phrases stored per raga; seed phrases in studio | Pending |
+| 3 | Transition constraints | Permitted swara-to-swara transitions; phrase validation | Pending |
+| 4 | Probabilistic weighting | Weighted distributions for AI suggestion sampling | Pending |
 
 **Data model addition (Stage 1):**
 ```typescript
@@ -1287,6 +1341,8 @@ interface RagaGrammar {
 ---
 
 ### 13.2 Tala / Rhythm Engine
+
+**Status: ✅ Shipped — Tala data model, Tala Visualizer (matra strip in TransportBar), Laya presets.**
 
 **Chosen approach: Tala Layer on Existing Sequencer (Approach D), with real-time Performance Mode deferred**
 
@@ -1342,6 +1398,8 @@ interface Vibhag {
 
 ### 13.3 Swara-Based Composition Interface
 
+**Status: Stage 1 (Swara Pad) ✅ shipped in `/riyaz`. Stages 2–3 pending.**
+
 **Chosen approach: Multi-Modal Workspace (Approach D), staged as Swara Pad → Sargam Text → Alap Mode**
 
 The underlying data model changes from raw frequencies to a swara sequence. All input modes write to the same model; all views are renderings of it.
@@ -1389,6 +1447,8 @@ interface SwaraEvent {
 ---
 
 ### 13.4 Ornament System
+
+**Status: Stage 1 (synthesis primitives) ✅ shipped. Stage 2 (Authentic Mode auto-ornamentation) ✅ shipped. Stage 3 (user annotation per note) pending.**
 
 **Chosen approach: Layered Ornament Engine (Approach D) — Synthesis Primitives → Auto Ornamentation → User Annotation**
 
@@ -1463,6 +1523,8 @@ Add four methods to `AudioEngine`:
 
 ### 13.5 AI-Assisted Guidance
 
+**Status: Layer 1 (composition-aware chat, triple fallback) ✅ shipped. Layer 2 (inline phrase validator) ✅ shipped in Studio. Layer 3 (phrase generator with ghost preview) pending.**
+
 **Chosen approach: Three-layer system — Composition-Aware Chat → Inline Phrase Validator → Phrase Generator with Ghost Preview**
 
 The current chat assistant is stateless and has no access to the composition. All three layers are built sequentially; each is independently valuable.
@@ -1529,6 +1591,8 @@ The LLM generates; the grammar engine validates; only valid output reaches the u
 ---
 
 ### 13.6 Practice Intelligence — Saptaswara Riyaz
+
+**Status: Stage 1 (session tracking, swara pad, grammar feedback) ✅ shipped. Stage 2 (mastery progression) partially shipped (grammar feedback wired; formal 7-stage curriculum pending). Stages 3–4 pending.**
 
 **Chosen approach: Dedicated `/riyaz` surface with four sequential stages**
 

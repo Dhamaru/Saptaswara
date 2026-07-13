@@ -94,3 +94,6 @@ opacity: 70%  /* visible, not washed */
 - **Void Space**: Lean into negative space. Crowded region → increase tonal contrast, not more elements.
 - **Immersive Keyboard**: In immersive mode, keyboard always takes full width. Side panels use `position: fixed` to sit outside the layout flow at viewport edges.
 - **Remember Me**: Login page persists email to `localStorage` under key `saptaswara-remember-email`. No backend involvement — Supabase session already persists auth state independently.
+- **Magic Link**: Login page includes an inline "Send magic link" flow (`signInWithOtp`). Expands in-place — no separate page.
+- **Route protection**: `middleware.ts` redirects unauthenticated users to `/login`. Protected routes: `/studio`, `/journal`, `/riyaz`, `/profile`, `/import`, `/explore/*`.
+- **Riyaz color encoding**: On the `/riyaz` surface, swara cards use amber for vadi, sky-blue for samvadi, and dimmed/disabled for varjya — consistent with Piano key highlighting in Studio.

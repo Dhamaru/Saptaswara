@@ -233,21 +233,18 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
     return () => { abortRef.current?.abort() }
   }, [])
 
-  // ── Context Switch Detection ──
+  // ── Context Switch Detection — fresh chat per raga ──
   const prevRagaId = useRef<string | null>(ragaContext?.id || null)
   useEffect(() => {
     if (ragaContext && ragaContext.id !== prevRagaId.current) {
-      if (prevRagaId.current !== null) {
-        const vadi = formatMeta(ragaContext.vadi)
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: `Now exploring **${ragaContext.name}**${vadi ? ` — remember, **${vadi}** is the heart of this raga` : ''}. How can I help with this new context?`
-          }
-        ])
-      }
       prevRagaId.current = ragaContext.id
+      const vadi = formatMeta(ragaContext.vadi)
+      const greeting: Message = {
+        role: 'assistant',
+        content: `I'm analysing **${ragaContext.name}**${vadi ? ` — a raga whose soul lives in the note **${vadi}** (Vadi)` : ''}. Ask me about its grammar, suggest a practice exercise, or request a melodic pattern.`,
+      }
+      setMessages([greeting])
+      try { localStorage.removeItem(STORAGE_KEY) } catch {}
     }
   }, [ragaContext])
 
