@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 interface DetectResult {
   raga: string | null
@@ -17,6 +18,7 @@ export function RagaDetector() {
   const [error, setError] = useState<string | null>(null)
   const mediaRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const supabase = createClient()
 
   async function startRecording() {
     try {
@@ -48,7 +50,11 @@ export function RagaDetector() {
       const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
       const fd = new FormData()
       fd.append('audio', blob, 'recording.webm')
-      const res = await fetch('/api/audio/detect-raga', { method: 'POST', body: fd })
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {}
+      const res = await fetch('/api/audio/detect-raga', { method: 'POST', body: fd, headers })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? 'Detection failed'); setState('error'); return }
       setResult(json)

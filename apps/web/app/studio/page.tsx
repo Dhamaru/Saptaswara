@@ -261,7 +261,7 @@ function StudioContent() {
     }
   }, [activeTradition, setSelectedTala])
 
-  const [projectId, setProjectId] = useState<string | null>(ragaIdFromUrl)
+  const [projectId, setProjectId] = useState<string | null>(searchParams.get('project_id'))
   const [projectName, setProjectName] = useState('Untitled Composition')
   const [detectedPhrases, setDetectedPhrases] = useState<any[]>([])
   const [ragasLoading, setRagasLoading] = useState(true)
@@ -275,6 +275,8 @@ function StudioContent() {
   const [saveModalTitle, setSaveModalTitle] = useState('')
   const [showMoodPicker, setShowMoodPicker] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [showSeqTip, setShowSeqTip] = useState(false)
 
   const [showLearnGuide, setShowLearnGuide] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
@@ -300,6 +302,20 @@ function StudioContent() {
   const bpmRef    = useRef(bpm)
   const swingRef  = useRef(swingAmount)
   const loopRef   = useRef(loopLength)
+
+  // ── First-visit sequencer tip ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!localStorage.getItem('saptaswara-seq-tip-done')) setShowSeqTip(true)
+  }, [])
+
+  // ── Unsaved-changes guard: warn before browser close / refresh ────────────────
+  useEffect(() => {
+    const hasContent = tracks.some(t => t.sequence.some(Boolean))
+    if (!hasContent || saveStatus === 'saved' || saveStatus === 'saving') return
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [tracks, saveStatus])
 
   // Ref for save handler — avoids stale closure in saveTriggered effect (BUG-001)
   // Ref for mounted state — guards async setState after unmount (BUG-004)
@@ -450,6 +466,35 @@ function StudioContent() {
       setUser(activeUser)
       setAccessToken(token)
       await loadRagas()
+
+      // Restore saved project if project_id is in URL
+      const projectIdParam = searchParams.get('project_id')
+      if (projectIdParam && token) {
+        try {
+          const res = await fetch(`/api/projects?id=${encodeURIComponent(projectIdParam)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (res.ok) {
+            const { project, layers } = await res.json()
+            if (project?.title) setProjectName(project.title)
+            if (typeof project?.bpm === 'number') setBpm(project.bpm)
+            const melodyLayer = (layers as any[])?.find((l: any) => l.type === 'melody')
+            const saved: (any | null)[] | undefined = melodyLayer?.events?.sequence
+            if (Array.isArray(saved) && saved.length > 0) {
+              const len = saved.length
+              if (len === 8 || len === 16 || len === 32) setLoopLength(len as 8 | 16 | 32)
+              setTracks(prev => prev.map(t =>
+                t.type === 'melody' ? { ...t, sequence: saved } : t
+              ))
+            }
+            // Mark as saved so beforeunload guard doesn't fire on fresh load
+            setSaveStatus('saved')
+            if (project?.updated_at) setLastSavedAt(new Date(project.updated_at))
+          }
+        } catch {
+          // Restoration failed silently — user sees empty studio and can still compose
+        }
+      }
     }
     init()
   }, [searchParams, loadRagas])
@@ -562,9 +607,18 @@ function StudioContent() {
     setBeatLoading(true)
     setBeatSuggestions([])
     try {
+      let token = accessToken
+      if (!token) {
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        token = session?.access_token ?? null
+        if (token) setAccessToken(token)
+      }
       const res = await fetch('/api/ai/beat-suggest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ ragaName: selectedRaga.name, mood: selectedRaga.mood ?? '' }),
       })
       const json = await res.json()
@@ -579,6 +633,7 @@ function StudioContent() {
   const loadBeatPattern = (hits: Array<{step: number, stroke: string}>) => {
     const trackId = tracks.find(t => t.type === 'rhythm' && t.id === activeTrackId)?.id ?? activeTrackId
     pushHistory(tracks)
+    setSaveStatus(s => s === 'saved' ? 'idle' : s)
     setTracks(prev => prev.map(t => {
       if (t.id !== trackId) return t
       const seq: (StepEvent | null)[] = new Array(loopLength).fill(null)
@@ -594,6 +649,7 @@ function StudioContent() {
   // ── Step toggling ─────────────────────────────────────────────────────────────
   const handleToggleStep = (stepIdx: number, value: StepEvent, trackId = activeTrackId) => {
     pushHistory(tracks)
+    setSaveStatus(s => s === 'saved' ? 'idle' : s)
     setTracks(prev => prev.map(t => {
       if (t.id !== trackId) return t
       const seq = [...t.sequence]
@@ -987,13 +1043,14 @@ function StudioContent() {
         body: JSON.stringify({ projectId, title: saveTitle, raga_id: selectedRaga?.id, bpm, sequence: melodyTrack.sequence }),
       })
       const data = await res.json()
-      if (data.id) {
+      if (res.ok && data.id) {
         setProjectId(data.id)
         setProjectName(saveTitle)
         setShowSaveModal(false)
         setSaveStatus('saved')
-        setTimeout(() => setSaveStatus('idle'), 3000)
+        setLastSavedAt(new Date())
       } else {
+        console.error('Save failed:', data.error ?? data)
         setSaveStatus('error')
         setTimeout(() => setSaveStatus('idle'), 4000)
       }
@@ -1022,9 +1079,18 @@ function StudioContent() {
     setGenerateLoading(true)
     setGenerateError(null)
     try {
+      let token = accessToken
+      if (!token) {
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        token = session?.access_token ?? null
+        if (token) setAccessToken(token)
+      }
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           ragaName: selectedRaga.name,
           aroha:    selectedRaga.aroha   ?? [],
@@ -1042,6 +1108,7 @@ function StudioContent() {
       const melodyId = tracks.find(t => t.type === 'melody')?.id ?? tracks[0].id
       setActiveTrackId(melodyId)
       pushHistory(tracks)
+      setSaveStatus(s => s === 'saved' ? 'idle' : s)
       setTracks(prev => prev.map(t => {
         if (t.id !== melodyId) return t
         const seq: (StepEvent | null)[] = Array(loopLength).fill(null)
@@ -1619,17 +1686,32 @@ function StudioContent() {
                 MIDI
               </button>
             )}
-            <button
-              id="save-project-btn"
-              onClick={() => { setSaveModalTitle(projectName); setShowSaveModal(true) }}
-              disabled={saveStatus === 'saving'}
-              className="flex items-center gap-2 px-3 md:px-5 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {saveStatus === 'saving' && <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />}
-              {saveStatus === 'saved'  && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
-              {saveStatus === 'error'  && <div className="w-2.5 h-2.5 rounded-full bg-red-400" />}
-              {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Error' : 'Save'}
-            </button>
+            <div className="flex flex-col items-end gap-0.5">
+              <button
+                id="save-project-btn"
+                onClick={() => { setSaveModalTitle(projectName); setShowSaveModal(true) }}
+                disabled={saveStatus === 'saving'}
+                className={`flex items-center gap-2 px-3 md:px-5 py-2 rounded-xl font-mono text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${
+                  saveStatus === 'error'
+                    ? 'bg-red-500/10 border border-red-400/40 text-red-400 hover:bg-red-500/20'
+                    : saveStatus === 'saved'
+                    ? 'bg-emerald-500/10 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/20'
+                    : 'bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20'
+                }`}
+              >
+                {saveStatus === 'saving' && <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />}
+                {saveStatus === 'saved'  && <span className="material-symbols-outlined !text-sm">check_circle</span>}
+                {saveStatus === 'error'  && <span className="material-symbols-outlined !text-sm">error</span>}
+                {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Save failed — retry' : 'Save'}
+              </button>
+              {lastSavedAt && saveStatus !== 'saving' && (
+                <span className="font-mono text-[7px] text-on-surface-variant/30 tracking-widest pr-1">
+                  {saveStatus === 'saved'
+                    ? `Last saved ${lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : 'Unsaved changes'}
+                </span>
+              )}
+            </div>
             {isStarted && (
               <button
                 onClick={() => setShowEarTraining(true)}
@@ -1673,6 +1755,20 @@ function StudioContent() {
                   <p className="font-mono text-[7px] uppercase tracking-widest text-on-surface-variant/30 font-bold">
                     Select step → press key to record · Shift+click filled step to cycle velocity
                   </p>
+                  {showSeqTip && (
+                    <div className="mt-2 flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-primary/8 border border-primary/20 animate-fade-in max-w-xl">
+                      <span className="material-symbols-outlined !text-sm text-primary/60 mt-0.5 flex-shrink-0">touch_app</span>
+                      <p className="font-sans text-[11px] text-on-surface/70 leading-relaxed flex-1">
+                        <strong className="text-on-surface/90">How to compose:</strong> Click a step cell to select it (it highlights), then click a piano key or press a keyboard shortcut to place that note. Click a filled step to remove it.
+                      </p>
+                      <button
+                        onClick={() => { setShowSeqTip(false); localStorage.setItem('saptaswara-seq-tip-done', '1') }}
+                        className="flex-shrink-0 font-mono text-[8px] uppercase tracking-widest text-primary/60 hover:text-primary border border-primary/20 hover:border-primary/40 rounded-lg px-2 py-1 transition-all"
+                      >
+                        Got it
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">

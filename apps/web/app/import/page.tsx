@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { Upload, Music, ArrowLeft, AlertCircle } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 const ACCEPT = '.mp3,.wav,.m4a,.aac,.webm'
 const MAX_MB = 10
@@ -25,6 +26,7 @@ export default function ImportPage() {
   const [fileName, setFileName] = useState<string>('')
   const [isDragOver, setIsDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const supabase = createClient()
 
   const processFile = useCallback(async (file: File) => {
     if (file.size > MAX_MB * 1024 * 1024) {
@@ -42,7 +44,11 @@ export default function ImportPage() {
     formData.append('audio', file)
 
     try {
-      const res = await fetch('/api/audio/detect-raga', { method: 'POST', body: formData })
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {}
+      const res = await fetch('/api/audio/detect-raga', { method: 'POST', body: formData, headers })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Detection failed')
       setResult(data)

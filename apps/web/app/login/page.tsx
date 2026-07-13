@@ -224,12 +224,13 @@ export default function LoginPage() {
           <div className="space-y-3">
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 const origin = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
-                supabase.auth.signInWithOAuth({
+                const { error: oauthError } = await supabase.auth.signInWithOAuth({
                   provider: 'google',
                   options: { redirectTo: `${origin}/auth/callback?next=/dashboard` },
                 })
+                if (oauthError) setError('Google sign-in is not available right now. Use email and password instead.')
               }}
               className="w-full py-3.5 rounded-2xl border border-outline-variant/20 bg-surface-container-low flex items-center justify-center gap-3 font-sans text-sm text-on-surface hover:border-primary/30 hover:bg-surface-container-high transition-all"
             >

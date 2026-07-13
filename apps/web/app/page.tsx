@@ -81,7 +81,7 @@ export default function LandingPage() {
         <div className="lg:col-span-2 group relative h-64 md:h-80 bg-surface-lowest rounded-[32px] md:rounded-[40px] border border-outline-variant/5 hover:border-outline-variant/20 transition-all p-6 md:p-12 overflow-hidden shadow-2xl">
            <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none group-hover:opacity-20 transition-opacity">
               <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 70% 30%, var(--primary) 0%, transparent 70%)' }} />
-              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-200" />
+              <div className="absolute inset-0 opacity-20 brightness-200" style={{backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E\")"}} />
            </div>
            
             <div className="relative z-20 h-full flex flex-col justify-between">

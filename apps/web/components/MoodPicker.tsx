@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 interface MoodRaga {
   name: string
@@ -39,6 +40,7 @@ export function MoodPicker({ open, onClose, onSelectRaga }: MoodPickerProps) {
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<MoodRaga[]>([])
   const [error, setError] = useState<string | null>(null)
+  const supabase = createClient()
 
   if (!open) return null
 
@@ -54,9 +56,13 @@ export function MoodPicker({ open, onClose, onSelectRaga }: MoodPickerProps) {
     setError(null)
     setResults([])
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/ai/mood', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ mood }),
       })
       const data = await res.json()

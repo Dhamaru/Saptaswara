@@ -26,7 +26,7 @@ async function resolveUser(req: Request) {
   return { user: tokenUser, supabase: anonClient }
 }
 
-// GET: List all projects for the authenticated user
+// GET: List all projects, or fetch a single project with layers if ?id= is provided
 export async function GET(req: Request) {
   try {
     const resolved = await resolveUser(req)
@@ -34,6 +34,34 @@ export async function GET(req: Request) {
     const { user, supabase } = resolved
     const rl = await checkRateLimit(user.id, 'read')
     if (!rl.allowed) return rateLimitedResponse(rl)
+
+    const { searchParams } = new URL(req.url)
+    const id = searchParams.get('id')
+
+    if (id) {
+      if (!/^[0-9a-f-]{36}$/i.test(id)) {
+        return NextResponse.json({ error: 'Invalid project id' }, { status: 400 })
+      }
+      const { data: project, error: pErr } = await supabase
+        .from('projects')
+        .select('id, title, raga_id, bpm, updated_at')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+      if (pErr || !project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+
+      const { data: layers, error: lErr } = await supabase
+        .from('layers')
+        .select('id, name, type, events')
+        .eq('project_id', id)
+        .order('created_at', { ascending: true })
+      if (lErr) {
+        console.error('Layers GET error:', lErr)
+        return NextResponse.json({ error: 'Failed to load layers' }, { status: 500 })
+      }
+
+      return NextResponse.json({ project, layers: layers || [] })
+    }
 
     const { data, error } = await supabase
       .from('projects')
@@ -93,6 +121,12 @@ export async function POST(req: Request) {
     // Build update payload — only include fields present in the request.
     const projectUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (title !== undefined) projectUpdate.title = title
+    if (bpm !== undefined) {
+      if (typeof bpm !== 'number' || bpm < 40 || bpm > 200) {
+        return NextResponse.json({ error: 'bpm must be between 40 and 200' }, { status: 400 })
+      }
+      projectUpdate.bpm = bpm
+    }
 
     // Fix 4: Use .select().single() so Supabase returns PGRST116 if 0 rows match
     // (wrong ID or ownership mismatch). Without this, a 0-row update returns no error

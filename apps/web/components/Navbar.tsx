@@ -42,6 +42,9 @@ export default function Navbar() {
 
   const handleAuthAction = async () => {
     if (user) {
+      if (pathname?.startsWith('/studio')) {
+        if (!window.confirm('Leave Studio? Unsaved changes will be lost.')) return
+      }
       await supabase.auth.signOut()
       window.location.href = '/'
     } else {

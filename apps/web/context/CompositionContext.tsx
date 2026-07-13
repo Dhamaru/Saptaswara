@@ -26,7 +26,9 @@ export function CompositionProvider({ children }: { children: React.ReactNode })
 
   // On mount: resolve user → derive storage key → load draft
   useEffect(() => {
+    let cancelled = false
     createClient().auth.getUser().then((res: { data: { user: User | null } }) => {
+      if (cancelled) return
       const user = res.data.user
       const key = user ? `composition_${user.id}` : 'composition_guest'
       setStorageKey(key)
@@ -42,6 +44,7 @@ export function CompositionProvider({ children }: { children: React.ReactNode })
         }
       } catch { /* corrupt storage — ignore */ }
     })
+    return () => { cancelled = true }
   }, [])
 
   // Debounced auto-save (500 ms) — persists to user-scoped key
