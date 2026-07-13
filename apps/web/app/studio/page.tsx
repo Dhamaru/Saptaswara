@@ -1919,45 +1919,6 @@ function StudioContent() {
           />
         )}
 
-        {/* ── Immersive Raga Reference Bar ── */}
-        {isImmersive && selectedRaga?.aroha && selectedRaga?.avaroha && (
-          <div className="fixed top-0 left-0 right-0 z-[250] flex items-center justify-center gap-6 px-6 py-2.5 bg-surface-lowest/85 border-b border-outline-variant/10 backdrop-blur-xl animate-fade-in">
-            <span className="font-display text-xs font-light text-primary/80 uppercase tracking-widest flex-shrink-0">
-              {selectedRaga.name}
-            </span>
-            <div className="w-px h-4 bg-outline-variant/20 flex-shrink-0" />
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 flex-shrink-0">Aroha</span>
-              <span className="font-label text-xs text-on-surface/80 truncate">
-                {(selectedRaga.aroha as string[]).map(swaraDisplayName).join(' – ')}
-              </span>
-            </div>
-            <div className="w-px h-4 bg-outline-variant/20 flex-shrink-0" />
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 flex-shrink-0">Avaroha</span>
-              <span className="font-label text-xs text-on-surface/80 truncate">
-                {(selectedRaga.avaroha as string[]).map(swaraDisplayName).join(' – ')}
-              </span>
-            </div>
-            {selectedRaga.vadi && (
-              <>
-                <div className="w-px h-4 bg-outline-variant/20 flex-shrink-0" />
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-[8px] uppercase tracking-widest text-amber-400/60">Vadi</span>
-                    <span className="font-label text-sm font-bold text-amber-400">{swaraDisplayName(selectedRaga.vadi)}</span>
-                  </div>
-                  {selectedRaga.samvadi && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[8px] uppercase tracking-widest text-blue-400/60">Samvadi</span>
-                      <span className="font-label text-sm font-bold text-blue-400">{swaraDisplayName(selectedRaga.samvadi)}</span>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
 
         {/* ── Immersive HUD ── */}
         {isImmersive && (
