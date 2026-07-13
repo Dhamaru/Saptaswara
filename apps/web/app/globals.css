@@ -4,28 +4,31 @@
 
 @layer base {
   :root {
-    --background: #0A0E14;
-    --surface: #0F1520;
-    --surface-lowest: #080C12;
-    --surface-highest: #1E2D42;
-    --surface-container-lowest: #080C12;
-    --surface-container-low: #111827;
-    --surface-container: #172033;
-    --surface-container-high: #1E2A3D;
-    --surface-container-highest: #253447;
-    --surface-bright: #243049;
-    --surface-variant: #1A2638;
-    --on-surface: #E8F4FD;
-    --on-surface-variant: #A8C8E8;
-    --on-primary: #031526;
-    --primary: #7DD3FC;
-    --primary-container: #0C4A6E;
-    --primary-light: #E0F2FE;
-    --secondary: #34D399;
-    --secondary-container: #065F46;
-    --outline: #4A6FA5;
-    --outline-variant: #1E3A5F;
-    --accent: #38BDF8;
+    /* Comfortable dark navy — not pitch-black, not neon */
+    --background: #0D1117;
+    --surface: #161B22;
+    --surface-lowest: #0D1117;
+    --surface-highest: #2D3748;
+    --surface-container-lowest: #0D1117;
+    --surface-container-low: #1C2333;
+    --surface-container: #212C3E;
+    --surface-container-high: #2A374F;
+    --surface-container-highest: #344260;
+    --surface-bright: #2D3748;
+    --surface-variant: #1E2A3D;
+    /* Soft off-white text — easier on eyes than pure white */
+    --on-surface: #C9D1D9;
+    --on-surface-variant: #8B949E;
+    --on-primary: #0A1929;
+    /* Mid-tone sky blue — readable, not neon */
+    --primary: #58A6FF;
+    --primary-container: #0D419D;
+    --primary-light: #A5D6FF;
+    --secondary: #3FB950;
+    --secondary-container: #1A4228;
+    --outline: #3D5873;
+    --outline-variant: #21354D;
+    --accent: #79C0FF;
   }
 
   [data-theme="light"] {

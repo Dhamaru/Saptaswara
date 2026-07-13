@@ -400,7 +400,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
         /* ── Minimised FAB ── */
         <button
           onClick={() => setIsMinimized(false)}
-          className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center shadow-glow hover:scale-110 active:scale-95 transition-all group relative"
+          className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-glow hover:scale-110 active:scale-95 transition-all group relative"
           title="Open Raga Assistant"
         >
           <span className="material-symbols-outlined text-white !text-2xl animate-pulse group-hover:animate-none">auto_fix_high</span>
@@ -417,7 +417,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
           {/* Header */}
           <div className="px-5 py-3.5 border-b border-outline-variant/10 flex items-center justify-between bg-surface-lowest/50 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center shadow-glow shrink-0">
+              <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-glow shrink-0">
                 <span className="material-symbols-outlined text-white !text-lg">auto_fix_high</span>
               </div>
               <div>
@@ -519,7 +519,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
               <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-sm break-words overflow-x-hidden word-spacing-normal ${
                   m.role === 'assistant'
-                    ? 'bg-gradient-to-br from-primary/90 to-primary-container text-white shadow-glow'
+                    ? 'bg-gradient-to-br from-primary to-primary/60 text-white shadow-glow'
                     : 'bg-surface-container-high text-on-surface border border-outline-variant/5 shadow-sm'
                 }`}>
                   {m.role === 'assistant'
