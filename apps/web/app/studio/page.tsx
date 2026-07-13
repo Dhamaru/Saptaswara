@@ -2230,7 +2230,7 @@ function StudioContent() {
                 <div className="md:hidden">
                   <MobileSwaraStrip
                     onPlay={(freq, swara) => onNoteRecord(swara, freq)}
-                    allowedSwaras={ragaConstrained ? allRagaNotes : undefined}
+                    allowedSwaras={ragaConstrained ? new Set(allRagaNotes) : undefined}
                     vadiSwara={selectedRaga?.vadi}
                     samvadiSwara={selectedRaga?.samvadi}
                   />

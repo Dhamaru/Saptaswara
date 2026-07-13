@@ -678,7 +678,6 @@ export default function LibraryPage() {
       {/* ── Detail panel — full-screen overlay on mobile, side panel on desktop ── */}
       {selectedRaga && (
         <div className="fixed inset-0 z-50 md:relative md:inset-auto md:z-auto md:flex-shrink-0 md:w-[440px] bg-surface-lowest border-l border-outline-variant/10 flex flex-col overflow-hidden transition-all duration-500 ease-in-out">
-        {selectedRaga && (
           <div className="w-full md:w-[440px] flex flex-col h-full overflow-hidden">
 
             {/* Scrollable content */}
@@ -1070,7 +1069,6 @@ export default function LibraryPage() {
               </button>
             </div>
           </div>
-        )}
         </div>
       )}
 

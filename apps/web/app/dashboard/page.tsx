@@ -136,7 +136,7 @@ export default function Dashboard() {
                   </div>
 
                   <Link
-                    href={`/studio?project_id=${project.id}`}
+                    href={`/studio?raga_id=${project.raga_id}`}
                     className="w-full py-3 glass-light hover:bg-primary/10 text-on-surface rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2"
                   >
                     Open in Studio

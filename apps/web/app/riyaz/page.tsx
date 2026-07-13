@@ -269,16 +269,19 @@ export default function RiyazPage() {
       } else {
         const list = (data as Raga[]) ?? []
         setRagas(list)
-        const ragaParam = searchParams.get('raga_name')
-        if (ragaParam) {
-          const match = list.find(r => r.name.toLowerCase() === ragaParam.toLowerCase())
-          if (match) setSelectedRaga(match)
-        }
       }
       setLoading(false)
     }
     fetchRagas()
   }, [])
+
+  // Auto-select raga from URL param — re-runs when searchParams change
+  useEffect(() => {
+    const ragaParam = searchParams.get('raga_name')
+    if (!ragaParam || ragas.length === 0) return
+    const match = ragas.find(r => r.name.toLowerCase() === ragaParam.toLowerCase())
+    if (match) setSelectedRaga(match)
+  }, [searchParams, ragas])
 
   // ── Close dropdown on outside click ───────────────────────────────────────
   useEffect(() => {
