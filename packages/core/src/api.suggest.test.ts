@@ -10,6 +10,11 @@ const mockRpcFn = vi.hoisted(() =>
 
 // The suggest route calls createClient() at module level, so the mock must
 // be in place before the module is first imported.
+vi.mock('@sentry/nextjs', () => ({
+  startSpan: vi.fn().mockImplementation(async (_opts: any, fn: any) => fn()),
+  captureException: vi.fn(),
+}))
+
 vi.mock('@supabase/supabase-js', () => ({
   // vitest 4.x: use `function` so that `new` usage inside the route doesn't fail.
   createClient: vi.fn(function () {
@@ -23,7 +28,10 @@ vi.mock('@supabase/supabase-js', () => ({
 }))
 
 vi.mock('@/lib/rateLimit', () => ({
-  checkRateLimit: vi.fn().mockReturnValue(true),
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, limit: 20, remaining: 19, resetAt: 0 }),
+  // suggest route uses the synchronous shim
+  checkRateLimitSync: vi.fn().mockReturnValue(true),
+  rateLimitedResponse: vi.fn().mockReturnValue({ status: 429, json: async () => ({ error: 'rate_limited' }) }),
 }))
 
 // Both the embedding model (gemini-embedding-001) and the generation model

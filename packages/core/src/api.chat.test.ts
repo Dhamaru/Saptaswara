@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ---------------------------------------------------------------------------
-// mockGenerateContentStream is hoisted so it can be referenced in vi.mock
-// factory AND overridden per-test (e.g. mockRejectedValueOnce for the 500 case).
+// mockSendMessageStream is hoisted so it can be referenced in vi.mock factory
+// AND overridden per-test (e.g. mockRejectedValueOnce for the 500 case).
 // Using mockImplementation (not mockResolvedValue) so each call produces a
 // fresh async generator — a consumed iterator cannot be reused.
 // ---------------------------------------------------------------------------
-const mockGenerateContentStream = vi.hoisted(() =>
+const mockSendMessageStream = vi.hoisted(() =>
   vi.fn().mockImplementation(async () => ({
     stream: (async function* () {
       yield { text: () => 'Sa Re Ga ' }
@@ -15,18 +15,34 @@ const mockGenerateContentStream = vi.hoisted(() =>
   }))
 )
 
+vi.mock('@sentry/nextjs', () => ({
+  startSpan: vi.fn().mockImplementation(async (_opts: any, fn: any) => fn()),
+  captureException: vi.fn(),
+}))
+
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(function () {
     return {
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user' } }, error: null }),
       },
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
     }
   }),
 }))
 
 vi.mock('@/lib/rateLimit', () => ({
-  checkRateLimit: vi.fn().mockReturnValue(true),
+  checkRateLimit: vi.fn().mockResolvedValue({
+    allowed: true,
+    limit: 20,
+    remaining: 19,
+    resetAt: Math.floor(Date.now() / 1000) + 60,
+  }),
+  rateLimitedResponse: vi.fn().mockReturnValue({
+    status: 429,
+    headers: new Headers({ 'Content-Type': 'application/json' }),
+    json: async () => ({ error: 'rate_limited' }),
+  }),
 }))
 
 vi.mock('@google/generative-ai', () => ({
@@ -34,7 +50,16 @@ vi.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: vi.fn(function () {
     return {
       getGenerativeModel: vi.fn(function () {
-        return { generateContentStream: mockGenerateContentStream }
+        return {
+          // Chat route uses startChat().sendMessageStream() — not generateContentStream.
+          startChat: vi.fn(function () {
+            return { sendMessageStream: mockSendMessageStream }
+          }),
+          // Embedding model path (getRagaContext) uses embedContent.
+          embedContent: vi.fn().mockResolvedValue({
+            embedding: { values: new Array(768).fill(0.1) },
+          }),
+        }
       }),
     }
   }),
@@ -65,7 +90,7 @@ describe('/api/ai/chat', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Restore the default stream implementation after any per-test overrides.
-    mockGenerateContentStream.mockImplementation(async () => ({
+    mockSendMessageStream.mockImplementation(async () => ({
       stream: (async function* () {
         yield { text: () => 'Sa Re Ga Ma Pa — a peaceful ascent.' }
       })(),
@@ -134,9 +159,9 @@ describe('/api/ai/chat', () => {
   })
 
   it('returns 500 when the Gemini stream call rejects', async () => {
-    // generateContentStream rejects before any chunks are yielded →
-    // the outer try/catch in the route catches it and returns a 500.
-    mockGenerateContentStream.mockRejectedValueOnce(new Error('Quota exceeded'))
+    // sendMessageStream rejects before any chunks are yielded →
+    // the inner try/catch in the route catches it and returns a 500.
+    mockSendMessageStream.mockRejectedValueOnce(new Error('Quota exceeded'))
 
     const req = makeRequest({
       messages: [{ role: 'user', content: 'Suggest a raga.' }],

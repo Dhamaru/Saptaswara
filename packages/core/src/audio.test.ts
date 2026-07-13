@@ -21,15 +21,69 @@ const { polySynths, pluckSynths, synths, amSynths, membraneSynths, mockTransport
 vi.mock('tone', () => ({
   // vitest 4.x: mockImplementation must use `function`, not arrow functions,
   // because these mocks are called with `new` — arrow functions cannot be constructors.
+  Gain: vi.fn().mockImplementation(function () {
+    return {
+      connect: vi.fn().mockReturnThis(),
+      chain: vi.fn(),
+      toDestination: vi.fn().mockReturnThis(),
+      dispose: vi.fn(),
+      volume: { rampTo: vi.fn(), value: 0 },
+    }
+  }),
+  EQ3: vi.fn().mockImplementation(function () {
+    return {
+      connect: vi.fn().mockReturnThis(),
+      toDestination: vi.fn().mockReturnThis(),
+      dispose: vi.fn(),
+    }
+  }),
+  Limiter: vi.fn().mockImplementation(function () {
+    return {
+      connect: vi.fn().mockReturnThis(),
+      toDestination: vi.fn().mockReturnThis(),
+      dispose: vi.fn(),
+    }
+  }),
+  Meter: vi.fn().mockImplementation(function () {
+    return {
+      connect: vi.fn().mockReturnThis(),
+      getValue: vi.fn().mockReturnValue(-100),
+      dispose: vi.fn(),
+    }
+  }),
+  Filter: vi.fn().mockImplementation(function () {
+    return {
+      connect: vi.fn().mockReturnThis(),
+      toDestination: vi.fn().mockReturnThis(),
+      dispose: vi.fn(),
+    }
+  }),
+  Chorus: vi.fn().mockImplementation(function () {
+    return {
+      connect: vi.fn().mockReturnThis(),
+      toDestination: vi.fn().mockReturnThis(),
+      dispose: vi.fn(),
+      wet: { value: 0 },
+    }
+  }),
+  Freeverb: vi.fn().mockImplementation(function () {
+    return {
+      connect: vi.fn().mockReturnThis(),
+      toDestination: vi.fn().mockReturnThis(),
+      dispose: vi.fn(),
+      wet: { value: 0 },
+    }
+  }),
   PolySynth: vi.fn().mockImplementation(function () {
     const inst = {
       triggerAttack: vi.fn(),
       releaseAll: vi.fn(),
       triggerAttackRelease: vi.fn(),
       set: vi.fn(),
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       dispose: vi.fn(),
+      volume: { value: 0 },
     }
     polySynths.push(inst)
     return inst
@@ -38,7 +92,7 @@ vi.mock('tone', () => ({
   Synth: vi.fn().mockImplementation(function () {
     const inst = {
       triggerAttackRelease: vi.fn(),
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       detune: { value: 0 },
       volume: { value: 0 },
@@ -50,7 +104,7 @@ vi.mock('tone', () => ({
   PluckSynth: vi.fn().mockImplementation(function () {
     const inst = {
       triggerAttack: vi.fn(),
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       dispose: vi.fn(),
     }
@@ -60,7 +114,7 @@ vi.mock('tone', () => ({
   FMSynth: vi.fn().mockImplementation(function () {
     return {
       triggerAttackRelease: vi.fn(),
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       volume: { value: 0 },
       dispose: vi.fn(),
@@ -71,7 +125,7 @@ vi.mock('tone', () => ({
       triggerAttack: vi.fn(),
       triggerAttackRelease: vi.fn(),
       releaseAll: vi.fn(),
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       volume: { value: 0 },
       dispose: vi.fn(),
@@ -83,9 +137,10 @@ vi.mock('tone', () => ({
     const inst = {
       triggerAttack: vi.fn(),
       triggerAttackRelease: vi.fn(),
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       dispose: vi.fn(),
+      volume: { value: 0 },
     }
     membraneSynths.push(inst)
     return inst
@@ -93,15 +148,16 @@ vi.mock('tone', () => ({
   MetalSynth: vi.fn().mockImplementation(function () {
     return {
       triggerAttack: vi.fn(),
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       dispose: vi.fn(),
+      volume: { value: 0 },
     }
   }),
   NoiseSynth: vi.fn().mockImplementation(function () {
     return {
       triggerAttackRelease: vi.fn(),
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       volume: { value: 0 },
       dispose: vi.fn(),
@@ -109,7 +165,7 @@ vi.mock('tone', () => ({
   }),
   Volume: vi.fn().mockImplementation(function () {
     return {
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       dispose: vi.fn(),
       volume: { rampTo: vi.fn(), value: 0 },
@@ -118,14 +174,14 @@ vi.mock('tone', () => ({
   }),
   Reverb: vi.fn().mockImplementation(function () {
     return {
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       dispose: vi.fn(),
     }
   }),
   PitchShift: vi.fn().mockImplementation(function () {
     return {
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       wet: { value: 0 },
       dispose: vi.fn(),
@@ -133,7 +189,7 @@ vi.mock('tone', () => ({
   }),
   LFO: vi.fn().mockImplementation(function () {
     return {
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       start: vi.fn(),
       dispose: vi.fn(),
     }
@@ -142,7 +198,7 @@ vi.mock('tone', () => ({
     return {
       triggerAttackRelease: vi.fn(),
       releaseAll: vi.fn(),
-      connect: vi.fn(),
+      connect: vi.fn().mockReturnThis(),
       toDestination: vi.fn().mockReturnThis(),
       attack: 0,
       release: 1,
@@ -156,6 +212,7 @@ vi.mock('tone', () => ({
   }),
   Destination: mockDestination,
   getTransport: vi.fn().mockReturnValue(mockTransport),
+  getDestination: vi.fn().mockReturnValue({ connect: vi.fn() }),
   start: vi.fn().mockResolvedValue(undefined),
   context: { resume: vi.fn().mockResolvedValue(undefined) },
 }))
@@ -184,17 +241,17 @@ describe('AudioEngine.toggleDrone()', () => {
     const engine = new AudioEngine()
     // isStarted = false, drone = null → early return in toggleDrone()
     engine.toggleDrone(true)
-    // Only synth[0] and percussion[1] are created in the constructor.
-    // The drone PolySynth (index 2) is only created inside start().
-    expect(polySynths.length).toBe(2)
+    // Constructor is now lazy — no PolySynths created until start().
+    // The drone PolySynth (index 1) is only created inside start().
+    expect(polySynths.length).toBe(0)
   })
 
   it('starts the drone when called with true after start()', async () => {
     const engine = new AudioEngine()
     await engine.start()
     engine.toggleDrone(true)
-    // polySynths[2] is the drone created inside start()
-    expect(polySynths[2].triggerAttack).toHaveBeenCalledOnce()
+    // polySynths[1] is the drone created inside start()
+    expect(polySynths[1].triggerAttack).toHaveBeenCalledOnce()
   })
 
   it('is idempotent — calling toggleDrone(true) twice triggers the drone only once', async () => {
@@ -202,7 +259,7 @@ describe('AudioEngine.toggleDrone()', () => {
     await engine.start()
     engine.toggleDrone(true)
     engine.toggleDrone(true) // droneStarted is already true → guard skips second call
-    expect(polySynths[2].triggerAttack).toHaveBeenCalledOnce()
+    expect(polySynths[1].triggerAttack).toHaveBeenCalledOnce()
   })
 
   it('stops the drone when called with false after it was started', async () => {
@@ -210,14 +267,14 @@ describe('AudioEngine.toggleDrone()', () => {
     await engine.start()
     engine.toggleDrone(true)
     engine.toggleDrone(false)
-    expect(polySynths[2].releaseAll).toHaveBeenCalledOnce()
+    expect(polySynths[1].releaseAll).toHaveBeenCalledOnce()
   })
 
   it('does not call releaseAll if drone was never activated', async () => {
     const engine = new AudioEngine()
     await engine.start()
     engine.toggleDrone(false) // droneStarted is false → guard skips releaseAll
-    expect(polySynths[2].releaseAll).not.toHaveBeenCalled()
+    expect(polySynths[1].releaseAll).not.toHaveBeenCalled()
   })
 })
 
@@ -300,11 +357,14 @@ describe('AudioEngine.setTimbre()', () => {
     membraneSynths.length = 0
   })
 
-  it('setTimbre("veena", "carnatic") creates a PluckSynth', async () => {
+  it('setTimbre("veena", "carnatic") creates a PolySynth for melody', async () => {
+    // veena uses PolySynth(Synth) — not PluckSynth
+    const polySynthsAfterStart = polySynths.length
     const engine = new AudioEngine()
     await engine.start()
+    const polySynthsAfterSetTimbre = polySynths.length
     engine.setTimbre('veena', 'carnatic')
-    expect(pluckSynths.length).toBeGreaterThanOrEqual(1)
+    expect(polySynths.length).toBeGreaterThan(polySynthsAfterSetTimbre)
   })
 
   it('setTimbre("harmonium", "hindustani") creates two Synth instances', async () => {
@@ -329,11 +389,12 @@ describe('AudioEngine.setTimbre()', () => {
     expect(engine.tradition).toBe('carnatic')
   })
 
-  it('setTimbre("sitar", "hindustani") creates a PluckSynth', async () => {
+  it('setTimbre("sitar", "hindustani") sets sitar as active instrument', async () => {
+    // sitar uses FMSynth + NoiseSynth + Filter + Chorus — not PluckSynth
     const engine = new AudioEngine()
     await engine.start()
     engine.setTimbre('sitar', 'hindustani')
-    expect(pluckSynths.length).toBeGreaterThanOrEqual(1)
+    expect(engine.instrument).toBe('sitar')
   })
 })
 

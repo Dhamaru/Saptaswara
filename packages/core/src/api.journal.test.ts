@@ -10,9 +10,18 @@ const mockGetUser = vi.hoisted(() =>
 const mockSelect = vi.hoisted(() => vi.fn())
 const mockEq = vi.hoisted(() => vi.fn())
 const mockOrder = vi.hoisted(() => vi.fn())
+const mockLimit = vi.hoisted(() => vi.fn())
 const mockInsert = vi.hoisted(() => vi.fn())
 const mockInsertSelect = vi.hoisted(() => vi.fn())
 const mockSingle = vi.hoisted(() => vi.fn())
+
+// The journal route tries cookie auth first via @/lib/supabase/server, which
+// imports next/headers — unavailable in the node test environment. Mock it so
+// the cookie path throws (caught by resolveUserAndClient) and falls through
+// to Bearer token auth, which IS mocked via @supabase/supabase-js below.
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn().mockRejectedValue(new Error('Cookie auth unavailable in test env')),
+}))
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(function () {
@@ -22,7 +31,9 @@ vi.mock('@supabase/supabase-js', () => ({
         return {
           select: mockSelect.mockReturnValue({
             eq: mockEq.mockReturnValue({
-              order: mockOrder.mockResolvedValue({ data: [], error: null }),
+              order: mockOrder.mockReturnValue({
+                limit: mockLimit.mockResolvedValue({ data: [], error: null }),
+              }),
             }),
           }),
           insert: mockInsert.mockReturnValue({
@@ -44,6 +55,11 @@ vi.mock('@supabase/supabase-js', () => ({
       }),
     }
   }),
+}))
+
+vi.mock('@/lib/rateLimit', () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, limit: 200, remaining: 199, resetAt: 0 }),
+  rateLimitedResponse: vi.fn().mockReturnValue({ status: 429, json: async () => ({ error: 'rate_limited' }) }),
 }))
 
 vi.mock('next/server', () => ({
@@ -76,7 +92,7 @@ describe('/api/journal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
-    mockOrder.mockResolvedValue({ data: [], error: null })
+    mockOrder.mockReturnValue({ limit: mockLimit.mockResolvedValue({ data: [], error: null }) })
     mockSingle.mockResolvedValue({
       data: {
         id: 'log-1',

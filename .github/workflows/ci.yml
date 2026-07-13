@@ -76,11 +76,34 @@ jobs:
         # --audit-level=high: fail only on high/critical, ignore low/moderate
         run: npm audit --audit-level=high --production
 
+  # ── Unit tests ──────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/core
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Install root dependencies
+        run: npm ci --prefer-offline
+        working-directory: .
+
+      - name: Run Vitest
+        run: npx vitest run --reporter=verbose
+
   # ── Build ───────────────────────────────────────────────────────────────────
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [typecheck, lint]
+    needs: [typecheck, lint, test]
     defaults:
       run:
         working-directory: apps/web
