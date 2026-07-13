@@ -6,6 +6,33 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Assistant } from '@/components/Assistant'
 
+function computeStreak(logs: any[]): number {
+  if (!logs.length) return 0
+  const dates = [...new Set(logs.map((l: any) => l.log_date))].sort().reverse() as string[]
+  const today = new Date().toISOString().split('T')[0]
+  let streak = 0
+  let expected = today
+  for (const date of dates) {
+    if (date === expected) {
+      streak++
+      const d = new Date(expected)
+      d.setDate(d.getDate() - 1)
+      expected = d.toISOString().split('T')[0]
+    } else if (date < expected) {
+      break
+    }
+  }
+  return streak
+}
+
+function buildHeatmap(logs: any[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const log of logs) {
+    if (log.log_date) counts.set(log.log_date, (counts.get(log.log_date) ?? 0) + 1)
+  }
+  return counts
+}
+
 function getCurrentTimePeriod() {
   const hour = new Date().getHours()
   if (hour >= 4 && hour < 11) return 'MORNING'
@@ -28,7 +55,20 @@ export default function JournalPage() {
   const [formIntensity, setFormIntensity] = useState('Focused')
   const [formDate, setFormDate] = useState(() => new Date().toISOString().split('T')[0])
   const [submitting, setSubmitting] = useState(false)
+  const [showReminder, setShowReminder] = useState(false)
+  const [sessionTip, setSessionTip] = useState<{ raga: string; tip: string } | null>(null)
+  const [tipLoading, setTipLoading] = useState(false)
+  const [promptLoading, setPromptLoading] = useState(false)
   const supabase = createClient()
+
+  // Pre-fill form from ?raga= URL param (set by studio "Log Session" prompt)
+  useEffect(() => {
+    const raga = new URLSearchParams(window.location.search).get('raga')
+    if (raga) {
+      setFormRaga(raga)
+      setShowLogForm(true)
+    }
+  }, [])
 
   useEffect(() => { document.title = 'Practice Journal — Saptaswara' }, [])
 
@@ -62,6 +102,85 @@ export default function JournalPage() {
     fetchLogs()
   }, [])
   
+  async function fetchWritingPrompt() {
+    if (!formRaga) return
+    setPromptLoading(true)
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Write one evocative sentence to start a journal entry about a practice session with Raga ${formRaga}. First person, present tense, poetic but specific. No intro, just the sentence.`
+          }],
+          ragaContext: { name: formRaga }
+        })
+      })
+      if (!res.ok || !res.body) return
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let result = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value)
+        for (const line of chunk.split('\n').filter(l => l.startsWith('data: '))) {
+          const data = line.slice(6)
+          if (data === '[DONE]') break
+          result += data
+        }
+      }
+      if (result) setFormNotes(prev => (prev ? prev + '\n\n' : '') + result.trim())
+    } catch { /* silent */ } finally {
+      setPromptLoading(false)
+    }
+  }
+
+  async function fetchSessionTip(ragaName: string) {
+    setTipLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) return
+
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Give me one concise practice tip for Raga ${ragaName}. Focus on a specific technical or musical aspect. Max 2 sentences.`
+          }],
+          ragaContext: { name: ragaName }
+        })
+      })
+      if (!res.ok || !res.body) return
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let tip = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n').filter(l => l.startsWith('data: '))
+        for (const line of lines) {
+          const data = line.slice(6)
+          if (data === '[DONE]') break
+          tip += data
+        }
+      }
+      if (tip) setSessionTip({ raga: ragaName, tip: tip.trim() })
+    } catch (err) {
+      console.error('Failed to fetch session tip:', err)
+    } finally {
+      setTipLoading(false)
+    }
+  }
+
   const handleLogSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     // BUG-037: prevent double-submission from rapid clicks or keyboard
@@ -94,6 +213,7 @@ export default function JournalPage() {
         // BUG-038: functional setState avoids stale closure over dbLogs
         setDbLogs(prev => [json.data, ...prev])
         setShowLogForm(false)
+        fetchSessionTip(formRaga)
         setFormRaga('')
         setFormNotes('')
       } else {
@@ -153,6 +273,15 @@ export default function JournalPage() {
     fetchRecommendation()
   }, [tradition, timePeriod])
 
+  useEffect(() => {
+    if (logsLoading) return
+    const hour = new Date().getHours()
+    if (hour < 18) return  // only show after 6pm
+    const today = new Date().toISOString().split('T')[0]
+    const practicedToday = dbLogs.some((l: any) => l.log_date === today)
+    if (!practicedToday) setShowReminder(true)
+  }, [logsLoading, dbLogs])
+
   // BUG-039: stable interval — functional setState removes timePeriod from deps
   // so the interval is not recreated every time the period changes.
   useEffect(() => {
@@ -180,6 +309,26 @@ export default function JournalPage() {
             Set your musical tradition. Saptaswara mathematically aligns the perfect Raga to practice based on the exact time of your session.
           </p>
         </header>
+
+        {showReminder && (
+          <div className="flex items-center gap-4 px-6 py-4 rounded-3xl bg-amber-500/10 border border-amber-500/20 animate-fade-in">
+            <span className="material-symbols-outlined text-amber-500/80 shrink-0">alarm</span>
+            <div className="flex-1">
+              <p className="font-sans text-sm text-on-surface font-light">
+                No practice logged today. Even 10 minutes of riyaz keeps the raga alive.
+              </p>
+            </div>
+            <button
+              onClick={() => { setShowReminder(false); setShowLogForm(true) }}
+              className="font-mono text-[9px] uppercase tracking-widest text-amber-500/80 hover:text-amber-500 transition-colors shrink-0"
+            >
+              Log now
+            </button>
+            <button onClick={() => setShowReminder(false)} className="text-on-surface-variant/30 hover:text-on-surface transition-colors shrink-0">
+              <span className="material-symbols-outlined !text-base">close</span>
+            </button>
+          </div>
+        )}
 
         {/* Preferences Bar */}
         <section className="bg-surface-container-lowest border border-outline-variant/10 rounded-[32px] p-6 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -253,7 +402,7 @@ export default function JournalPage() {
                       <div className="pt-6">
                          <Link 
                            href={`/studio?project_id=${recommendation.id}`}
-                           className="inline-flex items-center gap-3 px-8 py-4 bg-primary text-white rounded-full font-medium hover:bg-primary-container hover:text-white transition-all shadow-glow hover:-translate-y-1 active:translate-y-0"
+                           className="inline-flex items-center gap-3 px-8 py-4 bg-primary text-on-primary rounded-full font-medium hover:bg-primary-container hover:text-on-primary transition-all shadow-glow hover:-translate-y-1 active:translate-y-0"
                          >
                             <span className="material-symbols-outlined !text-xl">play_circle</span>
                             Start Session in Studio
@@ -287,11 +436,102 @@ export default function JournalPage() {
            )}
         </section>
 
+        {/* Practice heatmap */}
+        {!logsLoading && dbLogs.length > 0 && (
+          <section className="space-y-4">
+            <h3 className="font-display text-2xl font-light text-on-surface tracking-tight">Practice Frequency</h3>
+            <div className="rounded-3xl bg-surface-container-lowest border border-outline-variant/5 p-6 overflow-x-auto">
+              {(() => {
+                const heatmapDays = (() => {
+                  const days: { date: string; count: number }[] = []
+                  const today = new Date()
+                  for (let i = 363; i >= 0; i--) {
+                    const d = new Date(today)
+                    d.setDate(today.getDate() - i)
+                    const key = d.toISOString().split('T')[0]
+                    days.push({ date: key, count: buildHeatmap(dbLogs).get(key) ?? 0 })
+                  }
+                  return days
+                })()
+                return (
+                  <>
+                    <div className="flex gap-1" style={{ minWidth: 'max-content' }}>
+                      {Array.from({ length: 52 }, (_, week) => (
+                        <div key={week} className="flex flex-col gap-1">
+                          {Array.from({ length: 7 }, (_, day) => {
+                            const idx = week * 7 + day
+                            const entry = heatmapDays[idx]
+                            if (!entry) return <div key={day} className="w-3 h-3" />
+                            return (
+                              <div
+                                key={day}
+                                title={`${entry.date}: ${entry.count} session${entry.count !== 1 ? 's' : ''}`}
+                                className={[
+                                  'w-3 h-3 rounded-sm transition-all cursor-default',
+                                  entry.count === 0
+                                    ? 'bg-outline-variant/10'
+                                    : entry.count === 1
+                                      ? 'bg-primary/30'
+                                      : entry.count === 2
+                                        ? 'bg-primary/55'
+                                        : 'bg-primary/85',
+                                ].join(' ')}
+                              />
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 mt-3 justify-end">
+                      <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">Less</span>
+                      {[0, 1, 2, 3].map(v => (
+                        <div key={v} className={`w-3 h-3 rounded-sm ${v === 0 ? 'bg-outline-variant/10' : v === 1 ? 'bg-primary/30' : v === 2 ? 'bg-primary/55' : 'bg-primary/85'}`} />
+                      ))}
+                      <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">More</span>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          </section>
+        )}
+
         {/* Historical Journal Logs */}
         <section className="pt-8">
+           {(tipLoading || sessionTip) && (
+             <div className="mb-8 p-6 rounded-3xl border border-primary/20 bg-primary/5 flex items-start gap-4 animate-fade-in">
+               <span className="material-symbols-outlined text-primary/60 mt-0.5">auto_awesome</span>
+               <div className="flex-1">
+                 <div className="font-mono text-[9px] uppercase tracking-widest text-primary/60 font-bold mb-2">
+                   Practice Tip — Raga {sessionTip?.raga}
+                 </div>
+                 {tipLoading ? (
+                   <div className="h-4 w-3/4 rounded bg-primary/10 animate-pulse" />
+                 ) : (
+                   <p className="font-sans text-sm text-on-surface-variant leading-relaxed">{sessionTip?.tip}</p>
+                 )}
+               </div>
+               {sessionTip && (
+                 <button onClick={() => setSessionTip(null)} className="text-on-surface-variant/30 hover:text-on-surface transition-colors">
+                   <span className="material-symbols-outlined !text-base">close</span>
+                 </button>
+               )}
+             </div>
+           )}
            <div className="flex items-center justify-between mb-8">
               <h3 className="font-display text-3xl font-light text-on-surface tracking-tight">Past Sessions</h3>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/40">{dbLogs.length} {dbLogs.length === 1 ? 'Entry' : 'Entries'}</span>
+              <div className="flex items-center gap-4">
+                {(() => {
+                  const streak = computeStreak(dbLogs)
+                  return streak > 0 ? (
+                    <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20">
+                      <span className="material-symbols-outlined !text-sm text-amber-500/80">local_fire_department</span>
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-amber-500/80 font-bold">{streak} day streak</span>
+                    </div>
+                  ) : null
+                })()}
+                <span className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/40">{dbLogs.length} {dbLogs.length === 1 ? 'Entry' : 'Entries'}</span>
+              </div>
            </div>
            
            <div className="grid gap-6">
@@ -378,7 +618,21 @@ export default function JournalPage() {
                       </select>
                    </div>
                    <div className="space-y-2">
-                      <label className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/60 font-bold">Session Notes</label>
+                      <div className="flex items-center justify-between">
+                        <label className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/60 font-bold">Session Notes</label>
+                        <button
+                          type="button"
+                          onClick={fetchWritingPrompt}
+                          disabled={!formRaga || promptLoading}
+                          title={formRaga ? `Get an AI writing prompt for Raga ${formRaga}` : 'Enter a raga name first'}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-primary/20 bg-primary/5 text-primary/70 font-mono text-[8px] uppercase tracking-widest hover:bg-primary/15 hover:text-primary transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <span className={`material-symbols-outlined !text-sm ${promptLoading ? 'animate-spin' : ''}`}>
+                            {promptLoading ? 'sync' : 'auto_awesome'}
+                          </span>
+                          {promptLoading ? 'Writing…' : 'Inspire me'}
+                        </button>
+                      </div>
                       <textarea required value={formNotes} onChange={e => setFormNotes(e.target.value)} rows={4} placeholder="Describe breath control, phrasing, or discoveries..." className="w-full bg-surface-lowest text-on-surface border border-outline-variant/10 rounded-xl px-4 py-3 text-sm focus:border-primary/50 focus:outline-none resize-none"></textarea>
                    </div>
                    <button disabled={submitting} type="submit" className="w-full py-4 bg-primary text-white rounded-xl font-medium shadow-glow hover:-translate-y-1 transition-all flex items-center justify-center gap-2">

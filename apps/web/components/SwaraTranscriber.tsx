@@ -4,12 +4,23 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { PitchListener } from '@/lib/pitchDetector'
 import { hzToSwara, swaraDisplay, tuningLabel } from '@/lib/hzToSwara'
 import type { SwaraResult } from '@/lib/hzToSwara'
-import { isVarjya } from '@/lib/ragaUtils'
+import { isVarjya, getSwaraFeedback, type SwaraFeedback } from '@/lib/ragaUtils'
+
+export interface SessionStats {
+  total: number
+  correct: number
+  wrongVariety: number
+  varjya: number
+  vadiHits: number
+}
 
 interface SwaraTranscriberProps {
   aroha?: string[]
   avaroha?: string[]
-  onInsert?: (note: string, octave: number) => void   // optional: insert into sequencer
+  vadi?: string
+  samvadi?: string
+  onInsert?: (note: string, octave: number) => void
+  onSessionEnd?: (stats: SessionStats) => void
 }
 
 interface HistoryEntry {
@@ -30,7 +41,7 @@ const TUNING_LABELS = {
   off:     'Off',
 }
 
-export function SwaraTranscriber({ aroha, avaroha, onInsert }: SwaraTranscriberProps) {
+export function SwaraTranscriber({ aroha, avaroha, vadi, samvadi, onInsert, onSessionEnd }: SwaraTranscriberProps) {
   const [open, setOpen] = useState(false)
   const [listening, setListening] = useState(false)
   const [current, setCurrent] = useState<SwaraResult | null>(null)
@@ -41,6 +52,8 @@ export function SwaraTranscriber({ aroha, avaroha, onInsert }: SwaraTranscriberP
   // BUG-024: guard against double-start (StrictMode double-invoke / rapid clicks)
   const startingRef  = useRef(false)
 
+  const sessionStatsRef = useRef<SessionStats>({ total: 0, correct: 0, wrongVariety: 0, varjya: 0, vadiHits: 0 })
+
   const stopListening = useCallback(() => {
     listenerRef.current?.stop()
     listenerRef.current = null
@@ -49,7 +62,11 @@ export function SwaraTranscriber({ aroha, avaroha, onInsert }: SwaraTranscriberP
     if (silenceTimer.current) { clearTimeout(silenceTimer.current); silenceTimer.current = null }
     setListening(false)
     setCurrent(null)
-  }, [])
+    if (onSessionEnd && sessionStatsRef.current.total > 0) {
+      onSessionEnd({ ...sessionStatsRef.current })
+    }
+    sessionStatsRef.current = { total: 0, correct: 0, wrongVariety: 0, varjya: 0, vadiHits: 0 }
+  }, [onSessionEnd])
 
   const startListening = useCallback(async () => {
     // BUG-024: prevent re-entrant start
@@ -85,8 +102,15 @@ export function SwaraTranscriber({ aroha, avaroha, onInsert }: SwaraTranscriberP
         const key = `${swara.note}-${swara.octave}`
         if (key !== lastNote) {
           if (Date.now() - noteStart > 200) {
-            const varjya = isVarjya(swara.note, aroha, avaroha)
+            const fb = getSwaraFeedback(swara.note, aroha, avaroha, vadi, samvadi)
+            const varjya = fb?.kind === 'varjya'
             setHistory(h => [{ result: swara, varjya, ts: Date.now() }, ...h].slice(0, 8))
+            // accumulate session stats
+            sessionStatsRef.current.total++
+            if (fb?.kind === 'vadi') { sessionStatsRef.current.correct++; sessionStatsRef.current.vadiHits++ }
+            else if (fb?.kind === 'samvadi' || fb?.kind === 'correct') sessionStatsRef.current.correct++
+            else if (fb?.kind === 'wrong-variety') sessionStatsRef.current.wrongVariety++
+            else if (fb?.kind === 'varjya') sessionStatsRef.current.varjya++
           }
           lastNote = key
           noteStart = Date.now()
@@ -118,6 +142,9 @@ export function SwaraTranscriber({ aroha, avaroha, onInsert }: SwaraTranscriberP
 
   const currentVarjya = current ? isVarjya(current.note, aroha, avaroha) : false
   const tuning = current ? tuningLabel(current.cents) : null
+  const feedback: SwaraFeedback | null = current
+    ? getSwaraFeedback(current.note, aroha, avaroha, vadi, samvadi)
+    : null
 
   return (
     <>
@@ -166,17 +193,29 @@ export function SwaraTranscriber({ aroha, avaroha, onInsert }: SwaraTranscriberP
           {/* Live display */}
           <div className={`rounded-2xl border p-5 mb-4 flex flex-col items-center justify-center min-h-[96px] transition-all ${
             listening
-              ? currentVarjya
-                ? 'bg-red-500/8 border-red-500/25'
-                : current
-                  ? 'bg-emerald-500/8 border-emerald-500/20'
-                  : 'bg-surface-container-low border-outline-variant/10'
+              ? feedback?.kind === 'vadi'
+                ? 'bg-amber-500/8 border-amber-400/25'
+                : feedback?.kind === 'samvadi'
+                  ? 'bg-sky-500/8 border-sky-400/25'
+                  : feedback?.kind === 'wrong-variety'
+                    ? 'bg-orange-500/8 border-orange-400/25'
+                    : feedback?.kind === 'varjya'
+                      ? 'bg-red-500/8 border-red-500/25'
+                      : current
+                        ? 'bg-emerald-500/8 border-emerald-500/20'
+                        : 'bg-surface-container-low border-outline-variant/10'
               : 'bg-surface-container-low/30 border-outline-variant/5'
           }`}>
             {listening ? (
               current ? (
                 <>
-                  <p className={`font-display text-5xl font-light mb-1 ${currentVarjya ? 'text-red-400' : 'text-on-surface'}`}>
+                  <p className={`font-display text-5xl font-light mb-1 ${
+                    feedback?.kind === 'vadi' ? 'text-amber-400'
+                    : feedback?.kind === 'samvadi' ? 'text-sky-400'
+                    : feedback?.kind === 'wrong-variety' ? 'text-orange-400'
+                    : feedback?.kind === 'varjya' ? 'text-red-400'
+                    : 'text-on-surface'
+                  }`}>
                     {swaraDisplay(current)}
                   </p>
                   <p className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 mb-2">
@@ -190,8 +229,33 @@ export function SwaraTranscriber({ aroha, avaroha, onInsert }: SwaraTranscriberP
                       </span>
                     </div>
                   )}
-                  {currentVarjya && (
-                    <p className="font-mono text-[8px] uppercase tracking-widest text-red-400/80 mt-1.5">⚠ Varjya — not in this raga</p>
+                  {feedback && (
+                    <div className={`mt-3 px-3 py-2 rounded-xl border flex flex-col items-center gap-0.5 ${
+                      feedback.kind === 'vadi'
+                        ? 'bg-amber-500/15 border-amber-400/30'
+                        : feedback.kind === 'samvadi'
+                          ? 'bg-sky-500/15 border-sky-400/30'
+                          : feedback.kind === 'correct'
+                            ? 'bg-emerald-500/10 border-emerald-400/20'
+                            : feedback.kind === 'wrong-variety'
+                              ? 'bg-orange-500/15 border-orange-400/30'
+                              : 'bg-red-500/10 border-red-500/25'
+                    }`}>
+                      <span className={`font-mono text-[9px] uppercase tracking-widest font-bold ${
+                        feedback.kind === 'vadi' ? 'text-amber-400'
+                        : feedback.kind === 'samvadi' ? 'text-sky-400'
+                        : feedback.kind === 'correct' ? 'text-emerald-400'
+                        : feedback.kind === 'wrong-variety' ? 'text-orange-400'
+                        : 'text-red-400'
+                      }`}>
+                        {feedback.message}
+                      </span>
+                      {feedback.hint && (
+                        <span className="font-mono text-[7px] text-on-surface-variant/40 tracking-wide">
+                          {feedback.hint}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </>
               ) : (
