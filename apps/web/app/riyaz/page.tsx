@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { SwaraTranscriber, type SessionStats } from '@/components/SwaraTranscriber'
+import { NotationEditor } from '@/components/NotationEditor'
+import { RagaDetector } from '@/components/RagaDetector'
 import { createClient } from '@/lib/supabase/client'
 import { getAudioEngine } from '@/lib/audio'
 import { swaraToFrequency } from '@/lib/musicalMath'
@@ -184,6 +187,8 @@ function GrammarPanel({ raga }: { raga: Raga }) {
 export default function RiyazPage() {
   const supabase = createClient()
 
+  const searchParams = useSearchParams()
+
   // ── State ──────────────────────────────────────────────────────────────────
   const [ragas, setRagas]           = useState<Raga[]>([])
   const [loading, setLoading]       = useState(true)
@@ -262,7 +267,13 @@ export default function RiyazPage() {
       if (error) {
         setFetchError(error.message)
       } else {
-        setRagas((data as Raga[]) ?? [])
+        const list = (data as Raga[]) ?? []
+        setRagas(list)
+        const ragaParam = searchParams.get('raga_name')
+        if (ragaParam) {
+          const match = list.find(r => r.name.toLowerCase() === ragaParam.toLowerCase())
+          if (match) setSelectedRaga(match)
+        }
       }
       setLoading(false)
     }
@@ -910,9 +921,19 @@ export default function RiyazPage() {
               )}
             </div>
 
-            {/* Right: grammar panel */}
-            <div className="lg:sticky lg:top-24 self-start">
+            {/* Right: grammar panel + notation editor + detector */}
+            <div className="lg:sticky lg:top-24 self-start space-y-4">
               <GrammarPanel raga={selectedRaga} />
+              <RagaDetector />
+              {selectedRaga && (
+                <NotationEditor
+                  ragaName={selectedRaga.name}
+                  allowedSwaras={new Set<string>([
+                    ...(selectedRaga.aroha as string[] ?? []),
+                    ...(selectedRaga.avaroha as string[] ?? []),
+                  ].map(n => n.replace(/[\^'.]/g, '').trim()))}
+                />
+              )}
             </div>
           </div>
         )}

@@ -98,6 +98,7 @@ export default function ProfilePage() {
 
   const [data, setData] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [savedRagas, setSavedRagas] = useState<{ id: string; name: string }[]>([])
 
   // Skill-level dropdown state
   const [skillDropdownOpen, setSkillDropdownOpen] = useState(false)
@@ -166,13 +167,23 @@ export default function ProfilePage() {
 
         // 4. Favourite ragas from localStorage
         let savedRagasCount = 0
+        let favIds: string[] = []
         try {
           const raw = localStorage.getItem('saptaswara-favourites')
           if (raw) {
             const arr = JSON.parse(raw)
-            if (Array.isArray(arr)) savedRagasCount = arr.length
+            if (Array.isArray(arr)) { favIds = arr; savedRagasCount = arr.length }
           }
         } catch {}
+        if (favIds.length > 0) {
+          try {
+            const { data: ragaRows } = await supabase
+              .from('ragas')
+              .select('id, name')
+              .in('id', favIds.slice(0, 12))
+            if (ragaRows) setSavedRagas(ragaRows)
+          } catch {}
+        }
 
         setData({
           email:                   user.email ?? '',
@@ -466,6 +477,36 @@ export default function ProfilePage() {
             </Link>
           )}
         </div>
+
+        {/* ── Saved ragas quick-launch ────────────────────────────────────── */}
+        {savedRagas.length > 0 && (
+          <div className="space-y-3">
+            <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-on-surface-variant/35 block px-1">
+              Saved Ragas
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {savedRagas.map(r => (
+                <div key={r.id} className="flex items-center gap-0.5 rounded-xl bg-surface-container-lowest border border-outline-variant/10 overflow-hidden">
+                  <span className="px-3 py-2 font-display text-sm font-light text-on-surface">{r.name}</span>
+                  <Link
+                    href={`/studio?raga_name=${encodeURIComponent(r.name)}`}
+                    title="Open in Studio"
+                    className="px-2 py-2 text-on-surface-variant/30 hover:text-primary hover:bg-primary/8 transition-all"
+                  >
+                    <Music className="w-3.5 h-3.5" />
+                  </Link>
+                  <Link
+                    href={`/riyaz?raga_name=${encodeURIComponent(r.name)}`}
+                    title="Open in Saadhana"
+                    className="px-2 py-2 text-on-surface-variant/30 hover:text-secondary hover:bg-secondary/8 transition-all border-l border-outline-variant/10"
+                  >
+                    <Activity className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Quick navigation ────────────────────────────────────────────── */}
         <div className="space-y-3">

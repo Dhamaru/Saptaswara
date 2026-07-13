@@ -8,30 +8,7 @@ interface RagaCardProps {
   isSelected?: boolean
 }
 
-// Deterministic hash → unique visual identity per raga without extra assets
-function ragaHash(name: string): number {
-  let h = 0
-  for (let i = 0; i < name.length; i++) h = Math.imul(31, h) + name.charCodeAt(i) | 0
-  return Math.abs(h)
-}
-
-// Palette of tint colours — one picked per card by hash
-const TINT_PALETTE = [
-  'rgba(88,166,255,0.18)',   // sky blue
-  'rgba(114,56,224,0.18)',   // indigo
-  'rgba(63,185,80,0.15)',    // emerald
-  'rgba(230,130,40,0.18)',   // amber
-  'rgba(232,64,87,0.16)',    // rose
-  'rgba(45,190,180,0.16)',   // teal
-  'rgba(168,85,247,0.18)',   // violet
-  'rgba(251,191,36,0.15)',   // gold
-]
-
 export default function RagaCard({ raga, onClick, isSelected }: RagaCardProps) {
-  const hash    = ragaHash(raga.name || '')
-  const hueShift = (hash % 24) * 15          // 0 – 345 deg, 24 steps of 15°
-  const tint    = TINT_PALETTE[hash % TINT_PALETTE.length]
-
   const getAtmosphere = (time: string) => {
     const t = time?.toLowerCase() || ''
     if (t.includes('morning')) return '/raga_morning_atmosphere.png'
@@ -55,10 +32,7 @@ export default function RagaCard({ raga, onClick, isSelected }: RagaCardProps) {
           alt={raga.name}
           fill
           className="object-cover opacity-70 group-hover:opacity-85 group-hover:scale-110 transition-all duration-700"
-          style={{ filter: `hue-rotate(${hueShift}deg) saturate(1.3)` }}
         />
-        {/* Per-raga tint layer */}
-        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 60% 30%, ${tint}, transparent 70%)` }} />
         {/* Dark scrim only at bottom — keeps image visible, text readable in both themes */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
       </div>

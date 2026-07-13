@@ -47,6 +47,7 @@ import { EarTraining } from '@/components/EarTraining'
 import TransportBar from '@/components/TransportBar'
 import { ImmersiveHUD } from '@/components/ImmersiveHUD'
 import { ConformanceScore } from '@/components/ConformanceScore'
+import { MobileSwaraStrip } from '@/components/MobileSwaraStrip'
 
 // ── Track system ──────────────────────────────────────────────────────────────
 type TrackType = 'melody' | 'rhythm' | 'vocal' | 'bass' | 'drone' | 'pad'
@@ -229,6 +230,8 @@ function StudioContent() {
   const [masteringPreset, setMasteringPreset] = useState<MasteringPreset>('neutral')
   const [droneActive, setDroneActive] = useState(false)
   const [droneType, setDroneType] = useState<'Sa-Pa' | 'Sa-Ma'>('Sa-Pa')
+  const [saTuning, setSaTuning] = useState(0) // semitone offset -6..+6
+  const [beatFlash, setBeatFlash] = useState(false)
   const [ornamentMode, setOrnamentMode] = useState(false)
   const [bpm, setBpm] = useState(120)
   const [volume, setVolume] = useState(0)
@@ -309,6 +312,17 @@ function StudioContent() {
   useEffect(() => { loopRef.current        = loopLength  }, [loopLength])
   useEffect(() => { isImmersiveRef.current = isImmersive }, [isImmersive])
   useEffect(() => { isPlayingRef.current   = isPlaying   }, [isPlaying])
+
+  // Metronome beat flash — pulse beatFlash on each beat while playing
+  useEffect(() => {
+    if (!isPlaying) { setBeatFlash(false); return }
+    const msPerBeat = (60 / bpm) * 1000
+    const id = setInterval(() => {
+      setBeatFlash(true)
+      setTimeout(() => setBeatFlash(false), Math.min(120, msPerBeat * 0.4))
+    }, msPerBeat)
+    return () => clearInterval(id)
+  }, [isPlaying, bpm])
 
   // Task 9: push active raga into GlobalAssistant context so Ask AI knows what raga is open
   useEffect(() => { setRagaContext(selectedRaga) }, [selectedRaga, setRagaContext])
@@ -625,23 +639,41 @@ function StudioContent() {
   }, [])
 
   // ── Tanpura drone toggle ──────────────────────────────────────────────────────
+  const saRootFreq = 261.63 * Math.pow(2, saTuning / 12)
+
   const handleToggleDrone = useCallback((nextActive?: boolean) => {
     const active = nextActive ?? !droneActive
-    // Sa is tuned to C4 = 261.63 Hz (standard concert pitch for Indian classical)
-    const rootFreq = 261.63
+    const rootFreq = 261.63 * Math.pow(2, saTuning / 12)
     audioEngine?.toggleDrone(active, droneType, rootFreq)
     setDroneActive(active)
-  }, [droneActive, droneType])
+  }, [droneActive, droneType, saTuning])
 
   const handleCycleDroneType = useCallback(() => {
     const next: 'Sa-Pa' | 'Sa-Ma' = droneType === 'Sa-Pa' ? 'Sa-Ma' : 'Sa-Pa'
     setDroneType(next)
     if (droneActive) {
-      const rootFreq = 261.63
+      const rootFreq = 261.63 * Math.pow(2, saTuning / 12)
       audioEngine?.toggleDrone(false, droneType, rootFreq)
       audioEngine?.toggleDrone(true, next, rootFreq)
     }
-  }, [droneActive, droneType])
+  }, [droneActive, droneType, saTuning])
+
+  // ── Drone auto-follows raga: use Sa-Ma when raga has tivra Ma ────────────────
+  useEffect(() => {
+    if (!selectedRaga) return
+    const hasTivraMa = [...(selectedRaga.aroha ?? []), ...(selectedRaga.avaroha ?? [])]
+      .some(n => n.replace(/[\^'.]/g, '').trim() === 'ma')
+    const next: 'Sa-Pa' | 'Sa-Ma' = hasTivraMa ? 'Sa-Ma' : 'Sa-Pa'
+    if (next !== droneType) {
+      if (droneActive) {
+        const rootFreq = 261.63 * Math.pow(2, saTuning / 12)
+        audioEngine?.toggleDrone(false, droneType, rootFreq)
+        audioEngine?.toggleDrone(true, next, rootFreq)
+      }
+      setDroneType(next)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRaga?.id])
 
   // ── Pitch Bend drag handler ───────────────────────────────────────────────────
   const handlePitchDragStart = (e: React.MouseEvent | React.TouchEvent) => {
@@ -1000,7 +1032,7 @@ function StudioContent() {
           if (idx >= 0 && idx < loopLength) {
             seq[idx] = { 
               label: s.note, 
-              frequency: swaraToFrequency(s.note, 261.63, s.octave),
+              frequency: swaraToFrequency(s.note, saRootFreq, s.octave),
               velocity: s.velocity / 100 
             }
 
@@ -1500,6 +1532,22 @@ function StudioContent() {
               })}
             </div>
 
+            {/* ── Sa Tuning + Metronome beat dot ── */}
+            {isStarted && (
+              <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                {/* beat flash dot */}
+                <div className={`w-2 h-2 rounded-full transition-all duration-75 ${isPlaying ? (beatFlash ? 'bg-primary scale-125' : 'bg-primary/20') : 'bg-outline-variant/15'}`} title="Beat" />
+                {/* Sa tuning */}
+                <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-surface-container-high/40 border border-outline-variant/10">
+                  <button onClick={() => setSaTuning(t => Math.max(-6, t - 1))} className="w-4 h-4 flex items-center justify-center text-on-surface-variant/40 hover:text-primary transition-colors font-mono text-xs">−</button>
+                  <span className="font-mono text-[9px] text-on-surface-variant/60 w-8 text-center" title="Sa tuning (semitones from C4)">
+                    Sa {saTuning === 0 ? 'C' : saTuning > 0 ? `+${saTuning}` : saTuning}
+                  </span>
+                  <button onClick={() => setSaTuning(t => Math.min(6, t + 1))} className="w-4 h-4 flex items-center justify-center text-on-surface-variant/40 hover:text-primary transition-colors font-mono text-xs">+</button>
+                </div>
+              </div>
+            )}
+
             {/* ── Tanpura Drone — always visible in HUD ── */}
             {isStarted && (
               <div className="flex items-center gap-1 flex-shrink-0">
@@ -1542,6 +1590,17 @@ function StudioContent() {
               <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Tempo</span>
               <span className="font-mono text-lg font-light text-primary">{bpm} <span className="text-[9px] text-on-surface-variant/40">BPM</span></span>
             </div>
+            {isStarted && (
+              <button
+                onClick={handleExportMidi}
+                disabled={isExportingMidi}
+                title="Export as MIDI"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant/15 bg-surface-container-high/40 font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 hover:text-primary hover:border-primary/30 transition-all active:scale-95 disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined !text-sm">{isExportingMidi ? 'hourglass_empty' : 'download'}</span>
+                MIDI
+              </button>
+            )}
             <button
               id="save-project-btn"
               onClick={() => { setSaveModalTitle(projectName); setShowSaveModal(true) }}
