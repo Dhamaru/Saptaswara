@@ -72,7 +72,8 @@ const WHITE_KEY_OFFSETS = [0, 2, 4, 5, 7, 9, 11]
 
 function getKeyCanvasPos(offset: number, octave: number): { x: number; y: number } {
   const W = 64
-  const octaveX = (octave - 4) * 448
+  const PAD = 8 // p-2 = 8px left padding inside container
+  const octaveX = PAD + (octave - 4) * 448
   const isBlack = !WHITE_KEY_OFFSETS.includes(offset)
   if (!isBlack) {
     const wi = WHITE_KEY_OFFSETS.indexOf(offset)
@@ -486,13 +487,13 @@ export default function Piano({
       <div className="w-full overflow-x-auto pb-4 pt-2 scroll-thin">
         <div
           className="relative flex p-2 bg-[#050505] rounded-[32px] border border-white/5 shadow-2xl mx-auto flex-shrink-0"
-          style={{ width: '896px', minWidth: '896px', touchAction: 'none' }}
+          style={{ width: '912px', minWidth: '912px', touchAction: 'none' }}
         >
           {/* KR-10: Ripple canvas overlay */}
           <canvas
             ref={canvasRef}
             className="absolute inset-0 pointer-events-none z-[60] rounded-[30px]"
-            width={896}
+            width={912}
             height={320}
           />
 
