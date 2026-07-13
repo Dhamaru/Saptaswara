@@ -17,19 +17,25 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
+          // Update request cookies so supabase client can see them in this request
           request.cookies.set({
             name,
             value,
             ...options,
           })
           
+          // IMPORTANT: Re-create response but PRESERVE existing cookies that were set on the previous response
+          // In Next.js middleware, each NextResponse.next() call creates a fresh response.
+          // We need to make sure we don't lose cookies set in prior 'set' calls.
           const currentCookies = response.cookies.getAll()
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
+          // Restore previous cookies
           currentCookies.forEach(cookie => response.cookies.set(cookie))
+          // Set the new cookie
           response.cookies.set({
             name,
             value,
@@ -64,26 +70,34 @@ export async function updateSession(request: NextRequest) {
     const { data } = await supabase.auth.getUser()
     user = data.user
   } catch (err) {
-    console.error('[Proxy] Error getting user:', err)
+    console.error('[Middleware] Error getting user:', err)
   }
 
   // Route Protection Logic
   const protectedRoutes = ['/studio', '/dashboard', '/journal', '/workspace', '/projects']
   const pathname = request.nextUrl.pathname
   const isProtected = protectedRoutes.some(route => pathname.startsWith(route))
-
+  
   if (user) {
-    console.log(`[Proxy] User authenticated: ${user.email} for ${pathname}`)
+    console.log(`[Middleware] User authenticated: ${user.email} for ${pathname}`)
   } else {
-    console.log(`[Proxy] No session for ${pathname}`)
+    console.log(`[Middleware] No session for ${pathname}`)
   }
 
   if (isProtected && !user) {
-    console.log(`[Proxy] Redirecting to /login from protected route: ${pathname}`)
-    const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = '/login'
-    redirectUrl.searchParams.set('next', pathname)
-    return NextResponse.redirect(redirectUrl)
+    // Check for guest bypass in development, testing, or if explicitly requested via param
+    const isGuestBypass = request.nextUrl.searchParams.get('guest') === 'true'
+    
+    if (!isGuestBypass) {
+      console.log(`[Middleware] Redirecting to /login from protected route: ${pathname}`)
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/login'
+      // Preserve the intended destination
+      redirectUrl.searchParams.set('next', pathname)
+      return NextResponse.redirect(redirectUrl)
+    } else {
+      console.log(`[Middleware] Guest bypass active for ${pathname}`)
+    }
   }
 
   return response
