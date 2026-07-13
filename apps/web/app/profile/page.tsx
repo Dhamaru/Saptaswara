@@ -99,6 +99,7 @@ export default function ProfilePage() {
   const [data, setData] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
   const [savedRagas, setSavedRagas] = useState<{ id: string; name: string }[]>([])
+  const [practiceDates, setPracticeDates] = useState<string[]>([])
 
   // Skill-level dropdown state
   const [skillDropdownOpen, setSkillDropdownOpen] = useState(false)
@@ -161,6 +162,7 @@ export default function ProfilePage() {
           .order('logged_at', { ascending: false })
           .limit(365)
         const logsCount = logRows?.length ?? 0
+        setPracticeDates((logRows ?? []).map((r: any) => (r.logged_at ?? r.created_at ?? '').slice(0, 10)))
         const { current: streak, longest: longest_streak } = computeStreak(
           (logRows ?? []).map((r: any) => r.logged_at ?? r.created_at ?? '')
         )
@@ -477,6 +479,55 @@ export default function ProfilePage() {
             </Link>
           )}
         </div>
+
+        {/* ── Practice analytics ──────────────────────────────────────────── */}
+        {practiceDates.length > 0 && (
+          <div className="rounded-[28px] bg-surface-container-lowest border border-outline-variant/10 px-7 py-6">
+            <div className="flex items-center gap-3 mb-5">
+              <span className="material-symbols-outlined !text-base text-primary/50">bar_chart</span>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">Practice Activity — Last 12 Weeks</span>
+            </div>
+            {(() => {
+              const today = new Date()
+              const dateSet = new Set(practiceDates)
+              const weeks: { label: string; days: number }[] = []
+              for (let w = 11; w >= 0; w--) {
+                let days = 0
+                const weekStart = new Date(today)
+                weekStart.setDate(today.getDate() - w * 7 - today.getDay())
+                const label = weekStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                for (let d = 0; d < 7; d++) {
+                  const day = new Date(weekStart)
+                  day.setDate(weekStart.getDate() + d)
+                  if (dateSet.has(day.toISOString().slice(0, 10))) days++
+                }
+                weeks.push({ label, days })
+              }
+              const maxDays = Math.max(...weeks.map(w => w.days), 1)
+              return (
+                <div className="flex items-end gap-1.5 h-20">
+                  {weeks.map((week, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+                      <div
+                        className="w-full rounded-t-sm transition-all duration-500"
+                        style={{
+                          height: `${Math.max(4, (week.days / maxDays) * 64)}px`,
+                          background: week.days === 0
+                            ? 'rgba(255,255,255,0.05)'
+                            : `rgba(99,102,241,${0.25 + (week.days / maxDays) * 0.65})`,
+                        }}
+                        title={`${week.label}: ${week.days} day${week.days !== 1 ? 's' : ''}`}
+                      />
+                      {i % 3 === 0 && (
+                        <span className="font-mono text-[6px] text-on-surface-variant/25 whitespace-nowrap hidden sm:block">{week.label}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+        )}
 
         {/* ── Saved ragas quick-launch ────────────────────────────────────── */}
         {savedRagas.length > 0 && (

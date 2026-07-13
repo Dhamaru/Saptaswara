@@ -9,6 +9,7 @@ import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
 import { getSwaraType, swaraAccent, swaraFullLabel, swaraDisplayName } from '@/lib/swaraUtils'
 import { getGamakaProfile, GAMAKA_LABELS, GAMAKA_DESCRIPTIONS, type GamakaType } from '@/lib/gamakaData'
 import { MoodPicker } from '@/components/MoodPicker'
+import { PakadQuiz } from '@/components/PakadQuiz'
 
 const TIME_FILTERS = ['ALL', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT']
 const TRADITION_FILTERS = ['ALL', 'HINDUSTANI', 'CARNATIC', 'SAVED']
@@ -93,6 +94,7 @@ export default function LibraryPage() {
   const [sortBy, setSortBy] = useState<SortOption>('name-asc')
   const [activeMoods, setActiveMoods] = useState<Set<string>>(new Set())
   const [activeSwaras, setActiveSwaras] = useState<Set<string>>(new Set())
+  const [showQuiz, setShowQuiz] = useState(false)
   const [visibleCount, setVisibleCount] = useState(24)
   const [ragaDescription, setRagaDescription] = useState<string>('')
   const [descLoading, setDescLoading] = useState(false)
@@ -482,6 +484,14 @@ export default function LibraryPage() {
                 >
                   <span className="material-symbols-outlined !text-sm">mood</span>
                   Find a Raga by Mood
+                </button>
+                {/* Pakad quiz trigger */}
+                <button
+                  onClick={() => setShowQuiz(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-tertiary/25 bg-tertiary/8 text-tertiary font-mono text-[9px] uppercase tracking-widest font-bold hover:bg-tertiary/15 transition-all w-full justify-center"
+                >
+                  <span className="material-symbols-outlined !text-sm">quiz</span>
+                  Pakad Quiz
                 </button>
               </div>
             </div>
@@ -1061,6 +1071,15 @@ export default function LibraryPage() {
             </div>
           </div>
         )}
+        </div>
+      )}
+
+      {/* Pakad Quiz overlay */}
+      {showQuiz && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+          <div className="w-full max-w-sm bg-surface-lowest rounded-[32px] border border-outline-variant/15 shadow-2xl">
+            <PakadQuiz ragas={ragas} onClose={() => setShowQuiz(false)} />
+          </div>
         </div>
       )}
 

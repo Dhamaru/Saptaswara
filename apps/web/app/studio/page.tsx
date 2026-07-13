@@ -2226,26 +2226,38 @@ function StudioContent() {
                 )}
 
                 {/* Keyboard — full width, unaffected by side panels */}
-                {keyboardLayout === 'SwaPad' ? (
-                  <SwaPad
-                    activeRagaNotes={allRagaNotes}
-                    ragaConstrained={ragaConstrained}
-                    vadiNote={selectedRaga?.vadi}
-                    ragaAroha={selectedRaga?.aroha}
-                    onSwara={(label, freq) => onNoteRecord(label, freq)}
+                {/* Mobile: compact swara strip (Piano unusable on small screens) */}
+                <div className="md:hidden">
+                  <MobileSwaraStrip
+                    onPlay={(freq, swara) => onNoteRecord(swara, freq)}
+                    allowedSwaras={ragaConstrained ? allRagaNotes : undefined}
+                    vadiSwara={selectedRaga?.vadi}
+                    samvadiSwara={selectedRaga?.samvadi}
                   />
-                ) : (
-                  <Piano
-                    layout={keyboardLayout === 'Piano' ? 'Piano' : keyboardLayout === 'Harmonium' ? 'Harmonium' : 'Swara'}
-                    activeRagaNotes={allRagaNotes}
-                    externalActiveNote={activeSwara || ''}
-                    vadiNote={selectedRaga?.vadi}
-                    samvadiNote={selectedRaga?.samvadi}
-                    onNoteClick={onNoteRecord}
-                    ornamentMode={ornamentMode}
-                    selectedRagaName={selectedRaga?.name}
-                  />
-                )}
+                </div>
+                {/* Desktop: full keyboard */}
+                <div className="hidden md:block">
+                  {keyboardLayout === 'SwaPad' ? (
+                    <SwaPad
+                      activeRagaNotes={allRagaNotes}
+                      ragaConstrained={ragaConstrained}
+                      vadiNote={selectedRaga?.vadi}
+                      ragaAroha={selectedRaga?.aroha}
+                      onSwara={(label, freq) => onNoteRecord(label, freq)}
+                    />
+                  ) : (
+                    <Piano
+                      layout={keyboardLayout === 'Piano' ? 'Piano' : keyboardLayout === 'Harmonium' ? 'Harmonium' : 'Swara'}
+                      activeRagaNotes={allRagaNotes}
+                      externalActiveNote={activeSwara || ''}
+                      vadiNote={selectedRaga?.vadi}
+                      samvadiNote={selectedRaga?.samvadi}
+                      onNoteClick={onNoteRecord}
+                      ornamentMode={ornamentMode}
+                      selectedRagaName={selectedRaga?.name}
+                    />
+                  )}
+                </div>
 
                 {/* Avaroha — fixed right panel, only in immersive mode with a raga loaded */}
                 {isImmersive && selectedRaga?.avaroha && (
