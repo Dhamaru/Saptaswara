@@ -1,10 +1,27 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
 
 const ALLOWED_MIME = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/m4a', 'audio/x-m4a', 'audio/aac', 'audio/webm']
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 
 export async function POST(req: Request) {
+  const authHeader = req.headers.get('Authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const authClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+  const { data: userData, error: authError } = await authClient.auth.getUser(token)
+  const activeUser = userData?.user
+  if (authError || !activeUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const rl = await checkRateLimit(activeUser.id, 'ai')
+  if (!rl.allowed) return rateLimitedResponse(rl)
+
   try {
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {

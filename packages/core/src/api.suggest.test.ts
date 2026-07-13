@@ -29,8 +29,6 @@ vi.mock('@supabase/supabase-js', () => ({
 
 vi.mock('@/lib/rateLimit', () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, limit: 20, remaining: 19, resetAt: 0 }),
-  // suggest route uses the synchronous shim
-  checkRateLimitSync: vi.fn().mockReturnValue(true),
   rateLimitedResponse: vi.fn().mockReturnValue({ status: 429, json: async () => ({ error: 'rate_limited' }) }),
 }))
 

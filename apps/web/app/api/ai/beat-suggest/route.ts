@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
-import { checkRateLimitSync } from '@/lib/rateLimit'
+import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '')
 
@@ -74,10 +75,20 @@ function parsePatterns(text: string) {
 }
 
 export async function POST(req: Request) {
-  const ip = req.headers.get('x-forwarded-for') ?? 'unknown'
-  if (!checkRateLimitSync(ip)) {
-    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
-  }
+  const authHeader = req.headers.get('Authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const authClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+  const { data: userData, error: authError } = await authClient.auth.getUser(token)
+  const activeUser = userData?.user
+  if (authError || !activeUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const rl = await checkRateLimit(activeUser.id, 'ai')
+  if (!rl.allowed) return rateLimitedResponse(rl)
 
   let ragaName: string, mood: string
   try {

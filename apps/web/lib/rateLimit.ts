@@ -135,13 +135,3 @@ export function rateLimitedResponse(result: RateLimitResult) {
   )
 }
 
-// ── Legacy shim — keeps existing callers working during transition ─────────────
-// The AI chat route currently calls checkRateLimit(userId) (sync, boolean).
-// This shim lets that continue without a breaking change.
-
-export function checkRateLimitSync(userId: string, limit = 20, windowMs = 60_000): boolean {
-  const key  = `${userId}:ai`
-  const tier: RateLimitTier = 'ai'
-  const cfg  = TIERS[tier]
-  return memCheck(key, tier).allowed
-}

@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/nextjs'
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
-import { checkRateLimitSync } from '@/lib/rateLimit'
+import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 const supabase = createClient(
@@ -28,9 +28,8 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        if (!checkRateLimitSync(userData.user.id)) {
-          return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
-        }
+        const rl = await checkRateLimit(userData.user.id, 'ai')
+        if (!rl.allowed) return rateLimitedResponse(rl)
 
         const { query, ragaContext } = await req.json()
 
