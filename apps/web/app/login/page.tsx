@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
 
   const [success, setSuccess] = useState<string | null>(null)
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null)
@@ -27,6 +28,8 @@ export default function LoginPage() {
     if (params.get('reset') === 'success') {
       setSuccess('Password updated. Sign in with your new password.')
     }
+    const savedEmail = localStorage.getItem('saptaswara-remember-email')
+    if (savedEmail) { setEmail(savedEmail); setRememberMe(true) }
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -48,11 +51,14 @@ export default function LoginPage() {
       return
     }
 
-    // Determine where to redirect after login
+    if (rememberMe) {
+      localStorage.setItem('saptaswara-remember-email', email)
+    } else {
+      localStorage.removeItem('saptaswara-remember-email')
+    }
+
     const params = new URLSearchParams(window.location.search)
     const nextPath = params.get('next') || '/dashboard'
-
-    // Force hard navigation to ensure cookies are sent to proxy/middleware
     window.location.href = nextPath
   }
 
@@ -142,6 +148,23 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Remember me */}
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <div
+                onClick={() => setRememberMe(v => !v)}
+                className={`w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${
+                  rememberMe
+                    ? 'bg-primary border-primary'
+                    : 'border-outline-variant/30 bg-surface-container-low group-hover:border-primary/40'
+                }`}
+              >
+                {rememberMe && <span className="material-symbols-outlined !text-[11px] text-on-primary">check</span>}
+              </div>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/50 group-hover:text-on-surface-variant transition-colors">
+                Remember me
+              </span>
+            </label>
+
             {success && (
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20">
                 <span className="material-symbols-outlined !text-base text-primary/80">check_circle</span>
@@ -171,7 +194,8 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-gradient-to-r from-[#7C3AED] to-[#3B82F6] rounded-2xl font-medium text-white shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
+              className="w-full py-4 rounded-2xl font-medium text-white shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
+              style={{ background: 'linear-gradient(to right, var(--primary), var(--accent))' }}
             >
               {loading ? (
                 <>

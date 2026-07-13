@@ -1710,24 +1710,53 @@ function StudioContent() {
                   />
                 </div>
 
-                {keyboardLayout === 'SwaPad' ? (
-                  <SwaPad
-                    activeRagaNotes={allRagaNotes}
-                    ragaConstrained={ragaConstrained}
-                    vadiNote={selectedRaga?.vadi}
-                    ragaAroha={selectedRaga?.aroha}
-                    onSwara={(label, freq) => onNoteRecord(label, freq)}
-                  />
-                ) : (
-                  <Piano
-                    layout={keyboardLayout === 'Piano' ? 'Piano' : keyboardLayout === 'Harmonium' ? 'Harmonium' : 'Swara'}
-                    activeRagaNotes={allRagaNotes}
-                    externalActiveNote={activeSwara || ''}
-                    vadiNote={selectedRaga?.vadi}
-                    samvadiNote={selectedRaga?.samvadi}
-                    onNoteClick={onNoteRecord}
-                  />
-                )}
+                <div className={isImmersive && selectedRaga?.aroha ? 'flex items-stretch gap-4' : ''}>
+                  {/* Aroha — left side of keyboard in immersive mode */}
+                  {isImmersive && selectedRaga?.aroha && (
+                    <div className="flex-shrink-0 w-14 flex flex-col items-end gap-1.5 pt-3 border-r border-outline-variant/10 pr-3">
+                      <span className="font-mono text-[7px] uppercase tracking-widest text-primary/50 font-bold mb-0.5">Aroha ↑</span>
+                      {(selectedRaga.aroha as string[]).map((n, i) => (
+                        <span key={i} className={`font-mono text-[10px] font-semibold transition-colors ${activeSwara === n ? 'text-primary' : 'text-on-surface-variant/40'}`}>
+                          {swaraDisplayName(n)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Keyboard */}
+                  <div className={isImmersive && selectedRaga?.aroha ? 'flex-1 min-w-0 overflow-hidden' : ''}>
+                    {keyboardLayout === 'SwaPad' ? (
+                      <SwaPad
+                        activeRagaNotes={allRagaNotes}
+                        ragaConstrained={ragaConstrained}
+                        vadiNote={selectedRaga?.vadi}
+                        ragaAroha={selectedRaga?.aroha}
+                        onSwara={(label, freq) => onNoteRecord(label, freq)}
+                      />
+                    ) : (
+                      <Piano
+                        layout={keyboardLayout === 'Piano' ? 'Piano' : keyboardLayout === 'Harmonium' ? 'Harmonium' : 'Swara'}
+                        activeRagaNotes={allRagaNotes}
+                        externalActiveNote={activeSwara || ''}
+                        vadiNote={selectedRaga?.vadi}
+                        samvadiNote={selectedRaga?.samvadi}
+                        onNoteClick={onNoteRecord}
+                      />
+                    )}
+                  </div>
+
+                  {/* Avaroha — right side of keyboard in immersive mode */}
+                  {isImmersive && selectedRaga?.avaroha && (
+                    <div className="flex-shrink-0 w-14 flex flex-col items-start gap-1.5 pt-3 border-l border-outline-variant/10 pl-3">
+                      <span className="font-mono text-[7px] uppercase tracking-widest text-primary/50 font-bold mb-0.5">Avaroha ↓</span>
+                      {(selectedRaga.avaroha as string[]).map((n, i) => (
+                        <span key={i} className="font-mono text-[10px] font-semibold text-on-surface-variant/40">
+                          {swaraDisplayName(n)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {ragaConstrained && selectedRaga && (
                   <div className="mt-3 flex items-center gap-2 justify-center">
