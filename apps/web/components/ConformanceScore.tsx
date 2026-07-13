@@ -43,7 +43,7 @@ export function ConformanceScore({ isRecording, aroha, avaroha, ragaName }: Conf
       await listener.start((result) => {
         if (!result) return
         const swara = hzToSwara(result.hz)
-        if (swara && result.clarity > 0.85) {
+        if (swara && (result as any).clarity > 0.85) {
           samplesRef.current.push(normalizeNote(swara.note))
         }
       })

@@ -316,7 +316,7 @@ function StudioContent() {
   // Task 2: track live notes played on piano → phrase validator strip
   useEffect(() => {
     if (!activeSwara || !selectedRaga) return
-    const scale = new Set([...(selectedRaga.aroha || []), ...(selectedRaga.avaroha || [])])
+    const scale = new Set<string>([...(selectedRaga.aroha || []), ...(selectedRaga.avaroha || [])])
     const valid = scale.has(activeSwara)
     setLiveNotes(prev => [...prev.slice(-11), { label: activeSwara, valid }])
     if (liveNotesTimerRef.current) clearTimeout(liveNotesTimerRef.current)
