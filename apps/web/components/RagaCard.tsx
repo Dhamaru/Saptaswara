@@ -54,51 +54,52 @@ export default function RagaCard({ raga, onClick, isSelected }: RagaCardProps) {
           src={getAtmosphere(raga.time_of_day)}
           alt={raga.name}
           fill
-          className="object-cover opacity-40 group-hover:opacity-60 group-hover:scale-110 transition-all duration-700"
-          style={{ filter: `hue-rotate(${hueShift}deg) saturate(1.2)` }}
+          className="object-cover opacity-70 group-hover:opacity-85 group-hover:scale-110 transition-all duration-700"
+          style={{ filter: `hue-rotate(${hueShift}deg) saturate(1.3)` }}
         />
-        {/* Per-raga tint layer — gives each card a unique colour identity */}
+        {/* Per-raga tint layer */}
         <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 60% 30%, ${tint}, transparent 70%)` }} />
-        <div className="absolute inset-0 bg-gradient-to-t from-surface-lowest via-surface-lowest/40 to-transparent" />
+        {/* Dark scrim only at bottom — keeps image visible, text readable in both themes */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
       </div>
 
       <div className="relative z-10 p-6 md:p-10 h-full flex flex-col justify-between">
         <div>
           <div className="flex flex-col gap-2 mb-4">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[9px] uppercase tracking-[0.2em] theme-primary opacity-60 font-semibold">
+              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/60 font-semibold">
                 {raga.time_of_day || 'Universal'}
               </span>
-              <span className="font-mono text-[9px] uppercase tracking-widest theme-sec opacity-40">
+              <span className="font-mono text-[9px] uppercase tracking-widest text-white/40">
                 {raga.thaat || 'Classic'}
               </span>
             </div>
             <div className="flex gap-2 items-center">
-              <span className={`font-mono text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-sm font-bold ${raga.tradition?.toLowerCase() === 'carnatic' ? 'bg-secondary/20 text-secondary' : 'bg-primary/20 text-primary'}`}>
+              <span className={`font-mono text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-sm font-bold ${raga.tradition?.toLowerCase() === 'carnatic' ? 'bg-emerald-400/20 text-emerald-300' : 'bg-sky-400/20 text-sky-300'}`}>
                 {raga.tradition || 'HINDUSTANI'}
               </span>
               {raga.melakarta_number && (
-                <span className="font-mono text-[8px] uppercase tracking-widest theme-sec opacity-40">
+                <span className="font-mono text-[8px] uppercase tracking-widest text-white/30">
                   M#{raga.melakarta_number}
                 </span>
               )}
             </div>
           </div>
-          <h3 className="font-display text-4xl font-light theme-txt tracking-tight group-hover:theme-primary transition-colors leading-tight">
+          <h3 className="font-display text-4xl font-light text-white tracking-tight group-hover:text-primary-light transition-colors leading-tight">
             {raga.name}
           </h3>
-          <p className="font-sans text-xs theme-sec opacity-60 font-light mt-2 max-w-[200px]">
+          <p className="font-sans text-xs text-white/50 font-light mt-2 max-w-[200px]">
             {raga.mood || 'Traditional melodic structure'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 overflow-hidden">
            {raga.aroha?.slice(0, 5).map((s: string, i: number) => (
-             <span key={i} className="font-label text-[10px] theme-sec opacity-30 border theme-border px-2 py-1 rounded-md">
+             <span key={i} className="font-label text-[10px] text-white/40 border border-white/15 px-2 py-1 rounded-md">
                {s}
              </span>
            ))}
-           <span className="text-[10px] theme-sec opacity-20">...</span>
+           <span className="text-[10px] text-white/20">...</span>
         </div>
       </div>
 
