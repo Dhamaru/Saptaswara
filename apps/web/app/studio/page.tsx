@@ -438,9 +438,13 @@ function StudioContent() {
       let token = accessToken
       // If no bearer token in state (cookie-auth login), try fetching from session
       if (!token) {
-        const { data: { session } } = await supabaseClient.auth.getSession()
-        token = session?.access_token ?? null
-        if (token) setAccessToken(token)
+        try {
+          const { data: { session } } = await supabaseClient.auth.getSession()
+          token = session?.access_token ?? null
+          if (token) setAccessToken(token)
+        } catch {
+          // Supabase unavailable — proceed without token; API calls will 401
+        }
       }
 
       setUser(activeUser)
@@ -615,10 +619,14 @@ function StudioContent() {
 
   // ── Audio init ────────────────────────────────────────────────────────────────
   const handleInitAudio = async () => {
-    if (audioEngine) {
+    if (!audioEngine) return
+    try {
       await audioEngine.start()
       audioEngine.setTimbre(activeInstrument as any, activeTradition as any)
       setIsStarted(true)
+    } catch (err) {
+      console.error('Audio context failed to start:', err)
+      alert('Audio could not start. Check browser permissions and try again.')
     }
   }
 
@@ -741,15 +749,25 @@ function StudioContent() {
   const handleToggleRecording = async () => {
     if (!audioEngine) return
     if (!isRecording) {
-      await audioEngine.startRecording()
-      setIsRecording(true)
-    } else {
-      if (exportFormat === 'wav') {
-        await audioEngine.stopRecordingAsWav()
-      } else {
-        await audioEngine.stopRecording()
+      try {
+        await audioEngine.startRecording()
+        setIsRecording(true)
+      } catch (err) {
+        console.error('Failed to start recording:', err)
+        alert('Recording unavailable — your browser may not support MediaRecorder, or mic permission was denied.')
       }
-      setIsRecording(false)
+    } else {
+      try {
+        if (exportFormat === 'wav') {
+          await audioEngine.stopRecordingAsWav()
+        } else {
+          await audioEngine.stopRecording()
+        }
+      } catch (err) {
+        console.error('Failed to stop recording:', err)
+      } finally {
+        setIsRecording(false)
+      }
     }
   }
 

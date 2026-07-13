@@ -202,7 +202,9 @@ export class AudioEngine {
 
       console.log('AudioEngine: TimbreEngine ready.')
     } catch (err) {
+      this.isStarted = false   // allow retry; callers must handle the throw
       console.error('AudioEngine: Failed to start context:', err)
+      throw err
     }
   }
 

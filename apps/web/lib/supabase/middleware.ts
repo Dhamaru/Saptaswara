@@ -82,12 +82,6 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isProtected = protectedRoutes.some(route => pathname.startsWith(route))
 
-  if (user) {
-    console.log(`[Middleware] User authenticated: ${user.email} for ${pathname}`)
-  } else {
-    console.log(`[Middleware] No session for ${pathname}`)
-  }
-
   // Only redirect when we definitively know there is no session.
   // If getUser() threw a network error, pass through — don't log the user out.
   if (isProtected && !user && !authNetworkError) {
@@ -95,14 +89,11 @@ export async function updateSession(request: NextRequest) {
     const isGuestBypass = request.nextUrl.searchParams.get('guest') === 'true'
 
     if (!isGuestBypass) {
-      console.log(`[Middleware] Redirecting to /login from protected route: ${pathname}`)
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = '/login'
       // Preserve the intended destination
       redirectUrl.searchParams.set('next', pathname)
       return NextResponse.redirect(redirectUrl)
-    } else {
-      console.log(`[Middleware] Guest bypass active for ${pathname}`)
     }
   }
 
