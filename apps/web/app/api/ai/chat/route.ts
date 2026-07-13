@@ -304,8 +304,13 @@ export async function POST(req: Request) {
 
       if (!isQuota || !nvidiaClient) {
         Sentry.captureException(geminiError, { tags: { route: 'ai/chat', provider: 'gemini' } })
+        const isKeyMissing = !process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your-gemini-api-key'
+        const msg = isKeyMissing
+          ? 'AI key not configured. Add GEMINI_API_KEY to environment variables.'
+          : `Gemini error: ${geminiError?.message ?? 'unknown'}`
+        console.error('[ai/chat] Gemini failed:', msg)
         return new Response(
-          JSON.stringify({ error: 'Resonance disrupted. Please try again.' }),
+          JSON.stringify({ error: msg }),
           { status: 500, headers: { 'Content-Type': 'application/json' } }
         )
       }
