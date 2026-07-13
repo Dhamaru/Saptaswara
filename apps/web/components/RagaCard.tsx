@@ -8,8 +8,30 @@ interface RagaCardProps {
   isSelected?: boolean
 }
 
+// Deterministic hash → unique visual identity per raga without extra assets
+function ragaHash(name: string): number {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = Math.imul(31, h) + name.charCodeAt(i) | 0
+  return Math.abs(h)
+}
+
+// Palette of tint colours — one picked per card by hash
+const TINT_PALETTE = [
+  'rgba(88,166,255,0.18)',   // sky blue
+  'rgba(114,56,224,0.18)',   // indigo
+  'rgba(63,185,80,0.15)',    // emerald
+  'rgba(230,130,40,0.18)',   // amber
+  'rgba(232,64,87,0.16)',    // rose
+  'rgba(45,190,180,0.16)',   // teal
+  'rgba(168,85,247,0.18)',   // violet
+  'rgba(251,191,36,0.15)',   // gold
+]
+
 export default function RagaCard({ raga, onClick, isSelected }: RagaCardProps) {
-  // Map time-of-day to generated assets
+  const hash    = ragaHash(raga.name || '')
+  const hueShift = (hash % 24) * 15          // 0 – 345 deg, 24 steps of 15°
+  const tint    = TINT_PALETTE[hash % TINT_PALETTE.length]
+
   const getAtmosphere = (time: string) => {
     const t = time?.toLowerCase() || ''
     if (t.includes('morning')) return '/raga_morning_atmosphere.png'
@@ -18,22 +40,25 @@ export default function RagaCard({ raga, onClick, isSelected }: RagaCardProps) {
   }
 
   return (
-    <button 
+    <button
       onClick={onClick}
       className={`group relative h-80 w-full bg-surface-lowest rounded-[32px] overflow-hidden border transition-all shadow-2xl text-left ${
-        isSelected 
-          ? 'border-primary shadow-glow-sm scale-[1.02] ring-2 ring-primary/20' 
+        isSelected
+          ? 'border-primary shadow-glow-sm scale-[1.02] ring-2 ring-primary/20'
           : 'border-outline-variant/5 hover:border-primary/40'
       }`}
     >
       {/* Immersive Background */}
       <div className="absolute inset-0 z-0">
-        <Image 
-          src={getAtmosphere(raga.time_of_day)} 
+        <Image
+          src={getAtmosphere(raga.time_of_day)}
           alt={raga.name}
           fill
           className="object-cover opacity-40 group-hover:opacity-60 group-hover:scale-110 transition-all duration-700"
+          style={{ filter: `hue-rotate(${hueShift}deg) saturate(1.2)` }}
         />
+        {/* Per-raga tint layer — gives each card a unique colour identity */}
+        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 60% 30%, ${tint}, transparent 70%)` }} />
         <div className="absolute inset-0 bg-gradient-to-t from-surface-lowest via-surface-lowest/40 to-transparent" />
       </div>
 
