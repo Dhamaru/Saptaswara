@@ -541,14 +541,14 @@ export default function Piano({
                         ${isNotePlaying
                           ? 'bg-primary brightness-125 translate-y-3 z-30 shadow-[0_20px_40px_rgba(var(--primary-rgb),0.5)]'
                           : isLockedOut
-                            ? 'bg-[#ffffff] cursor-not-allowed opacity-90'
+                            ? 'bg-[#f5f0e4] cursor-not-allowed opacity-90'
                             : isVarjya
-                              ? 'bg-[#f0f0f0] opacity-50 cursor-not-allowed'
+                              ? 'bg-[#ede8dc] opacity-50 cursor-not-allowed'
                               : isVadi
-                                ? 'bg-[#fff8f0] hover:bg-[#ffe8d0] active:translate-y-2'
+                                ? 'bg-[#fff3e0] hover:bg-[#ffe8c8] active:translate-y-2'
                                 : isSamvadi
-                                  ? 'bg-[#f0f8ff] hover:bg-[#d8edff] active:translate-y-2'
-                                  : 'bg-[#fafafa] hover:bg-[#ededed] active:translate-y-2 active:bg-[#e0e0e0]'
+                                  ? 'bg-[#eef4ff] hover:bg-[#d8e8ff] active:translate-y-2'
+                                  : 'bg-[#f5f0e4] hover:bg-[#ede8dc] active:translate-y-2 active:bg-[#e4ddd0]'
                         }`}
                     >
                       {/* Vadi glow bar */}

@@ -68,7 +68,7 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: sam
     <div className="flex flex-col items-center gap-3">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {/* Background circle track */}
-        <circle cx={cx} cy={cy} r={outerR} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1.5} />
+        <circle cx={cx} cy={cy} r={outerR} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={1.5} />
 
         {/* Aroha arc — draw connecting lines between consecutive aroha notes */}
         {safeAroha.length > 1 && (() => {
@@ -80,7 +80,7 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: sam
               return { x: cx + outerR * Math.cos(angle), y: cy + outerR * Math.sin(angle) }
             })
           const d = points.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ')
-          return <path d={d} fill="none" stroke="rgba(195,192,255,0.18)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+          return <path d={d} fill="none" stroke="rgba(195,192,255,0.25)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         })()}
 
         {/* Render each of the 12 semitone positions */}
@@ -103,7 +103,7 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: sam
             : isSamvadi
             ? '#60a5fa'   // blue — minister note
             : isActive
-            ? '#c3c0ff'   // primary — active raga note
+            ? '#c3c0ff'   // lavender — active raga note
             : '#2d2b3d'   // visible but clearly inactive
 
           const strokeColor = isVadi
@@ -173,9 +173,9 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: sam
           textAnchor="middle"
           fontSize={size * 0.07}
           fontFamily="'DM Sans', sans-serif"
-          fontWeight="300"
+          fontWeight="400"
           fill="#e5e1e4"
-          opacity={0.9}
+          opacity={0.95}
         >
           {ragaName}
         </text>
@@ -185,7 +185,7 @@ export function RagaRing({ ragaName, aroha, avaroha, vadi: vadiRaw, samvadi: sam
           fontSize={size * 0.044}
           fontFamily="'DM Mono', monospace"
           fill="#918fa0"
-          opacity={0.5}
+          opacity={0.65}
           letterSpacing={1}
         >
           {aroha.length}↑ · {avaroha.length}↓ swaras

@@ -4,31 +4,31 @@
 
 @layer base {
   :root {
-    /* Deep charcoal — warm-neutral, not cold navy */
-    --background: #111918;
-    --surface: #18201F;
-    --surface-lowest: #0C1110;
-    --surface-highest: #2A3534;
-    --surface-container-lowest: #0C1110;
-    --surface-container-low: #1C2726;
-    --surface-container: #1F2D2C;
-    --surface-container-high: #283837;
-    --surface-container-highest: #334544;
-    --surface-bright: #2C3D3C;
-    --surface-variant: #1A2928;
-    /* Soft off-white text */
-    --on-surface: #CDD8D7;
-    --on-surface-variant: #8BA5A3;
-    --on-primary: #012A27;
-    /* Teal primary — clean, musical, distinctive */
-    --primary: #2DD4BF;
-    --primary-container: #0A3D38;
-    --primary-light: #5EEAD4;
-    --secondary: #4ADE80;
-    --secondary-container: #14391E;
-    --outline: #3A5553;
-    --outline-variant: #1E3533;
-    --accent: #5EEAD4;
+    /* Comfortable dark navy — not pitch-black, not neon */
+    --background: #0D1117;
+    --surface: #161B22;
+    --surface-lowest: #0D1117;
+    --surface-highest: #2D3748;
+    --surface-container-lowest: #0D1117;
+    --surface-container-low: #1C2333;
+    --surface-container: #212C3E;
+    --surface-container-high: #2A374F;
+    --surface-container-highest: #344260;
+    --surface-bright: #2D3748;
+    --surface-variant: #1E2A3D;
+    /* Soft off-white text — easier on eyes than pure white */
+    --on-surface: #C9D1D9;
+    --on-surface-variant: #8B949E;
+    --on-primary: #0A1929;
+    /* Mid-tone sky blue — readable, not neon */
+    --primary: #58A6FF;
+    --primary-container: #0D419D;
+    --primary-light: #A5D6FF;
+    --secondary: #3FB950;
+    --secondary-container: #1A4228;
+    --outline: #3D5873;
+    --outline-variant: #21354D;
+    --accent: #79C0FF;
   }
 
   [data-theme="light"] {
@@ -50,19 +50,19 @@
     --on-surface-variant: #6B5A47;
     --on-primary: #FFFFFF;
 
-    /* Teal primary — good contrast on cream (5.2:1) */
-    --primary: #0D9488;
-    --primary-container: #CCFBF1;
-    --primary-light: #14B8A6;
+    /* Deep indigo primary — 7:1 contrast on cream */
+    --primary: #4C35C9;
+    --primary-container: #EAE4FF;
+    --primary-light: #7458F0;
 
-    /* Warm amber secondary */
-    --secondary: #92400E;
-    --secondary-container: #FEF3C7;
+    /* Warm amber-gold secondary */
+    --secondary: #7A5800;
+    --secondary-container: #FAEDC4;
 
     /* Warm taupe borders */
     --outline: #9C8A77;
     --outline-variant: #D8CCBF;
-    --accent: #0F766E;
+    --accent: #7238E0;
   }
 
   body {

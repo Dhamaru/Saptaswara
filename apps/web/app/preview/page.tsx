@@ -1,167 +1,101 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Data ────────────────────────────────────────────────────────────────────
 
 type Tab = 'studio' | 'library' | 'journal'
 
 interface Raga {
-  name: string
-  time: string
-  tradition: string
-  mood: string
-  aroha: string[]
-  avaroha: string[]
-  // which white-key indices (0=C,1=D,2=E,3=F,4=G,5=A,6=B) are in raga (repeating per octave)
-  whiteActive: number[]
-  // which black-key slot indices (0=C#,1=D#,2=F#,3=G#,4=A#) are in raga
-  blackActive: number[]
+  name: string; time: string; mood: string; aroha: string[]
+  whiteActive: number[]; blackActive: number[]
 }
-
-// ─── Data ────────────────────────────────────────────────────────────────────
 
 const RAGAS: Raga[] = [
   {
-    name: 'Bhairavi', time: 'Daylight Practice', tradition: 'Hindustani',
-    mood: 'Peaceful, Serene',
-    aroha:   ['Sa', 're', 'ga', 'Ma', 'Pa', 'dha', 'ni', "Sa'"],
-    avaroha: ["Sa'", 'ni', 'dha', 'Pa', 'Ma', 'ga', 're', 'Sa'],
-    whiteActive: [0, 3, 4],            // C, F, G
-    blackActive: [0, 1, 3, 4],         // C#, D#, G#, A#
+    name: 'Bhairavi', time: 'Daylight Practice', mood: 'Peaceful, Serene',
+    aroha: ['Sa', 're', 'ga', 'Ma', 'Pa', 'dha', 'ni', "Sa'"],
+    whiteActive: [0, 3, 4], blackActive: [0, 1, 3, 4],
   },
   {
-    name: 'Yaman', time: 'Evening', tradition: 'Hindustani',
-    mood: 'Romantic yearning',
-    aroha:   ['Sa', 'Re', 'Ga', 'ma', 'Pa', 'Dha', 'Ni', "Sa'"],
-    avaroha: ["Sa'", 'Ni', 'Dha', 'Pa', 'ma', 'Ga', 'Re', 'Sa'],
-    whiteActive: [0, 1, 2, 4, 5, 6],  // C, D, E, G, A, B
-    blackActive: [2],                  // F#
+    name: 'Yaman', time: 'Evening', mood: 'Romantic yearning',
+    aroha: ['Sa', 'Re', 'Ga', 'ma', 'Pa', 'Dha', 'Ni', "Sa'"],
+    whiteActive: [0, 1, 2, 4, 5, 6], blackActive: [2],
   },
   {
-    name: 'Todi', time: 'Morning', tradition: 'Hindustani',
-    mood: 'Wistful Adoration',
-    aroha:   ['Sa', 're', 'ga', 'Ma', 'Pa', 'dha', 'Ni', "Sa'"],
-    avaroha: ["Sa'", 'Ni', 'dha', 'Pa', 'Ma', 'ga', 're', 'Sa'],
-    whiteActive: [0, 3, 4, 6],         // C, F, G, B
-    blackActive: [0, 1, 3],            // C#, D#, G#
+    name: 'Todi', time: 'Morning', mood: 'Wistful Adoration',
+    aroha: ['Sa', 're', 'ga', 'Ma', 'Pa', 'dha', 'Ni', "Sa'"],
+    whiteActive: [0, 3, 4, 6], blackActive: [0, 1, 3],
   },
 ]
 
 const LIBRARY_RAGAS = [
-  { name: 'Yaman',   scale: 'Sa Re Ga ♯4 Pa Dha Ni', mood: 'Romantic yearning',   thaat: 'Kalyan',  color: '#2DD4BF' },
-  { name: 'Bhairav', scale: 'Sa ♭2 Ga Ma Pa ♭6 Ni',  mood: 'Peaceful, Serene',    thaat: 'Bhairav', color: '#60A5FA' },
-  { name: 'Todi',    scale: 'Sa ♭2 ♭3 ♯4 Pa ♭6 Ni',  mood: 'Wistful Adoration',  thaat: 'Todi',    color: '#A78BFA' },
+  { name: 'Yaman',   scale: 'Sa Re Ga ♯4 Pa Dha Ni', mood: 'Romantic yearning',  thaat: 'Kalyan',  hex: '#58A6FF' },
+  { name: 'Bhairav', scale: 'Sa ♭2 Ga Ma Pa ♭6 Ni',  mood: 'Peaceful, Serene',   thaat: 'Bhairav', hex: '#60A5FA' },
+  { name: 'Todi',    scale: 'Sa ♭2 ♭3 ♯4 Pa ♭6 Ni',  mood: 'Wistful Adoration', thaat: 'Todi',    hex: '#A78BFA' },
 ]
 
-const SESSION_HISTORY = [
-  { date: 'Oct 24, 2023', raga: 'Bhairav',  dur: '80 min',  acc: 78, note: 'Focus on komal Re in lower octave transitions…' },
-  { date: 'Oct 23, 2023', raga: 'Tanas',    dur: '40 min',  acc: 92, note: 'Flat swara at 80 BPM, taans accurately placed…' },
-  { date: 'Oct 22, 2023', raga: 'Bhoopali', dur: '120 min', acc: 67, note: 'Full exploration of formal Yaman and Bhairav…' },
+const SESSIONS = [
+  { date: 'Oct 24, 2023', raga: 'Bhairav',  dur: '80 min',  acc: 78, note: 'Focus on komal Re in lower octave…' },
+  { date: 'Oct 23, 2023', raga: 'Tanas',    dur: '40 min',  acc: 92, note: 'Flat swara at 80 BPM, taans placed…' },
+  { date: 'Oct 22, 2023', raga: 'Bhoopali', dur: '120 min', acc: 67, note: 'Full exploration of Yaman/Bhairav…' },
 ]
 
-const AI_MSGS = [
-  { text: "I'm detecting a slight rhythmic shift in your middle octave transitions. Would you like me to stabilize the Tanpura drone to match your current breath cycle?" },
-  { text: 'Adjust resonance for more sustain', action: true },
-  { text: 'Resonance depth increased by 15%. Your vadi swara (Madhyam) is now harmonically emphasized.' },
+const MOCK_AI_REPLIES = [
+  'Try emphasizing the Gandhar (Ga) — in this raga it carries the emotional weight.',
+  'Your alaap pacing is good. Consider a longer pause before the Mandra Saptak.',
+  'The komal swaras here define the character. Lean into them with meend ornaments.',
+  'Vadi swara energy is strong. Build tension toward it, then resolve gently.',
 ]
 
 // ─── Piano ────────────────────────────────────────────────────────────────────
-// 2 octaves, 14 white keys, 10 black keys
-// ViewBox: 0 0 840 200  → WW=60, WH=196, BW=36, BH=120
 
-const WW = 60, WH = 196, BW = 36, BH = 120
-
-// White key indices per octave: 0=C 1=D 2=E 3=F 4=G 5=A 6=B
-// Black key slot x-offsets within an octave (left edge of black key)
-// Octave x-start = oct * 7 * WW
+const WW = 60, WH = 180, BW = 34, BH = 112
 const BLACK_SLOTS = [
-  { slot: 0, xOff: WW * 0.65 },       // C#
-  { slot: 1, xOff: WW * 1.65 },       // D#
-  { slot: 2, xOff: WW * 3.65 },       // F#
-  { slot: 3, xOff: WW * 4.65 },       // G#
-  { slot: 4, xOff: WW * 5.65 },       // A#
+  { slot: 0, xOff: WW * 0.65 },
+  { slot: 1, xOff: WW * 1.65 },
+  { slot: 2, xOff: WW * 3.65 },
+  { slot: 3, xOff: WW * 4.65 },
+  { slot: 4, xOff: WW * 5.65 },
 ]
 
 function Piano({ raga, beat }: { raga: Raga; beat: number }) {
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
-      <svg
-        viewBox={`0 0 ${WW * 14} ${WH + 10}`}
-        style={{ width: '100%', display: 'block' }}
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {/* White keys — always cream/white regardless of theme */}
+    <div className="flex flex-col gap-3 w-full">
+      <svg viewBox={`0 0 ${WW * 14} ${WH}`} className="w-full" style={{ display: 'block' }}
+        preserveAspectRatio="xMidYMid meet">
         {Array.from({ length: 14 }, (_, i) => {
-          const noteInOct = i % 7
-          const isActive = raga.whiteActive.includes(noteInOct)
+          const isActive = raga.whiteActive.includes(i % 7)
           return (
-            <g key={`wk-${i}`}>
-              <rect
-                x={i * WW + 1}
-                y={0}
-                width={WW - 2}
-                height={WH}
-                rx={4}
-                fill={isActive ? '#CCFBF1' : '#F8FAFA'}
-                stroke="#D1D9D9"
-                strokeWidth={1}
-              />
-              {/* Active note dot */}
-              {isActive && (
-                <circle
-                  cx={i * WW + WW / 2}
-                  cy={WH - 10}
-                  r={4}
-                  fill="var(--primary)"
-                  opacity={0.9}
-                />
-              )}
+            <g key={`w${i}`}>
+              <rect x={i * WW + 1} y={0} width={WW - 2} height={WH} rx={4}
+                fill={isActive ? '#DBEAFE' : '#F5F0E4'} stroke="#DDD8CE" strokeWidth={1} />
+              {isActive && <circle cx={i * WW + WW / 2} cy={WH - 10} r={4} fill="var(--primary)" opacity={0.9} />}
             </g>
           )
         })}
-
-        {/* Black keys — always dark regardless of theme */}
         {Array.from({ length: 2 }, (_, oct) =>
           BLACK_SLOTS.map(({ slot, xOff }) => {
             const isActive = raga.blackActive.includes(slot)
-            const x = oct * 7 * WW + xOff
             return (
-              <rect
-                key={`bk-${oct}-${slot}`}
-                x={x}
-                y={0}
-                width={BW}
-                height={BH}
-                rx={3}
-                fill={isActive ? '#0D9488' : '#1C2422'}
-              />
+              <rect key={`b${oct}${slot}`} x={oct * 7 * WW + xOff} y={0}
+                width={BW} height={BH} rx={3}
+                fill={isActive ? 'var(--primary)' : '#1C1A17'} />
             )
           })
         )}
       </svg>
-
-      {/* Sargam notation below keys */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        gap: 6,
-        marginTop: 12,
-        flexWrap: 'wrap',
-      }}>
+      {/* Sargam row */}
+      <div className="flex justify-center gap-1 flex-wrap px-2">
         {raga.aroha.map((s, i) => {
           const active = i === beat % raga.aroha.length
           return (
             <span key={i} style={{
-              fontSize: active ? 13 : 10,
-              fontWeight: active ? 700 : 400,
+              fontSize: active ? 13 : 10, fontWeight: active ? 700 : 400,
               color: active ? 'var(--primary)' : 'var(--on-surface-variant)',
-              letterSpacing: 0.3,
               transition: 'all 0.15s',
-            }}>
-              {s}
-            </span>
+            }}>{s}</span>
           )
         })}
       </div>
@@ -171,49 +105,43 @@ function Piano({ raga, beat }: { raga: Raga; beat: number }) {
 
 // ─── Tempo Knob ───────────────────────────────────────────────────────────────
 
-function TempoKnob({ bpm }: { bpm: number }) {
-  const SIZE = 88, R = 31, CX = 44, CY = 44
-  const startDeg = -225, rangeDeg = 270
+function TempoKnob({ bpm, onDecrement, onIncrement }: {
+  bpm: number; onDecrement: () => void; onIncrement: () => void
+}) {
+  const SIZE = 80, R = 28, CX = 40, CY = 40
   const pct = Math.min(bpm / 200, 1)
-  const endDeg = startDeg + rangeDeg * pct
-  const toXY = (deg: number) => {
-    const rad = (deg * Math.PI) / 180
-    return { x: +(CX + R * Math.cos(rad)).toFixed(3), y: +(CY + R * Math.sin(rad)).toFixed(3) }
+  const startDeg = -225, endDeg = startDeg + 270 * pct
+  const toXY = (d: number) => {
+    const r = (d * Math.PI) / 180
+    return { x: +(CX + R * Math.cos(r)).toFixed(3), y: +(CY + R * Math.sin(r)).toFixed(3) }
   }
   const s = toXY(startDeg), e = toXY(endDeg)
-  const large = endDeg - startDeg > 180 ? 1 : 0
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+    <div className="flex flex-col items-center gap-2">
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
         <circle cx={CX} cy={CY} r={R} fill="none"
-          stroke="color-mix(in srgb, var(--outline-variant) 50%, transparent)"
-          strokeWidth={4} strokeLinecap="round"
-        />
-        <path
-          d={`M ${s.x} ${s.y} A ${R} ${R} 0 ${large} 1 ${e.x} ${e.y}`}
-          fill="none" stroke="var(--primary)" strokeWidth={4} strokeLinecap="round"
-        />
-        <text x={CX} y={CY + 6} textAnchor="middle"
-          fontSize={17} fontWeight={700} fill="var(--on-surface)"
-          fontFamily="var(--font-dm-sans, system-ui)">
-          {bpm}
-        </text>
+          stroke="color-mix(in srgb, var(--outline-variant) 50%, transparent)" strokeWidth={3.5} />
+        <path d={`M ${s.x} ${s.y} A ${R} ${R} 0 ${endDeg - startDeg > 180 ? 1 : 0} 1 ${e.x} ${e.y}`}
+          fill="none" stroke="var(--primary)" strokeWidth={3.5} strokeLinecap="round" />
+        <text x={CX} y={CY + 6} textAnchor="middle" fontSize={15} fontWeight={700}
+          fill="var(--on-surface)" fontFamily="var(--font-dm-sans, system-ui)">{bpm}</text>
       </svg>
-      <div style={{
-        display: 'flex', gap: 14, fontSize: 9,
-        color: 'var(--on-surface-variant)', letterSpacing: 0.8,
-        textTransform: 'uppercase',
-      }}>
-        <span>Andante</span>
-        <span style={{ color: 'var(--primary)', fontWeight: 600 }}>Moderate</span>
-        <span>Allegro</span>
+      <div className="flex items-center gap-2">
+        <button onClick={onDecrement}
+          className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold transition-colors"
+          style={{ background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)', border: 'none', cursor: 'pointer' }}>−</button>
+        <span className="text-[9px] tracking-[0.8px] uppercase" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+          {bpm < 66 ? 'Largo' : bpm < 76 ? 'Adagio' : bpm < 108 ? 'Andante' : bpm < 120 ? 'Moderato' : bpm < 156 ? 'Allegro' : 'Presto'}
+        </span>
+        <button onClick={onIncrement}
+          className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold transition-colors"
+          style={{ background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)', border: 'none', cursor: 'pointer' }}>+</button>
       </div>
     </div>
   )
 }
 
-// ─── Waveform Canvas ──────────────────────────────────────────────────────────
+// ─── Waveform ─────────────────────────────────────────────────────────────────
 
 function TanpuraWave({ playing }: { playing: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -221,39 +149,32 @@ function TanpuraWave({ playing }: { playing: boolean }) {
   const raf = useRef<number>()
 
   useEffect(() => {
-    const canvas = ref.current
-    if (!canvas) return
+    const canvas = ref.current; if (!canvas) return
     const ctx = canvas.getContext('2d')!
     const draw = () => {
       const { width: w, height: h } = canvas
+      const primary = getComputedStyle(canvas).getPropertyValue('--primary').trim() || '#58A6FF'
       ctx.clearRect(0, 0, w, h)
-      ctx.beginPath()
-      for (let x = 0; x <= w; x++) {
-        const t = x / w
-        const y = h / 2
-          + Math.sin(t * Math.PI * 5 + phase.current) * h * 0.28
-          + Math.sin(t * Math.PI * 9 + phase.current * 1.4) * h * 0.1
-        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
-      }
-      // fill below
-      ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath()
       const grad = ctx.createLinearGradient(0, 0, 0, h)
-      grad.addColorStop(0, 'rgba(45,212,191,0.45)')
-      grad.addColorStop(1, 'rgba(45,212,191,0.02)')
-      ctx.fillStyle = grad
-      ctx.fill()
-      // line
+      grad.addColorStop(0, primary + '6B')
+      grad.addColorStop(1, primary + '05')
       ctx.beginPath()
       for (let x = 0; x <= w; x++) {
         const t = x / w
-        const y = h / 2
-          + Math.sin(t * Math.PI * 5 + phase.current) * h * 0.28
-          + Math.sin(t * Math.PI * 9 + phase.current * 1.4) * h * 0.1
+        const y = h / 2 + Math.sin(t * Math.PI * 5 + phase.current) * h * 0.28
+                       + Math.sin(t * Math.PI * 9 + phase.current * 1.4) * h * 0.1
         x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
       }
-      ctx.strokeStyle = '#2DD4BF'
-      ctx.lineWidth = 1.5
-      ctx.stroke()
+      ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath()
+      ctx.fillStyle = grad; ctx.fill()
+      ctx.beginPath()
+      for (let x = 0; x <= w; x++) {
+        const t = x / w
+        const y = h / 2 + Math.sin(t * Math.PI * 5 + phase.current) * h * 0.28
+                       + Math.sin(t * Math.PI * 9 + phase.current * 1.4) * h * 0.1
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+      }
+      ctx.strokeStyle = primary; ctx.lineWidth = 1.5; ctx.stroke()
       if (playing) phase.current += 0.035
       raf.current = requestAnimationFrame(draw)
     }
@@ -262,341 +183,298 @@ function TanpuraWave({ playing }: { playing: boolean }) {
   }, [playing])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <canvas ref={ref} width={280} height={52}
-        style={{ width: '100%', height: 52, display: 'block', borderRadius: 6 }}
-      />
-      {/* Resonance slider */}
-      <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'color-mix(in srgb, var(--outline-variant) 50%, transparent)' }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '62%', background: 'var(--primary)', borderRadius: 2 }} />
-        <div style={{
-          position: 'absolute', left: 'calc(62% - 6px)', top: '50%', transform: 'translateY(-50%)',
-          width: 12, height: 12, borderRadius: '50%',
-          background: 'var(--primary)', boxShadow: '0 0 0 2px var(--surface-container-low)',
-        }} />
+    <div className="flex flex-col gap-2">
+      <canvas ref={ref} width={280} height={44}
+        className="w-full rounded-md" style={{ height: 44 }} />
+      <div className="relative h-1 rounded-full" style={{ background: 'color-mix(in srgb, var(--outline-variant) 50%, transparent)' }}>
+        <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: '62%', background: 'var(--primary)' }} />
+        <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2"
+          style={{ left: 'calc(62% - 6px)', background: 'var(--primary)', borderColor: 'var(--surface-container-low)' }} />
       </div>
     </div>
   )
 }
 
-// ─── Studio View ──────────────────────────────────────────────────────────────
+// ─── AI Panel ─────────────────────────────────────────────────────────────────
 
-function StudioView({
-  raga, playing, beat, bpm, onTogglePlay,
-}: {
-  raga: Raga; playing: boolean; beat: number; bpm: number; onTogglePlay: () => void
-}) {
-  const elapsed = Math.floor(beat * (60 / bpm))
-  const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+type AIMsg = { text: string; action?: boolean; fromUser?: boolean }
+
+function AIPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [msgs, setMsgs] = useState<AIMsg[]>([
+    { text: "Detecting a slight rhythmic shift in your middle octave transitions. Stabilize Tanpura drone to match your breath cycle?" },
+    { text: 'Adjust resonance for more sustain', action: true },
+    { text: 'Resonance depth increased 15%. Vadi swara (Madhyam) is now harmonically emphasized.' },
+  ])
+  const [input, setInput] = useState('')
+  const [typing, setTyping] = useState(false)
+  const [replyIdx, setReplyIdx] = useState(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const submit = () => {
+    const text = input.trim()
+    if (!text) return
+    setInput('')
+    setMsgs(m => [...m, { text, fromUser: true }])
+    setTyping(true)
+    setTimeout(() => {
+      setMsgs(m => [...m, { text: MOCK_AI_REPLIES[replyIdx % MOCK_AI_REPLIES.length] }])
+      setReplyIdx(i => i + 1)
+      setTyping(false)
+    }, 1200)
+  }
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [msgs, typing])
 
   return (
-    <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+    <>
+      {open && (
+        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onClose} />
+      )}
+      <aside className={[
+        'flex flex-col border-l transition-all duration-300',
+        'fixed inset-y-0 right-0 z-50 w-[min(320px,100vw)] lg:static lg:z-auto',
+        'lg:w-[260px] xl:w-[280px] lg:translate-x-0',
+        open ? 'translate-x-0' : 'translate-x-full lg:translate-x-0',
+      ].join(' ')}
+        style={{
+          background: 'var(--surface-container-lowest)',
+          borderColor: 'color-mix(in srgb, var(--outline-variant) 20%, transparent)',
+        }}>
 
-      {/* ── Main content ── */}
-      <div style={{
-        flex: 1, minWidth: 0,
-        display: 'flex', flexDirection: 'column',
-        padding: '18px 24px 16px',
-        gap: 0,
-        overflow: 'hidden',
-      }}>
-
-        {/* Raga header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 16, flexShrink: 0 }}>
+        <div className="flex items-center justify-between px-4 py-4 border-b"
+          style={{ borderColor: 'color-mix(in srgb, var(--outline-variant) 18%, transparent)' }}>
           <div>
-            <div style={{
-              fontSize: 9, letterSpacing: 2.5, textTransform: 'uppercase',
-              color: 'var(--on-surface-variant)', marginBottom: 5, fontWeight: 500,
-            }}>Active Raga</div>
-            <div style={{ fontSize: 24, fontWeight: 650, color: 'var(--on-surface)', lineHeight: 1 }}>
-              {raga.name}
-              <span style={{ color: 'var(--on-surface-variant)', fontWeight: 400, fontSize: 18 }}> · {raga.time}</span>
+            <div className="text-[13px] font-semibold" style={{ color: 'var(--on-surface)' }}>Neural Resonance</div>
+            <div className="text-[10px]" style={{ color: 'var(--on-surface-variant)' }}>AI Resonant Studio Advisor</div>
+          </div>
+          <button onClick={onClose}
+            className="lg:hidden w-7 h-7 rounded-full flex items-center justify-center text-sm"
+            style={{ background: 'var(--surface-container)', color: 'var(--on-surface-variant)' }}>✕</button>
+        </div>
+
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 scroll-thin">
+          {msgs.map((msg, i) =>
+            msg.fromUser ? (
+              <div key={i} className="self-end text-[11px] leading-relaxed px-3 py-2.5 rounded-xl max-w-[85%]"
+                style={{ background: 'color-mix(in srgb, var(--primary) 15%, transparent)', color: 'var(--on-surface)', border: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)' }}>
+                {msg.text}
+              </div>
+            ) : msg.action ? (
+              <button key={i} className="text-left text-[11px] font-semibold px-3 py-2.5 rounded-xl leading-snug transition-opacity hover:opacity-90"
+                style={{ background: 'var(--primary)', color: 'var(--on-primary)', boxShadow: '0 2px 12px color-mix(in srgb, var(--primary) 30%, transparent)' }}>
+                {msg.text}
+              </button>
+            ) : (
+              <div key={i} className="text-[11px] leading-relaxed px-3 py-2.5 rounded-xl border"
+                style={{ background: 'var(--surface-container)', color: 'var(--on-surface-variant)', borderColor: 'color-mix(in srgb, var(--outline-variant) 20%, transparent)' }}>
+                {msg.text}
+              </div>
+            )
+          )}
+          {typing && (
+            <div className="text-[11px] px-3 py-2.5 rounded-xl border flex gap-1 items-center"
+              style={{ background: 'var(--surface-container)', color: 'var(--on-surface-variant)', borderColor: 'color-mix(in srgb, var(--outline-variant) 20%, transparent)' }}>
+              {[0, 1, 2].map(i => (
+                <span key={i} className="w-1 h-1 rounded-full inline-block"
+                  style={{ background: 'var(--on-surface-variant)', animation: `pulse 1s ${i * 0.2}s infinite` }} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="p-3 border-t" style={{ borderColor: 'color-mix(in srgb, var(--outline-variant) 18%, transparent)' }}>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+            style={{ background: 'var(--surface-container)', borderColor: 'color-mix(in srgb, var(--outline-variant) 30%, transparent)' }}>
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && submit()}
+              placeholder="Ask AI Resonant…"
+              className="flex-1 bg-transparent border-none outline-none text-[11px]"
+              style={{ color: 'var(--on-surface)' }} />
+            <button onClick={submit} className="text-sm leading-none" style={{ color: 'var(--primary)' }}>↑</button>
+          </div>
+        </div>
+      </aside>
+    </>
+  )
+}
+
+// ─── Studio View ─────────────────────────────────────────────────────────────
+
+function StudioView({ raga, playing, beat, bpm, onTogglePlay, onSeek, onDecrementBpm, onIncrementBpm, isRecording, onToggleRec }: {
+  raga: Raga; playing: boolean; beat: number; bpm: number
+  onTogglePlay: () => void; onSeek: (pct: number) => void
+  onDecrementBpm: () => void; onIncrementBpm: () => void
+  isRecording: boolean; onToggleRec: () => void
+}) {
+  const [aiOpen, setAiOpen] = useState(false)
+  const elapsed = Math.floor(beat * (60 / bpm))
+  const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+  const progressRef = useRef<HTMLDivElement>(null)
+
+  const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = progressRef.current?.getBoundingClientRect()
+    if (!rect) return
+    onSeek((e.clientX - rect.left) / rect.width)
+  }
+
+  return (
+    <div className="flex flex-1 overflow-hidden min-h-0">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden p-4 md:p-6 gap-0">
+        {/* Raga header */}
+        <div className="flex items-start gap-3 mb-4 flex-shrink-0">
+          <div className="flex-1 min-w-0">
+            <div className="text-[9px] tracking-[2.5px] uppercase font-medium mb-1"
+              style={{ color: 'var(--on-surface-variant)' }}>Active Raga</div>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-xl md:text-2xl font-bold leading-none" style={{ color: 'var(--on-surface)' }}>{raga.name}</span>
+              <span className="text-sm md:text-base font-normal" style={{ color: 'var(--on-surface-variant)' }}>· {raga.time}</span>
             </div>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '4px 12px', borderRadius: 20,
-              border: '1.5px solid var(--primary)',
-              fontSize: 9, letterSpacing: 1.5, fontWeight: 700,
-              color: 'var(--primary)', textTransform: 'uppercase',
-            }}>
-              <span style={{
-                width: 5, height: 5, borderRadius: '50%',
-                background: 'var(--primary)', animation: 'pulse 1.5s infinite',
-                display: 'inline-block',
-              }} />
-              Live Rec
-            </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => setAiOpen(true)}
+              className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-semibold"
+              style={{ background: 'color-mix(in srgb, var(--primary) 15%, transparent)', color: 'var(--primary)', border: '1px solid color-mix(in srgb, var(--primary) 30%, transparent)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>psychology</span>
+              AI
+            </button>
+            <button onClick={onToggleRec}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full border-[1.5px] text-[9px] tracking-[1.5px] uppercase font-bold flex-shrink-0 cursor-pointer transition-all"
+              style={{
+                borderColor: isRecording ? '#ef4444' : 'var(--primary)',
+                color: isRecording ? '#ef4444' : 'var(--primary)',
+                background: isRecording ? 'rgba(239,68,68,0.1)' : 'transparent',
+              }}>
+              <span className="w-1.5 h-1.5 rounded-full inline-block flex-shrink-0"
+                style={{ background: isRecording ? '#ef4444' : 'var(--primary)', animation: isRecording ? 'pulse 0.8s infinite' : 'pulse 1.5s infinite' }} />
+              {isRecording ? '■ Stop Rec' : 'Live Rec'}
+            </button>
           </div>
         </div>
 
-        {/* Piano */}
-        <div style={{
-          flex: 1, minHeight: 0, maxHeight: 340,
-          borderRadius: 16,
-          background: '#EEF2F2',
-          border: '1px solid #D4DCDC',
-          padding: '16px 16px 16px',
-          display: 'flex', flexDirection: 'column', justifyContent: 'center',
-          overflow: 'hidden',
-        }}>
+        {/* Piano card — theme-aware surface */}
+        <div className="flex-1 min-h-0 rounded-2xl overflow-hidden flex flex-col justify-center p-4 md:p-5"
+          style={{ background: 'var(--surface-container-low)', border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)', maxHeight: 340 }}>
           <Piano raga={raga} beat={beat} />
         </div>
 
         {/* Controls row */}
-        <div style={{ display: 'flex', gap: 14, marginTop: 12, flexShrink: 0 }}>
-          {/* Tempo */}
-          <div style={{
-            flex: 1,
-            borderRadius: 14,
-            background: 'color-mix(in srgb, var(--surface-container) 60%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--outline-variant) 30%, transparent)',
-            padding: '12px 14px 10px',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-          }}>
-            <div style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: 6, fontWeight: 500 }}>
-              Master Tempo
-            </div>
-            <TempoKnob bpm={bpm} />
+        <div className="flex gap-3 mt-3 flex-shrink-0">
+          <div className="flex-1 rounded-2xl flex flex-col items-center gap-1 py-3 px-2"
+            style={{ background: 'color-mix(in srgb, var(--surface-container) 60%, transparent)', border: '1px solid color-mix(in srgb, var(--outline-variant) 30%, transparent)' }}>
+            <div className="text-[9px] tracking-[2px] uppercase font-medium mb-1" style={{ color: 'var(--on-surface-variant)' }}>Master Tempo</div>
+            <TempoKnob bpm={bpm} onDecrement={onDecrementBpm} onIncrement={onIncrementBpm} />
           </div>
-
-          {/* Tanpura */}
-          <div style={{
-            flex: 1.4,
-            borderRadius: 14,
-            background: 'color-mix(in srgb, var(--surface-container) 60%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--outline-variant) 30%, transparent)',
-            padding: '12px 16px 10px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <span style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--on-surface-variant)', fontWeight: 500 }}>
-                Tanpura Resonance
-              </span>
-              <span style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: 'var(--primary)', display: 'inline-block',
-                boxShadow: '0 0 6px var(--primary)',
-              }} />
+          <div className="flex-[1.4] rounded-2xl p-3 md:p-4"
+            style={{ background: 'color-mix(in srgb, var(--surface-container) 60%, transparent)', border: '1px solid color-mix(in srgb, var(--outline-variant) 30%, transparent)' }}>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[9px] tracking-[2px] uppercase font-medium" style={{ color: 'var(--on-surface-variant)' }}>Tanpura Resonance</span>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--primary)', boxShadow: '0 0 6px var(--primary)' }} />
             </div>
             <TanpuraWave playing={playing} />
           </div>
         </div>
 
         {/* Transport */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 14,
-          marginTop: 10, paddingTop: 10, flexShrink: 0,
-          borderTop: '1px solid color-mix(in srgb, var(--outline-variant) 20%, transparent)',
-        }}>
-          <button style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>⏮</button>
-          <button onClick={onTogglePlay} style={{
-            width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-            background: playing ? 'var(--primary)' : 'var(--surface-container-high)',
-            border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 13, color: playing ? 'var(--on-primary)' : 'var(--on-surface)',
-            transition: 'all 0.2s', boxShadow: playing ? '0 0 16px color-mix(in srgb, var(--primary) 40%, transparent)' : 'none',
-          }}>
-            {playing ? '⏸' : '▶'}
-          </button>
-          <button style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>⏭</button>
-
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)', fontFamily: 'monospace', flexShrink: 0 }}>
-            {fmt(elapsed)} / 40:00
-          </span>
-
-          <div style={{ flex: 1, position: 'relative', height: 3, borderRadius: 2, background: 'color-mix(in srgb, var(--outline-variant) 40%, transparent)', cursor: 'pointer' }}>
-            <div style={{
-              position: 'absolute', left: 0, top: 0, height: '100%',
-              width: `${Math.min((elapsed / 2400) * 100, 100)}%`,
-              background: 'var(--primary)', borderRadius: 2,
-            }} />
+        <div className="flex items-center gap-3 mt-3 pt-3 flex-shrink-0 border-t"
+          style={{ borderColor: 'color-mix(in srgb, var(--outline-variant) 20%, transparent)' }}>
+          <button className="text-lg leading-none" style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', cursor: 'pointer' }}>⏮</button>
+          <button onClick={onTogglePlay}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] flex-shrink-0 transition-all"
+            style={{
+              background: playing ? 'var(--primary)' : 'var(--surface-container-high)',
+              border: 'none', cursor: 'pointer',
+              color: playing ? 'var(--on-primary)' : 'var(--on-surface)',
+              boxShadow: playing ? '0 0 16px color-mix(in srgb, var(--primary) 40%, transparent)' : 'none',
+            }}>{playing ? '⏸' : '▶'}</button>
+          <button className="text-lg leading-none" style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', cursor: 'pointer' }}>⏭</button>
+          <span className="text-[11px] font-mono flex-shrink-0" style={{ color: 'var(--on-surface-variant)' }}>{fmt(elapsed)} / 40:00</span>
+          {/* Scrubbable progress bar */}
+          <div ref={progressRef} onClick={handleSeekClick}
+            className="flex-1 relative h-[4px] rounded-full cursor-pointer"
+            style={{ background: 'color-mix(in srgb, var(--outline-variant) 40%, transparent)' }}>
+            <div className="absolute left-0 top-0 h-full rounded-full transition-all"
+              style={{ width: `${Math.min((elapsed / 2400) * 100, 100)}%`, background: 'var(--primary)' }} />
+            <div className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full transition-all"
+              style={{ left: `calc(${Math.min((elapsed / 2400) * 100, 100)}% - 5px)`, background: 'var(--primary)', border: '2px solid var(--background)', boxShadow: '0 0 4px color-mix(in srgb, var(--primary) 40%, transparent)' }} />
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <span style={{ fontSize: 13, color: 'var(--on-surface-variant)' }}>🔈</span>
-            <div style={{ width: 56, height: 3, borderRadius: 2, background: 'color-mix(in srgb, var(--outline-variant) 40%, transparent)' }}>
-              <div style={{ height: '100%', width: '70%', background: 'var(--on-surface-variant)', borderRadius: 2 }} />
-            </div>
-          </div>
-
-          <span style={{ fontSize: 9, color: 'var(--on-surface-variant)', letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>
-            {raga.name}
-          </span>
+          <span className="text-[9px] uppercase tracking-[1px] flex-shrink-0 hidden sm:block" style={{ color: 'var(--on-surface-variant)' }}>{raga.name}</span>
         </div>
       </div>
 
-      {/* ── AI Panel ── */}
-      <div style={{
-        width: 272, flexShrink: 0,
-        borderLeft: '1px solid color-mix(in srgb, var(--outline-variant) 20%, transparent)',
-        display: 'flex', flexDirection: 'column',
-        background: 'var(--surface-container-lowest)',
-      }}>
-        {/* Panel header */}
-        <div style={{
-          padding: '18px 16px 14px',
-          borderBottom: '1px solid color-mix(in srgb, var(--outline-variant) 18%, transparent)',
-        }}>
-          <div style={{ fontSize: 13, fontWeight: 650, color: 'var(--on-surface)', letterSpacing: -0.2 }}>Neural Resonance</div>
-          <div style={{ fontSize: 10, color: 'var(--on-surface-variant)', marginTop: 2 }}>AI Resonant Studio Advisor</div>
-        </div>
-
-        {/* Messages */}
-        <div style={{
-          flex: 1, overflowY: 'auto', padding: '14px 12px',
-          display: 'flex', flexDirection: 'column', gap: 10,
-        }}>
-          {AI_MSGS.map((msg, i) =>
-            msg.action ? (
-              <button key={i} style={{
-                padding: '10px 14px', borderRadius: 10,
-                background: 'var(--primary)', color: 'var(--on-primary)',
-                border: 'none', fontSize: 11, fontWeight: 600,
-                letterSpacing: 0.2, cursor: 'pointer',
-                textAlign: 'left', lineHeight: 1.4,
-                boxShadow: '0 2px 12px color-mix(in srgb, var(--primary) 30%, transparent)',
-                transition: 'opacity 0.15s',
-              }}>
-                {msg.text}
-              </button>
-            ) : (
-              <div key={i} style={{
-                padding: '10px 12px', borderRadius: 10,
-                background: 'var(--surface-container)',
-                border: '1px solid color-mix(in srgb, var(--outline-variant) 20%, transparent)',
-                fontSize: 11, lineHeight: 1.55, color: 'var(--on-surface-variant)',
-              }}>
-                {msg.text}
-              </div>
-            )
-          )}
-        </div>
-
-        {/* Input */}
-        <div style={{
-          padding: '10px 12px 14px',
-          borderTop: '1px solid color-mix(in srgb, var(--outline-variant) 18%, transparent)',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '8px 12px',
-            borderRadius: 10,
-            background: 'var(--surface-container)',
-            border: '1px solid color-mix(in srgb, var(--outline-variant) 30%, transparent)',
-          }}>
-            <input
-              placeholder="Ask AI Resonant…"
-              style={{
-                flex: 1, background: 'none', border: 'none', outline: 'none',
-                fontSize: 11, color: 'var(--on-surface)',
-              }}
-            />
-            <button style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--primary)', fontSize: 14, lineHeight: 1, padding: 0,
-            }}>↑</button>
-          </div>
-        </div>
-      </div>
+      <AIPanel open={aiOpen} onClose={() => setAiOpen(false)} />
     </div>
   )
 }
 
 // ─── Library View ─────────────────────────────────────────────────────────────
 
-function LibraryView() {
+function LibraryView({ activeRagaName, onExplore }: {
+  activeRagaName: string
+  onExplore: (ragaName: string) => void
+}) {
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+    <div className="flex-1 overflow-y-auto p-5 md:p-8 scroll-thin">
+      <div className="flex justify-between items-start mb-2 gap-4">
         <div>
-          <h1 style={{ fontSize: 30, fontWeight: 700, color: 'var(--on-surface)', margin: 0, letterSpacing: -0.5 }}>
-            Raga Library
-          </h1>
-          <p style={{ fontSize: 12, color: 'var(--on-surface-variant)', margin: '8px 0 0', maxWidth: 480, lineHeight: 1.6 }}>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight" style={{ color: 'var(--on-surface)' }}>Raga Library</h1>
+          <p className="text-[12px] mt-2 max-w-md leading-relaxed" style={{ color: 'var(--on-surface-variant)' }}>
             The Daylight Practice collection focuses on ragas traditionally performed during the transition from dawn to high sun.
           </p>
         </div>
-        <button style={{
-          padding: '6px 18px', borderRadius: 20,
-          background: 'var(--primary)', color: 'var(--on-primary)',
-          border: 'none', fontSize: 10, fontWeight: 700,
-          letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer',
-          flexShrink: 0, marginTop: 4,
-        }}>Active</button>
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold tracking-[1px] uppercase flex-shrink-0"
+          style={{ background: 'color-mix(in srgb, var(--primary) 15%, transparent)', color: 'var(--primary)', border: '1px solid color-mix(in srgb, var(--primary) 30%, transparent)' }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--primary)' }} />
+          {activeRagaName}
+        </div>
       </div>
 
-      {/* Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18, marginTop: 28 }}>
-        {LIBRARY_RAGAS.map((r) => (
-          <div key={r.name} style={{
-            borderRadius: 18,
-            background: 'var(--surface)',
-            border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)',
-            padding: '22px 20px 18px',
-            display: 'flex', flexDirection: 'column', gap: 6,
-            transition: 'box-shadow 0.2s',
-          }}>
-            {/* Color accent line */}
-            <div style={{ width: 28, height: 3, borderRadius: 2, background: r.color, marginBottom: 4 }} />
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--on-surface)', letterSpacing: -0.3 }}>{r.name}</div>
-            <div style={{ fontSize: 10, color: 'var(--on-surface-variant)', fontFamily: 'monospace', letterSpacing: 0.8 }}>
-              {r.scale}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--on-surface-variant)', flex: 1, marginTop: 2 }}>{r.mood}</div>
-            <div style={{
-              fontSize: 8, color: r.color, letterSpacing: 1.5,
-              textTransform: 'uppercase', fontWeight: 600, marginTop: 4,
-            }}>{r.thaat}</div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button style={{
-                flex: 1, padding: '8px 0', borderRadius: 9,
-                background: 'var(--primary)', color: 'var(--on-primary)',
-                border: 'none', fontSize: 10, fontWeight: 700,
-                letterSpacing: 0.8, textTransform: 'uppercase', cursor: 'pointer',
-              }}>Explore</button>
-              <button style={{
-                flex: 1, padding: '8px 0', borderRadius: 9,
-                background: 'transparent', color: 'var(--on-surface-variant)',
-                border: '1px solid color-mix(in srgb, var(--outline-variant) 55%, transparent)',
-                fontSize: 10, fontWeight: 600,
-                letterSpacing: 0.8, textTransform: 'uppercase', cursor: 'pointer',
-              }}>Browse</button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+        {LIBRARY_RAGAS.map((r) => {
+          const isActive = r.name.toLowerCase() === activeRagaName.toLowerCase() ||
+            activeRagaName.toLowerCase().startsWith(r.name.toLowerCase())
+          return (
+          <div key={r.name}
+            className="rounded-2xl p-5 flex flex-col gap-2 transition-all hover:shadow-lg"
+            style={{
+              background: 'var(--surface)',
+              border: `1px solid ${isActive ? 'color-mix(in srgb, var(--primary) 40%, transparent)' : 'color-mix(in srgb, var(--outline-variant) 35%, transparent)'}`,
+              boxShadow: isActive ? '0 0 0 1px color-mix(in srgb, var(--primary) 15%, transparent)' : 'none',
+            }}>
+            <div className="w-7 h-[3px] rounded-full mb-1" style={{ background: r.hex }} />
+            <div className="text-[20px] font-bold tracking-tight" style={{ color: 'var(--on-surface)' }}>{r.name}</div>
+            <div className="text-[10px] tracking-wide font-mono" style={{ color: 'var(--on-surface-variant)' }}>{r.scale}</div>
+            <div className="text-[12px] flex-1" style={{ color: 'var(--on-surface-variant)' }}>{r.mood}</div>
+            <div className="text-[8px] tracking-[1.5px] uppercase font-semibold mt-1" style={{ color: r.hex }}>{r.thaat}</div>
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => onExplore(r.name)}
+                className="flex-1 py-2 rounded-xl text-[10px] font-bold tracking-[0.8px] uppercase cursor-pointer transition-opacity hover:opacity-90"
+                style={{ background: 'var(--primary)', color: 'var(--on-primary)', border: 'none' }}>
+                {isActive ? '✓ Active' : 'Explore'}
+              </button>
+              <button className="flex-1 py-2 rounded-xl text-[10px] font-semibold tracking-[0.8px] uppercase cursor-pointer"
+                style={{ background: 'transparent', color: 'var(--on-surface-variant)', border: '1px solid color-mix(in srgb, var(--outline-variant) 55%, transparent)' }}>Browse</button>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
 
-      {/* Deep Dive */}
-      <div style={{
-        marginTop: 28, borderRadius: 20, overflow: 'hidden', position: 'relative',
-        minHeight: 180, display: 'flex', alignItems: 'center',
-        background: 'linear-gradient(135deg, #0a1a18 0%, #112422 60%, #1a0e00 100%)',
-        border: '1px solid color-mix(in srgb, var(--primary) 15%, transparent)',
-      }}>
-        {/* Subtle glow */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'radial-gradient(ellipse at 70% 50%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 70%)',
-        }} />
-        <div style={{ position: 'relative', padding: '28px 32px', zIndex: 1, maxWidth: 520 }}>
-          <div style={{
-            fontSize: 9, color: 'var(--primary)', letterSpacing: 2.5,
-            textTransform: 'uppercase', fontWeight: 700, marginBottom: 10,
-          }}>Deep Dive</div>
-          <h2 style={{ fontSize: 24, fontWeight: 700, color: '#fff', margin: '0 0 10px', letterSpacing: -0.3 }}>
-            Ahir Bhairav
-          </h2>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: '0 0 20px', lineHeight: 1.6 }}>
-            An intensive study module exploring the unique mixture of Bhairav and Kafi. Master the delicate movement between their characteristic phrases.
+      {/* Deep Dive — cinematic card, always dark */}
+      <div className="mt-6 rounded-2xl overflow-hidden relative flex items-center"
+        style={{ minHeight: 160, background: 'linear-gradient(135deg, #0d1117 0%, color-mix(in srgb, var(--primary-container) 80%, #0d1117 20%) 100%)', border: '1px solid color-mix(in srgb, var(--primary) 20%, transparent)' }}>
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 70% 50%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 70%)' }} />
+        <div className="relative z-10 p-6 md:p-8">
+          <div className="text-[9px] tracking-[2.5px] uppercase font-bold mb-2" style={{ color: 'var(--primary)' }}>Deep Dive</div>
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight mb-2" style={{ color: '#f0f6ff' }}>Ahir Bhairav</h2>
+          <p className="text-[12px] max-w-sm leading-relaxed mb-5" style={{ color: 'rgba(200,220,255,0.65)' }}>
+            Intensive study exploring the unique mixture of Bhairav and Kafi. Master the delicate movement between their characteristic phrases.
           </p>
-          <button style={{
-            padding: '9px 22px', borderRadius: 22,
-            background: 'var(--primary)', color: 'var(--on-primary)',
-            border: 'none', fontSize: 11, fontWeight: 700,
-            letterSpacing: 0.5, cursor: 'pointer',
-          }}>Start Deep Dive →</button>
+          <button className="px-5 py-2 rounded-full text-[11px] font-bold tracking-[0.5px] cursor-pointer"
+            style={{ background: 'var(--primary)', color: 'var(--on-primary)', border: 'none' }}>Start Deep Dive →</button>
         </div>
       </div>
     </div>
@@ -607,139 +485,92 @@ function LibraryView() {
 
 function JournalView() {
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
-      <h1 style={{ fontSize: 30, fontWeight: 700, color: 'var(--on-surface)', margin: '0 0 6px', letterSpacing: -0.5 }}>
-        Practice Journal
-      </h1>
-      <p style={{ fontSize: 12, color: 'var(--on-surface-variant)', margin: '0 0 28px', lineHeight: 1.6 }}>
+    <div className="flex-1 overflow-y-auto p-5 md:p-8 scroll-thin">
+      <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-2" style={{ color: 'var(--on-surface)' }}>Practice Journal</h1>
+      <p className="text-[12px] mb-6 leading-relaxed max-w-xl" style={{ color: 'var(--on-surface-variant)' }}>
         A chronological record of your musical evolution. Review your raga history, track your mastery, and assess the depth of your focus.
       </p>
 
-      {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
-        {/* Master progression */}
-        <div style={{
-          borderRadius: 16, padding: '20px 22px',
-          background: 'var(--surface)',
-          border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)',
-        }}>
-          <div style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--on-surface-variant)', fontWeight: 500, marginBottom: 8 }}>
-            Master Progression
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="sm:col-span-2 rounded-2xl p-5"
+          style={{ background: 'var(--surface)', border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)' }}>
+          <div className="text-[9px] tracking-[2px] uppercase font-medium mb-2" style={{ color: 'var(--on-surface-variant)' }}>Master Progression</div>
+          <div className="text-[15px] font-semibold mb-1" style={{ color: 'var(--on-surface)' }}>Yaman & Bhairav</div>
+          <div className="text-[11px] mb-4" style={{ color: 'var(--on-surface-variant)' }}>Primary focus for last 10 days. 12 hours logged.</div>
+          <div className="h-1 rounded-full relative" style={{ background: 'color-mix(in srgb, var(--outline-variant) 40%, transparent)' }}>
+            <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: '72%', background: 'var(--primary)' }} />
           </div>
-          <div style={{ fontSize: 15, fontWeight: 650, color: 'var(--on-surface)', marginBottom: 4 }}>Yaman & Bhairav</div>
-          <div style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginBottom: 14, lineHeight: 1.4 }}>
-            Primary focus for last 10 days. 12 hours logged.
-          </div>
-          <div style={{ height: 4, borderRadius: 2, background: 'color-mix(in srgb, var(--outline-variant) 40%, transparent)', position: 'relative' }}>
-            <div style={{ position: 'absolute', inset: 0, width: '72%', background: 'var(--primary)', borderRadius: 2 }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-            <span style={{ fontSize: 9, color: 'var(--on-surface-variant)' }}>Progress</span>
-            <span style={{ fontSize: 9, color: 'var(--primary)', fontWeight: 600 }}>72%</span>
+          <div className="flex justify-between mt-1">
+            <span className="text-[9px]" style={{ color: 'var(--on-surface-variant)' }}>Progress</span>
+            <span className="text-[9px] font-semibold" style={{ color: 'var(--primary)' }}>72%</span>
           </div>
         </div>
-
-        {/* Total hours */}
-        <div style={{
-          borderRadius: 16, padding: '20px 22px',
-          background: 'var(--surface)',
-          border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)',
-          display: 'flex', flexDirection: 'column',
-        }}>
-          <div style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--on-surface-variant)', fontWeight: 500, marginBottom: 12 }}>
-            Total Practice
-          </div>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end' }}>
-            <span style={{ fontSize: 40, fontWeight: 700, color: 'var(--on-surface)', lineHeight: 1, letterSpacing: -1 }}>128</span>
-            <span style={{ fontSize: 13, color: 'var(--on-surface-variant)', marginLeft: 5, marginBottom: 4 }}>hrs</span>
-          </div>
-        </div>
-
-        {/* Streak */}
-        <div style={{
-          borderRadius: 16, padding: '20px 22px',
-          background: 'var(--surface)',
-          border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)',
-          display: 'flex', flexDirection: 'column',
-        }}>
-          <div style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--on-surface-variant)', fontWeight: 500, marginBottom: 12 }}>
-            Streak
-          </div>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end' }}>
-            <span style={{ fontSize: 40, fontWeight: 700, color: 'var(--primary)', lineHeight: 1, letterSpacing: -1 }}>12</span>
-            <span style={{ fontSize: 13, color: 'var(--on-surface-variant)', marginLeft: 5, marginBottom: 4 }}>days</span>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-1 gap-4">
+          {[{ label: 'Total Practice', val: '128', unit: 'hrs', accent: false }, { label: 'Streak', val: '12', unit: 'days', accent: true }].map((s) => (
+            <div key={s.label} className="rounded-2xl p-5 flex flex-col"
+              style={{ background: 'var(--surface)', border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)' }}>
+              <div className="text-[9px] tracking-[2px] uppercase font-medium mb-3" style={{ color: 'var(--on-surface-variant)' }}>{s.label}</div>
+              <div className="mt-auto flex items-baseline gap-1">
+                <span className="text-4xl font-bold tracking-tight leading-none" style={{ color: s.accent ? 'var(--primary)' : 'var(--on-surface)' }}>{s.val}</span>
+                <span className="text-[13px]" style={{ color: 'var(--on-surface-variant)' }}>{s.unit}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Session history table */}
-      <div style={{
-        borderRadius: 18, overflow: 'hidden',
-        border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)',
-        background: 'var(--surface)',
-      }}>
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '16px 22px',
-          borderBottom: '1px solid color-mix(in srgb, var(--outline-variant) 25%, transparent)',
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 650, color: 'var(--on-surface)' }}>Session History</span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button style={{
-              padding: '5px 14px', borderRadius: 7,
-              background: 'transparent', color: 'var(--on-surface-variant)',
-              border: '1px solid color-mix(in srgb, var(--outline-variant) 50%, transparent)',
-              fontSize: 10, cursor: 'pointer',
-            }}>← More</button>
-            <button style={{
-              padding: '5px 14px', borderRadius: 7,
-              background: 'var(--primary)', color: 'var(--on-primary)',
-              border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer',
-            }}>+ New Session</button>
+      <div className="rounded-2xl overflow-hidden"
+        style={{ background: 'var(--surface)', border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)' }}>
+        <div className="flex justify-between items-center px-5 py-4 border-b"
+          style={{ borderColor: 'color-mix(in srgb, var(--outline-variant) 25%, transparent)' }}>
+          <span className="text-[13px] font-semibold" style={{ color: 'var(--on-surface)' }}>Session History</span>
+          <div className="flex gap-2">
+            <button className="px-3 py-1 rounded-lg text-[10px] cursor-pointer"
+              style={{ background: 'transparent', color: 'var(--on-surface-variant)', border: '1px solid color-mix(in srgb, var(--outline-variant) 50%, transparent)' }}>← More</button>
+            <button className="px-3 py-1 rounded-lg text-[10px] font-bold cursor-pointer"
+              style={{ background: 'var(--primary)', color: 'var(--on-primary)', border: 'none' }}>+ New</button>
           </div>
         </div>
-
-        {/* Column headers */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 1fr 32px',
-          padding: '10px 22px',
-          fontSize: 9, letterSpacing: 1.2, textTransform: 'uppercase',
-          color: 'var(--on-surface-variant)', fontWeight: 500,
-          borderBottom: '1px solid color-mix(in srgb, var(--outline-variant) 18%, transparent)',
-        }}>
-          <span>Date</span><span>Raga / Focus</span><span>Duration</span><span>Accuracy</span><span>Notes</span><span />
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px]">
+            <thead>
+              <tr className="border-b" style={{ borderColor: 'color-mix(in srgb, var(--outline-variant) 18%, transparent)' }}>
+                {['Date', 'Raga / Focus', 'Duration', 'Accuracy', 'Notes'].map((h) => (
+                  <th key={h} className="text-left px-5 py-2.5 text-[9px] tracking-[1.2px] uppercase font-medium"
+                    style={{ color: 'var(--on-surface-variant)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {SESSIONS.map((s, i) => (
+                <tr key={i} className="border-b last:border-b-0"
+                  style={{ borderColor: 'color-mix(in srgb, var(--outline-variant) 15%, transparent)' }}>
+                  <td className="px-5 py-4 text-[11px]" style={{ color: 'var(--on-surface-variant)' }}>{s.date}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--primary)' }} />
+                      <span className="text-[12px] font-semibold" style={{ color: 'var(--on-surface)' }}>{s.raga}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 text-[11px]" style={{ color: 'var(--on-surface-variant)' }}>{s.dur}</td>
+                  <td className="px-5 py-4">
+                    <div className="h-[3px] w-16 rounded-full mb-1" style={{ background: 'color-mix(in srgb, var(--outline-variant) 40%, transparent)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${s.acc}%`, background: 'var(--primary)' }} />
+                    </div>
+                    <span className="text-[9px]" style={{ color: 'var(--on-surface-variant)' }}>{s.acc}%</span>
+                  </td>
+                  <td className="px-5 py-4 text-[11px] max-w-[200px] truncate" style={{ color: 'var(--on-surface-variant)' }}>{s.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-
-        {SESSION_HISTORY.map((s, i) => (
-          <div key={i} style={{
-            display: 'grid', gridTemplateColumns: '120px 1fr 80px 80px 1fr 32px',
-            padding: '16px 22px', alignItems: 'center',
-            borderBottom: i < SESSION_HISTORY.length - 1
-              ? '1px solid color-mix(in srgb, var(--outline-variant) 15%, transparent)'
-              : 'none',
-          }}>
-            <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>{s.date}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--on-surface)' }}>{s.raga}</span>
-            </div>
-            <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>{s.dur}</span>
-            <div>
-              <div style={{ height: 3, borderRadius: 2, background: 'color-mix(in srgb, var(--outline-variant) 40%, transparent)', marginBottom: 3 }}>
-                <div style={{ height: '100%', width: `${s.acc}%`, background: 'var(--primary)', borderRadius: 2 }} />
-              </div>
-              <span style={{ fontSize: 9, color: 'var(--on-surface-variant)' }}>{s.acc}%</span>
-            </div>
-            <span style={{ fontSize: 11, color: 'var(--on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{s.note}</span>
-            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--on-surface-variant)', fontSize: 16, padding: 0 }}>⋮</button>
-          </div>
-        ))}
       </div>
     </div>
   )
 }
 
-// ─── Bottom Tab Bar ───────────────────────────────────────────────────────────
+// ─── Bottom Nav ───────────────────────────────────────────────────────────────
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'studio',  label: 'Studio',  icon: 'piano' },
@@ -747,166 +578,189 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'journal', label: 'Journal', icon: 'menu_book' },
 ]
 
-function BottomNav({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
-  return (
-    <div style={{
-      height: 58, flexShrink: 0,
-      display: 'flex', alignItems: 'stretch',
-      borderTop: '1px solid color-mix(in srgb, var(--outline-variant) 20%, transparent)',
-      background: 'var(--surface-container-lowest)',
-    }}>
-      {TABS.map((t) => {
-        const active = tab === t.id
-        return (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            flex: 1, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center', gap: 3,
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: active ? 'var(--primary)' : 'var(--on-surface-variant)',
-            borderTop: active ? '2px solid var(--primary)' : '2px solid transparent',
-            transition: 'color 0.15s',
-            padding: '8px 0 6px',
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>{t.icon}</span>
-            <span style={{ fontSize: 9, letterSpacing: 0.8, textTransform: 'uppercase', fontWeight: active ? 700 : 400 }}>
-              {t.label}
-            </span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function PreviewPage() {
   const { theme, toggle } = useTheme()
   const [tab, setTab] = useState<Tab>('studio')
+  const [subTabIdx, setSubTabIdx] = useState(0)
   const [ragaIdx, setRagaIdx] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [beat, setBeat] = useState(0)
-  const bpm = 98
+  const [bpm, setBpm] = useState(98)
+  const [isRecording, setIsRecording] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const raga = RAGAS[ragaIdx]
+
+  // Reset sub-tab index when main tab changes
+  const handleTabChange = (t: Tab) => { setTab(t); setSubTabIdx(0) }
+
+  const handleToggleRec = useCallback(async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop()
+      setIsRecording(false)
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const mr = new MediaRecorder(stream)
+        mediaRecorderRef.current = mr
+        mr.onstop = () => stream.getTracks().forEach(t => t.stop())
+        mr.start()
+        setIsRecording(true)
+      } catch {
+        alert('Microphone access denied or unavailable.')
+      }
+    }
+  }, [isRecording])
+
+  const handleExplore = useCallback((ragaName: string) => {
+    const idx = RAGAS.findIndex(r => r.name.toLowerCase() === ragaName.toLowerCase())
+    if (idx !== -1) setRagaIdx(idx)
+    handleTabChange('studio')
+  }, [])
 
   useEffect(() => {
     if (!playing) return
     const id = setInterval(() => setBeat((b) => b + 1), (60 / bpm) * 1000)
     return () => clearInterval(id)
-  }, [playing])
+  }, [playing, bpm])
 
-  const raga = RAGAS[ragaIdx]
+  // Spacebar toggles play/pause
+  const handleTogglePlay = useCallback(() => setPlaying(p => !p), [])
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault()
+        handleTogglePlay()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [handleTogglePlay])
 
-  const subTabs = {
+  const handleSeek = (pct: number) => setBeat(Math.floor(pct * 2400 * bpm / 60))
+  const handleDecrementBpm = () => setBpm(b => Math.max(40, b - 2))
+  const handleIncrementBpm = () => setBpm(b => Math.min(200, b + 2))
+
+  const subTabs: Record<Tab, string[]> = {
     studio: ['Studio', 'Archive', 'Session'],
     library: ['Browse', 'Favourites', 'Recent'],
     journal: ['Log', 'Analytics', 'Goals'],
-  }[tab]
+  }
 
   return (
     <>
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
-
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        display: 'flex', flexDirection: 'column',
-        background: 'var(--background)',
-        color: 'var(--on-surface)',
-        fontFamily: 'var(--font-dm-sans, var(--font-manrope, system-ui))',
-        overflow: 'hidden',
-      }}>
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
+      <div className="fixed inset-0 z-[9999] flex flex-col overflow-hidden"
+        style={{ background: 'var(--background)', color: 'var(--on-surface)', fontFamily: 'var(--font-dm-sans, var(--font-manrope, system-ui))' }}>
 
         {/* ── Navbar ── */}
-        <nav style={{
-          height: 48, flexShrink: 0,
-          display: 'flex', alignItems: 'stretch',
-          borderBottom: '1px solid color-mix(in srgb, var(--outline-variant) 20%, transparent)',
-          background: 'var(--surface-container-lowest)',
-          paddingLeft: 20,
-        }}>
-          {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', paddingRight: 24, flexShrink: 0 }}>
-            <span style={{ fontSize: 15, fontWeight: 750, color: 'var(--primary)', letterSpacing: -0.5 }}>
-              Saptaswara
-            </span>
+        <nav className="flex items-stretch flex-shrink-0 border-b pl-4 md:pl-5"
+          style={{ height: 48, background: 'var(--surface-container-lowest)', borderColor: 'color-mix(in srgb, var(--outline-variant) 20%, transparent)' }}>
+
+          <div className="flex items-center pr-4 md:pr-6 flex-shrink-0">
+            <span className="text-[15px] font-bold tracking-tight" style={{ color: 'var(--primary)' }}>Saptaswara</span>
           </div>
+          <div className="w-px my-2.5 flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--outline-variant) 25%, transparent)' }} />
 
-          {/* Divider */}
-          <div style={{ width: 1, background: 'color-mix(in srgb, var(--outline-variant) 25%, transparent)', margin: '10px 0' }} />
+          {/* Persistent active-raga pill — always visible */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 flex-shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--primary)' }} />
+            <span className="text-[10px] font-semibold tracking-[0.5px]" style={{ color: 'var(--primary)' }}>{raga.name}</span>
+          </div>
+          <div className="hidden sm:block w-px my-2.5 flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--outline-variant) 25%, transparent)' }} />
 
-          {/* Sub-tabs */}
-          <div style={{ display: 'flex', alignItems: 'stretch' }}>
-            {subTabs.map((t, i) => (
-              <button key={t} style={{
-                padding: '0 18px', background: 'none', border: 'none',
-                fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', fontWeight: 600,
-                color: i === 0 ? 'var(--on-surface)' : 'var(--on-surface-variant)',
-                borderBottom: i === 0 ? '2px solid var(--primary)' : '2px solid transparent',
-                cursor: 'pointer', transition: 'color 0.15s',
-              }}>{t}</button>
+          {/* Sub-tabs — active index tracked */}
+          <div className="flex items-stretch overflow-x-auto scrollbar-none">
+            {subTabs[tab].map((t, i) => (
+              <button key={t} onClick={() => setSubTabIdx(i)}
+                className="px-3 md:px-4 flex-shrink-0 text-[10px] tracking-[1.3px] uppercase font-semibold transition-colors"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: i === subTabIdx ? 'var(--on-surface)' : 'var(--on-surface-variant)',
+                  borderBottom: i === subTabIdx ? '2px solid var(--primary)' : '2px solid transparent',
+                }}>{t}</button>
             ))}
           </div>
 
-          {/* Spacer */}
-          <div style={{ flex: 1 }} />
+          <div className="flex-1" />
 
-          {/* Raga pills (studio only) */}
           {tab === 'studio' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingRight: 14 }}>
+            <div className="hidden sm:flex items-center gap-1.5 pr-3">
               {RAGAS.map((r, i) => (
-                <button key={r.name} onClick={() => setRagaIdx(i)} style={{
-                  padding: '3px 11px', borderRadius: 6,
-                  background: i === ragaIdx
-                    ? 'color-mix(in srgb, var(--primary) 15%, transparent)'
-                    : 'transparent',
-                  border: i === ragaIdx
-                    ? '1px solid var(--primary)'
-                    : '1px solid transparent',
-                  color: i === ragaIdx ? 'var(--primary)' : 'var(--on-surface-variant)',
-                  fontSize: 11, cursor: 'pointer', fontWeight: i === ragaIdx ? 650 : 400,
-                  transition: 'all 0.15s',
-                }}>{r.name}</button>
+                <button key={r.name} onClick={() => setRagaIdx(i)}
+                  className="px-2.5 py-1 rounded-lg text-[11px] transition-all cursor-pointer"
+                  style={{
+                    background: i === ragaIdx ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'transparent',
+                    border: i === ragaIdx ? '1px solid var(--primary)' : '1px solid transparent',
+                    color: i === ragaIdx ? 'var(--primary)' : 'var(--on-surface-variant)',
+                    fontWeight: i === ragaIdx ? 650 : 400,
+                  }}>{r.name}</button>
               ))}
             </div>
           )}
 
-          {/* Theme toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', paddingRight: 16 }}>
-            <button onClick={toggle} style={{
-              width: 32, height: 32, borderRadius: '50%',
-              background: 'var(--surface-container)',
-              border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: 14,
-            }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+          <div className="flex items-center pr-3 md:pr-4">
+            <button onClick={toggle}
+              className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer"
+              style={{ background: 'var(--surface-container)', border: '1px solid color-mix(in srgb, var(--outline-variant) 35%, transparent)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--on-surface-variant)' }}>
                 {theme === 'dark' ? 'light_mode' : 'dark_mode'}
               </span>
             </button>
           </div>
         </nav>
 
-        {/* ── Page content ── */}
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {tab === 'studio' && (
+          <div className="flex sm:hidden items-center gap-2 px-4 py-2 border-b overflow-x-auto scrollbar-none"
+            style={{ background: 'var(--surface-container-lowest)', borderColor: 'color-mix(in srgb, var(--outline-variant) 20%, transparent)', flexShrink: 0 }}>
+            {RAGAS.map((r, i) => (
+              <button key={r.name} onClick={() => setRagaIdx(i)}
+                className="px-3 py-1 rounded-lg text-[11px] flex-shrink-0 cursor-pointer"
+                style={{
+                  background: i === ragaIdx ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'transparent',
+                  border: i === ragaIdx ? '1px solid var(--primary)' : '1px solid color-mix(in srgb, var(--outline-variant) 40%, transparent)',
+                  color: i === ragaIdx ? 'var(--primary)' : 'var(--on-surface-variant)',
+                  fontWeight: i === ragaIdx ? 650 : 400,
+                }}>{r.name}</button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Content ── */}
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           {tab === 'studio' && (
             <StudioView
-              raga={raga}
-              playing={playing}
-              beat={beat}
-              bpm={bpm}
-              onTogglePlay={() => setPlaying((p) => !p)}
+              raga={raga} playing={playing} beat={beat} bpm={bpm}
+              onTogglePlay={handleTogglePlay} onSeek={handleSeek}
+              onDecrementBpm={handleDecrementBpm} onIncrementBpm={handleIncrementBpm}
+              isRecording={isRecording} onToggleRec={handleToggleRec}
             />
           )}
-          {tab === 'library' && <LibraryView />}
+          {tab === 'library' && <LibraryView activeRagaName={raga.name} onExplore={handleExplore} />}
           {tab === 'journal' && <JournalView />}
         </div>
 
-        {/* ── Bottom nav ── */}
-        <BottomNav tab={tab} setTab={setTab} />
+        {/* ── Bottom Nav ── */}
+        <nav className="flex items-stretch flex-shrink-0 border-t"
+          style={{ height: 56, background: 'var(--surface-container-lowest)', borderColor: 'color-mix(in srgb, var(--outline-variant) 20%, transparent)' }}>
+          {TABS.map((t) => {
+            const active = tab === t.id
+            return (
+              <button key={t.id} onClick={() => handleTabChange(t.id)}
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer"
+                style={{
+                  background: 'none', border: 'none',
+                  color: active ? 'var(--primary)' : 'var(--on-surface-variant)',
+                  borderTop: active ? '2px solid var(--primary)' : '2px solid transparent',
+                  paddingTop: 6,
+                }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>{t.icon}</span>
+                <span className="text-[9px] tracking-[0.8px] uppercase" style={{ fontWeight: active ? 700 : 400 }}>{t.label}</span>
+              </button>
+            )
+          })}
+        </nav>
       </div>
     </>
   )
