@@ -66,28 +66,34 @@ export async function updateSession(request: NextRequest) {
   )
 
   let user = null
+  let authNetworkError = false
   try {
     const { data } = await supabase.auth.getUser()
     user = data.user
   } catch (err) {
+    // Network-level failure talking to Supabase auth — the session cookies may
+    // still be valid. Don't redirect to login on a transient service error.
     console.error('[Middleware] Error getting user:', err)
+    authNetworkError = true
   }
 
   // Route Protection Logic
   const protectedRoutes = ['/studio', '/dashboard', '/journal', '/workspace', '/projects']
   const pathname = request.nextUrl.pathname
   const isProtected = protectedRoutes.some(route => pathname.startsWith(route))
-  
+
   if (user) {
     console.log(`[Middleware] User authenticated: ${user.email} for ${pathname}`)
   } else {
     console.log(`[Middleware] No session for ${pathname}`)
   }
 
-  if (isProtected && !user) {
+  // Only redirect when we definitively know there is no session.
+  // If getUser() threw a network error, pass through — don't log the user out.
+  if (isProtected && !user && !authNetworkError) {
     // Check for guest bypass in development, testing, or if explicitly requested via param
     const isGuestBypass = request.nextUrl.searchParams.get('guest') === 'true'
-    
+
     if (!isGuestBypass) {
       console.log(`[Middleware] Redirecting to /login from protected route: ${pathname}`)
       const redirectUrl = request.nextUrl.clone()

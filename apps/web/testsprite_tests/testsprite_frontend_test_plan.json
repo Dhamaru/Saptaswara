@@ -1,0 +1,677 @@
+[
+  {
+    "id": "TC001",
+    "title": "Explore a raga from library into studio and compose with playback",
+    "description": "Verifies a learner can open a raga from the library in the studio, create a sequencer pattern, start playback, switch instruments, and still be constrained to the loaded raga.",
+    "category": "Raga Guided Studio",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /library"
+      },
+      {
+        "type": "action",
+        "description": "Click a raga card to view it in the studio"
+      },
+      {
+        "type": "action",
+        "description": "Play a few notes on the virtual piano"
+      },
+      {
+        "type": "action",
+        "description": "Toggle several steps on the sequencer grid to create a pattern"
+      },
+      {
+        "type": "action",
+        "description": "Start playback"
+      },
+      {
+        "type": "action",
+        "description": "Change the instrument to a different timbre"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the studio shows the selected raga as loaded and the available notes are constrained to that raga during interaction"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify playback is running and the sequencer pattern is actively playing"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Load a raga directly in studio and build a loop",
+    "description": "Verifies an anonymous user can load a raga in the studio, interact with instruments and sequencer, and hear the loop during playback.",
+    "category": "Raga Guided Studio",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /studio"
+      },
+      {
+        "type": "action",
+        "description": "Select a raga to load its notes"
+      },
+      {
+        "type": "action",
+        "description": "Play a few notes on the virtual piano or drum pads"
+      },
+      {
+        "type": "action",
+        "description": "Toggle multiple steps on the sequencer grid"
+      },
+      {
+        "type": "action",
+        "description": "Start playback"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the selected raga is loaded into the studio"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the sequencer loop is playing"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Open a selected raga from library in studio with context preserved",
+    "description": "Verifies selecting a raga in the library opens the studio with that raga already loaded.",
+    "category": "Raga Library Browser",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /library"
+      },
+      {
+        "type": "action",
+        "description": "Click a specific raga card to open it in the studio"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the studio loads with a raga already selected from the library choice"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the loaded raga’s note set is shown in the studio context"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Open a project in the studio, save changes, and see it updated on the dashboard",
+    "description": "Verifies that an authenticated composer can open an existing project in the studio, save an update, return to the dashboard, and see the project updated.",
+    "category": "Project Management (Dashboard)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill {{LOGIN_USER}} into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Fill {{LOGIN_PASSWORD}} into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Initiate project creation"
+      },
+      {
+        "type": "action",
+        "description": "Fill Project Beta into the project title field"
+      },
+      {
+        "type": "action",
+        "description": "Select a raga for the project"
+      },
+      {
+        "type": "action",
+        "description": "Save the project"
+      },
+      {
+        "type": "action",
+        "description": "Open the Project Beta project from the dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Make a composition change in the studio by toggling at least one sequencer step"
+      },
+      {
+        "type": "action",
+        "description": "Save the project update from the studio"
+      },
+      {
+        "type": "action",
+        "description": "Return to the dashboard from the studio"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the Project Beta project shows an updated indicator such as a newer timestamp or updated metadata"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Sign in with email/password and reach dashboard",
+    "description": "Verifies a member can sign in using email/password and is taken to the projects dashboard.",
+    "category": "Authentication + gated access",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill {{LOGIN_USER}} into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Fill {{LOGIN_PASSWORD}} into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user lands on the dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the projects dashboard content is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Sign in to access the dashboard",
+    "description": "Verifies that a user can sign in with email and password and is taken to the dashboard upon success.",
+    "category": "Authentication (Email/Password Login)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill {{LOGIN_USER}} into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Fill {{LOGIN_PASSWORD}} into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user lands on the dashboard"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "AI assistant streams a response for a raga question in studio",
+    "description": "Verifies a student can submit a raga-related question in the studio and receive a streamed assistant response appended to the chat.",
+    "category": "AI Assistant (Raga-aware Chat)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /studio"
+      },
+      {
+        "type": "action",
+        "description": "Select a raga to load its notes"
+      },
+      {
+        "type": "action",
+        "description": "Fill a raga-specific question into the chat input"
+      },
+      {
+        "type": "action",
+        "description": "Submit the chat message"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the assistant response appears in the chat and continues updating as it streams"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the response completes and remains visible in the chat history"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "Create a new project from the dashboard",
+    "description": "Verifies that an authenticated composer can create a project with a title and raga and then see it listed on the dashboard.",
+    "category": "Project Management (Dashboard)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill {{LOGIN_USER}} into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Fill {{LOGIN_PASSWORD}} into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Initiate project creation"
+      },
+      {
+        "type": "action",
+        "description": "Fill Project Alpha into the project title field"
+      },
+      {
+        "type": "action",
+        "description": "Select a raga for the project"
+      },
+      {
+        "type": "action",
+        "description": "Save the project"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new project is listed on the dashboard"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC009",
+    "title": "Redirect unauthenticated user from dashboard to login",
+    "description": "Verifies a logged-out visitor attempting to access the dashboard is redirected to the login page.",
+    "category": "Authentication + gated access",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user is redirected to the login page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the login form is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC010",
+    "title": "Export a non-empty composition as MIDI with a valid BPM",
+    "description": "Verifies that creating a composition with at least one layer and a BPM within 60–200 allows MIDI export to complete and produces a MIDI download result.",
+    "category": "Export Composition as MIDI",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /studio"
+      },
+      {
+        "type": "action",
+        "description": "Click once in the studio to initialize audio and interaction context"
+      },
+      {
+        "type": "action",
+        "description": "Ensure the composition has at least one active layer by creating or enabling a layer"
+      },
+      {
+        "type": "action",
+        "description": "Toggle at least one sequencer step to make the composition non-empty"
+      },
+      {
+        "type": "action",
+        "description": "Set BPM to a value within the allowed range"
+      },
+      {
+        "type": "action",
+        "description": "Export the composition as MIDI"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a MIDI export completion indicator is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC011",
+    "title": "Drone and tonic establishment in a single session",
+    "description": "Verifies a user can enable the drone, establish tonic via instrument interaction, and stop playback while keeping the session state intact.",
+    "category": "Raga Guided Studio",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /studio"
+      },
+      {
+        "type": "action",
+        "description": "Select a raga to load its notes"
+      },
+      {
+        "type": "action",
+        "description": "Toggle the drone on"
+      },
+      {
+        "type": "action",
+        "description": "Play a note on the virtual piano to establish a tonic reference"
+      },
+      {
+        "type": "action",
+        "description": "Start playback"
+      },
+      {
+        "type": "action",
+        "description": "Stop playback"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the drone remains enabled after stopping playback"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the current session composition state remains available for continued editing"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC012",
+    "title": "Instrument switching preserves the current pattern",
+    "description": "Verifies switching between available instruments does not clear the existing sequencer pattern or interrupt the ability to continue composing.",
+    "category": "Raga Guided Studio",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /studio"
+      },
+      {
+        "type": "action",
+        "description": "Select a raga to load its notes"
+      },
+      {
+        "type": "action",
+        "description": "Toggle several steps on the sequencer grid to create a recognizable pattern"
+      },
+      {
+        "type": "action",
+        "description": "Change the instrument to a different timbre"
+      },
+      {
+        "type": "action",
+        "description": "Start playback"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the sequencer pattern remains present after instrument switching"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify playback still runs with the current pattern using the newly selected instrument"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC013",
+    "title": "Browse raga metadata in library without launching studio",
+    "description": "Verifies a learner can view raga details such as aroha/avaroha and other metadata from the library browsing experience.",
+    "category": "Raga Library Browser",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /library"
+      },
+      {
+        "type": "action",
+        "description": "Scroll through the raga list"
+      },
+      {
+        "type": "action",
+        "description": "Open a raga’s details panel or expanded view from the library"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify raga metadata such as aroha/avaroha and other descriptive fields are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user remains in the library browsing context without entering the studio"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC014",
+    "title": "First-gesture audio initialization enables audible playback",
+    "description": "Verifies the audio engine becomes active only after a user gesture and then supports starting playback within the studio.",
+    "category": "Raga Guided Studio",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /studio"
+      },
+      {
+        "type": "action",
+        "description": "Select a raga to load its notes"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to start playback without first interacting with any instrument or grid"
+      },
+      {
+        "type": "action",
+        "description": "Perform a user gesture by playing a note on the virtual piano"
+      },
+      {
+        "type": "action",
+        "description": "Start playback"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify playback can run after the first user gesture initializes audio"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify any audio-start guidance or blocked-audio indication is no longer shown after initialization"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC015",
+    "title": "Block MIDI export when BPM is below the allowed minimum",
+    "description": "Verifies that setting BPM below the allowed minimum prevents MIDI export and shows a BPM range validation error.",
+    "category": "Export Composition as MIDI",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /studio"
+      },
+      {
+        "type": "action",
+        "description": "Click once in the studio to initialize audio and interaction context"
+      },
+      {
+        "type": "action",
+        "description": "Set BPM to 50"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to export the composition as MIDI"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a BPM range validation error is visible"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC016",
+    "title": "Require a title when creating a project",
+    "description": "Verifies that leaving the project title empty prevents saving and shows a required-title validation error.",
+    "category": "Project Management (Dashboard)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill {{LOGIN_USER}} into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Fill {{LOGIN_PASSWORD}} into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Initiate project creation"
+      },
+      {
+        "type": "action",
+        "description": "Leave the project title field empty"
+      },
+      {
+        "type": "action",
+        "description": "Select a raga for the project"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to save the project"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a title-required validation error is visible"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC017",
+    "title": "AI assistant rejects an empty message",
+    "description": "Verifies submitting an empty chat message is blocked with a validation error and no new assistant response is added.",
+    "category": "AI Assistant (Raga-aware Chat)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /studio"
+      },
+      {
+        "type": "action",
+        "description": "Focus the chat input"
+      },
+      {
+        "type": "action",
+        "description": "Press Enter to submit without entering any message"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a message validation error is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no new assistant response is added to the chat thread"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC018",
+    "title": "Reject invalid login credentials",
+    "description": "Verifies that submitting incorrect credentials shows an authentication error and the user remains on the login page.",
+    "category": "Authentication (Email/Password Login)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill invalid-user@example.com into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Fill wrong-password into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an authentication error is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user remains on the login page"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC019",
+    "title": "Invalid credentials show login error and do not navigate",
+    "description": "Verifies entering invalid email/password shows an authentication error while remaining on the login page.",
+    "category": "Authentication + gated access",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill invalid@example.com into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Fill wrong-password into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an authentication error is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user remains on the login page"
+      }
+    ],
+    "priority": "Low"
+  }
+]

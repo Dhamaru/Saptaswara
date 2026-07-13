@@ -48,7 +48,12 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    // Determine where to redirect after login
+    const params = new URLSearchParams(window.location.search)
+    const nextPath = params.get('next') || '/dashboard'
+
+    // Force hard navigation to ensure cookies are sent to proxy/middleware
+    window.location.href = nextPath
   }
 
   const handleResendConfirmation = async () => {
