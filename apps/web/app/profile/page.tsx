@@ -277,7 +277,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ── Hero card ───────────────────────────────────────────────────── */}
-        <div className="relative overflow-hidden rounded-[32px] bg-surface-container-lowest border border-outline-variant/10 p-8 md:p-10">
+        <div className="relative rounded-[32px] bg-surface-container-lowest border border-outline-variant/10 p-8 md:p-10">
           {/* Subtle radial gradient on hover */}
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
 
@@ -342,7 +342,7 @@ export default function ProfilePage() {
                   </button>
 
                   {skillDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-40 rounded-2xl bg-surface-container-lowest border border-outline-variant/15 shadow-2xl overflow-hidden z-30 animate-fade-in">
+                    <div className="absolute right-0 top-full mt-2 w-40 rounded-2xl bg-surface-container-lowest border border-outline-variant/15 shadow-2xl overflow-hidden z-50 animate-fade-in">
                       {SKILL_LEVELS.map(level => (
                         <button
                           key={level}
