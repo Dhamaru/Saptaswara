@@ -1494,8 +1494,8 @@ function StudioContent() {
       <main className="flex-1 relative flex flex-col bg-surface overflow-hidden min-w-0">
 
         {/* HUD */}
-        <div className="min-h-14 md:h-20 px-3 md:px-10 flex flex-wrap justify-between items-center border-b border-outline-variant/5 bg-surface/40 backdrop-blur-md flex-shrink-0 gap-2 py-2 md:py-0">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="min-h-14 md:h-20 px-3 md:px-10 flex flex-nowrap justify-between items-center border-b border-outline-variant/5 bg-surface/40 backdrop-blur-md flex-shrink-0 gap-2 py-2 md:py-0">
+          <div className="flex items-center gap-2 min-w-0 overflow-hidden flex-1">
             {/* Mobile sidebar open button */}
             <button
               onClick={() => setSidebarOpen(true)}
@@ -1504,8 +1504,8 @@ function StudioContent() {
               <span className="material-symbols-outlined !text-base">menu</span>
             </button>
 
-            <div className="px-3 md:px-5 py-1.5 md:py-2 rounded-full bg-surface-container-high border border-outline-variant/10 flex items-center gap-2 min-w-0">
-              <span className="font-mono text-[7px] md:text-[8px] uppercase tracking-[0.2em] text-primary/60 font-bold hidden sm:block">Active Resonance</span>
+            <div className="px-3 md:px-5 py-1.5 md:py-2 rounded-full bg-surface-container-high border border-outline-variant/10 flex items-center gap-2 min-w-0 max-w-[160px] sm:max-w-[240px] md:max-w-[360px] overflow-hidden">
+              <span className="font-mono text-[7px] md:text-[8px] uppercase tracking-[0.2em] text-primary/60 font-bold hidden sm:block flex-shrink-0">Active Resonance</span>
               <span className="font-display text-sm md:text-base font-light text-on-surface tracking-wide uppercase truncate">
                 {selectedRaga?.name || (ragasLoading ? '...' : 'Select a Raga')}
               </span>
