@@ -72,6 +72,13 @@ const TRACK_COLORS = [
 const LOOP_OPTIONS = [8, 16, 32] as const
 const VELOCITY_STEPS = [0.25, 0.5, 0.75, 1.0] // shift+click cycles through these
 
+// Maps swara label → QWERTY key shown on immersive side panels
+const SWARA_KEY_LABELS: Record<string, string> = {
+  'Sa': 'A', 're': 'W', 'Re': 'S', 'ga': 'E', 'Ga': 'D',
+  'Ma': 'F', 'ma': 'T', 'Pa': 'G', 'dha': 'Y', 'Dha': 'H',
+  'ni': 'U', 'Ni': 'J',
+}
+
 interface StepEvent {
   label: string
   frequency?: number
@@ -1710,53 +1717,70 @@ function StudioContent() {
                   />
                 </div>
 
-                <div className={isImmersive && selectedRaga?.aroha ? 'flex items-stretch gap-4' : ''}>
-                  {/* Aroha — left side of keyboard in immersive mode */}
-                  {isImmersive && selectedRaga?.aroha && (
-                    <div className="flex-shrink-0 w-14 flex flex-col items-end gap-1.5 pt-3 border-r border-outline-variant/10 pr-3">
-                      <span className="font-mono text-[7px] uppercase tracking-widest text-primary/50 font-bold mb-0.5">Aroha ↑</span>
-                      {(selectedRaga.aroha as string[]).map((n, i) => (
-                        <span key={i} className={`font-mono text-[10px] font-semibold transition-colors ${activeSwara === n ? 'text-primary' : 'text-on-surface-variant/40'}`}>
-                          {swaraDisplayName(n)}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Keyboard */}
-                  <div className={isImmersive && selectedRaga?.aroha ? 'flex-1 min-w-0 overflow-hidden' : ''}>
-                    {keyboardLayout === 'SwaPad' ? (
-                      <SwaPad
-                        activeRagaNotes={allRagaNotes}
-                        ragaConstrained={ragaConstrained}
-                        vadiNote={selectedRaga?.vadi}
-                        ragaAroha={selectedRaga?.aroha}
-                        onSwara={(label, freq) => onNoteRecord(label, freq)}
-                      />
-                    ) : (
-                      <Piano
-                        layout={keyboardLayout === 'Piano' ? 'Piano' : keyboardLayout === 'Harmonium' ? 'Harmonium' : 'Swara'}
-                        activeRagaNotes={allRagaNotes}
-                        externalActiveNote={activeSwara || ''}
-                        vadiNote={selectedRaga?.vadi}
-                        samvadiNote={selectedRaga?.samvadi}
-                        onNoteClick={onNoteRecord}
-                      />
-                    )}
+                {/* Aroha — fixed left panel, only in immersive mode with a raga loaded */}
+                {isImmersive && selectedRaga?.aroha && (
+                  <div className="fixed left-0 top-1/2 -translate-y-1/2 z-[150] flex flex-col gap-2 px-4 py-5 bg-surface-lowest/85 backdrop-blur-xl border-r border-outline-variant/15 rounded-r-2xl shadow-2xl">
+                    <span className="font-mono text-[7px] uppercase tracking-widest text-primary/60 font-bold mb-1">Aroha ↑</span>
+                    {(selectedRaga.aroha as string[]).map((n, i) => {
+                      const key = SWARA_KEY_LABELS[n]
+                      const isActive = activeSwara === n
+                      return (
+                        <div key={i} className={`flex items-center gap-2.5 transition-all ${isActive ? 'opacity-100' : 'opacity-50'}`}>
+                          <span className={`font-mono text-[12px] font-semibold w-8 ${isActive ? 'text-primary' : 'text-on-surface'}`}>
+                            {swaraDisplayName(n)}
+                          </span>
+                          {key && (
+                            <kbd className="h-5 min-w-[20px] px-1 rounded-md bg-surface-container-high border border-outline-variant/25 flex items-center justify-center font-mono text-[9px] text-on-surface-variant/60 leading-none">
+                              {key}
+                            </kbd>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
+                )}
 
-                  {/* Avaroha — right side of keyboard in immersive mode */}
-                  {isImmersive && selectedRaga?.avaroha && (
-                    <div className="flex-shrink-0 w-14 flex flex-col items-start gap-1.5 pt-3 border-l border-outline-variant/10 pl-3">
-                      <span className="font-mono text-[7px] uppercase tracking-widest text-primary/50 font-bold mb-0.5">Avaroha ↓</span>
-                      {(selectedRaga.avaroha as string[]).map((n, i) => (
-                        <span key={i} className="font-mono text-[10px] font-semibold text-on-surface-variant/40">
-                          {swaraDisplayName(n)}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                {/* Keyboard — full width, unaffected by side panels */}
+                {keyboardLayout === 'SwaPad' ? (
+                  <SwaPad
+                    activeRagaNotes={allRagaNotes}
+                    ragaConstrained={ragaConstrained}
+                    vadiNote={selectedRaga?.vadi}
+                    ragaAroha={selectedRaga?.aroha}
+                    onSwara={(label, freq) => onNoteRecord(label, freq)}
+                  />
+                ) : (
+                  <Piano
+                    layout={keyboardLayout === 'Piano' ? 'Piano' : keyboardLayout === 'Harmonium' ? 'Harmonium' : 'Swara'}
+                    activeRagaNotes={allRagaNotes}
+                    externalActiveNote={activeSwara || ''}
+                    vadiNote={selectedRaga?.vadi}
+                    samvadiNote={selectedRaga?.samvadi}
+                    onNoteClick={onNoteRecord}
+                  />
+                )}
+
+                {/* Avaroha — fixed right panel, only in immersive mode with a raga loaded */}
+                {isImmersive && selectedRaga?.avaroha && (
+                  <div className="fixed right-0 top-1/2 -translate-y-1/2 z-[150] flex flex-col gap-2 px-4 py-5 bg-surface-lowest/85 backdrop-blur-xl border-l border-outline-variant/15 rounded-l-2xl shadow-2xl">
+                    <span className="font-mono text-[7px] uppercase tracking-widest text-primary/60 font-bold mb-1">Avaroha ↓</span>
+                    {(selectedRaga.avaroha as string[]).map((n, i) => {
+                      const key = SWARA_KEY_LABELS[n]
+                      return (
+                        <div key={i} className="flex items-center gap-2.5 opacity-50 hover:opacity-100 transition-opacity">
+                          {key && (
+                            <kbd className="h-5 min-w-[20px] px-1 rounded-md bg-surface-container-high border border-outline-variant/25 flex items-center justify-center font-mono text-[9px] text-on-surface-variant/60 leading-none">
+                              {key}
+                            </kbd>
+                          )}
+                          <span className="font-mono text-[12px] font-semibold w-8 text-on-surface">
+                            {swaraDisplayName(n)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
 
                 {ragaConstrained && selectedRaga && (
                   <div className="mt-3 flex items-center gap-2 justify-center">
