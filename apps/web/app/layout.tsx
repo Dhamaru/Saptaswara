@@ -1,5 +1,6 @@
 import './globals.css'
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import { Manrope, DM_Sans, DM_Mono, Space_Grotesk } from 'next/font/google'
 import Navbar from '@/components/Navbar'
 import AuthListener from '@/components/AuthListener'
@@ -8,6 +9,7 @@ import { ToastProvider } from '@/components/Toast'
 import { GlobalAssistantProvider } from '@/context/GlobalAssistantContext'
 import { GlobalAssistant } from '@/components/GlobalAssistant'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { ScriptProvider } from '@/context/ScriptContext'
 
 const manrope = Manrope({ 
   subsets: ['latin'],
@@ -49,11 +51,11 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
-        {/* Anti-flash: set data-theme before first paint */}
-        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('saptaswara-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}` }} />
+        <Script id="theme-init" strategy="beforeInteractive">{`try{var t=localStorage.getItem('saptaswara-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}`}</Script>
       </head>
       <body className={`${manrope.variable} ${dmSans.variable} ${dmMono.variable} ${spaceGrotesk.variable} font-sans bg-background text-on-surface min-h-screen selection:bg-primary/30 antialiased transition-colors duration-300`}>
         <ThemeProvider>
+        <ScriptProvider>
         <PlaybackProvider>
           <GlobalAssistantProvider>
           <AuthListener />
@@ -74,6 +76,7 @@ export default function RootLayout({
           </ToastProvider>
           </GlobalAssistantProvider>
         </PlaybackProvider>
+        </ScriptProvider>
         </ThemeProvider>
       </body>
     </html>
