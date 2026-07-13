@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ' *)",
+      "Bash(grep -oP \"NEXT_PUBLIC_\\\\w+|[A-Z_]{4,}\")"
+    ]
+  }
+}
