@@ -1,5 +1,3 @@
-export const runtime = 'edge'
-
 import * as Sentry from '@sentry/nextjs'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import OpenAI from 'openai'
