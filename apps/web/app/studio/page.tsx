@@ -7,7 +7,8 @@ import { audioEngine } from '@/lib/audio'
 import type { MasteringPreset } from '@/lib/audio'
 import dynamic from 'next/dynamic'
 import type { Raga } from '@saptaswara/core'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { useGlobalAssistant } from '@/context/GlobalAssistantContext'
 import { Suspense } from 'react'
 import { usePlayback } from '@/context/PlaybackContext'
 
@@ -45,6 +46,7 @@ import { RagaRing } from '@/components/RagaRing'
 import { EarTraining } from '@/components/EarTraining'
 import TransportBar from '@/components/TransportBar'
 import { ImmersiveHUD } from '@/components/ImmersiveHUD'
+import { ConformanceScore } from '@/components/ConformanceScore'
 
 // ── Track system ──────────────────────────────────────────────────────────────
 type TrackType = 'melody' | 'rhythm' | 'vocal' | 'bass' | 'drone' | 'pad'
@@ -117,11 +119,75 @@ function makeTrack(type: TrackType, loopLen: number, overrides: Partial<Track> =
   }
 }
 
+// ── MIDI import helpers ────────────────────────────────────────────────────────
+function readVlq(view: DataView, offset: number): { value: number; bytesRead: number } {
+  let value = 0; let bytesRead = 0
+  let byte: number
+  do {
+    byte = view.getUint8(offset + bytesRead)
+    value = (value << 7) | (byte & 0x7F)
+    bytesRead++
+  } while (byte & 0x80)
+  return { value, bytesRead }
+}
+
+function parseMidiNoteEvents(buf: ArrayBuffer): { midiNote: number; tick: number }[] {
+  const view = new DataView(buf)
+  if (view.getUint32(0) !== 0x4D546864) return []
+  const tickDiv = view.getInt16(12)
+  if (tickDiv <= 0) return []
+
+  const events: { midiNote: number; tick: number }[] = []
+  let pos = 14
+  const totalLen = buf.byteLength
+
+  while (pos + 8 <= totalLen) {
+    const chunkType = view.getUint32(pos)
+    const chunkLen = view.getUint32(pos + 4)
+    pos += 8
+    if (chunkType !== 0x4D54726B) { pos += chunkLen; continue }
+
+    let tick = 0
+    let p = pos
+    const end = pos + chunkLen
+    let runningStatus = 0
+
+    while (p < end) {
+      const delta = readVlq(view, p)
+      tick += delta.value
+      p += delta.bytesRead
+      if (p >= end) break
+
+      let statusByte = view.getUint8(p)
+      if (statusByte & 0x80) { runningStatus = statusByte; p++ } else { statusByte = runningStatus }
+
+      const type = statusByte & 0xF0
+      if (type === 0x80 || type === 0x90) {
+        const note = view.getUint8(p); const vel = view.getUint8(p + 1); p += 2
+        if (type === 0x90 && vel > 0) events.push({ midiNote: note, tick })
+      } else if (type === 0xA0 || type === 0xB0 || type === 0xE0) { p += 2 }
+        else if (type === 0xC0 || type === 0xD0) { p += 1 }
+        else if (statusByte === 0xFF) { p++; const metaLen = readVlq(view, p); p += metaLen.bytesRead + metaLen.value }
+        else if (statusByte === 0xF0 || statusByte === 0xF7) { const sysLen = readVlq(view, p); p += sysLen.bytesRead + sysLen.value }
+        else { break }
+    }
+    pos += chunkLen
+    if (events.length > 0) break
+  }
+  return events
+}
+
+const MIDI_TO_SWARA: Record<number, string> = {
+  60: 'Sa', 61: 're', 62: 'Re', 63: 'ga', 64: 'Ga', 65: 'Ma',
+  66: 'ma', 67: 'Pa', 68: 'dha', 69: 'Dha', 70: 'ni', 71: 'Ni', 72: "Sa'"
+}
+
 // ── StudioContent ─────────────────────────────────────────────────────────────
 function StudioContent() {
   const searchParams = useSearchParams()
   // Accept both ?raga_id= (new) and ?project_id= (legacy bookmarks) for backward compat
   const ragaIdFromUrl = searchParams.get('raga_id') ?? searchParams.get('project_id')
+  const ragaNameFromUrl = searchParams.get('raga_name')
 
   useEffect(() => { 
     document.title = 'Saptaswara Studio'
@@ -131,6 +197,8 @@ function StudioContent() {
   const { isPlaying, setIsPlaying, isRecording, setIsRecording, currentRagaId, setCurrentRagaId, saveTriggered, isImmersive, setIsImmersive } = usePlayback()
   const { state: comp, dispatch } = useComposition()
   const { activeInstrument, activeTradition } = comp
+  const { setRagaContext } = useGlobalAssistant()
+  const router = useRouter()
 
   // ── Core state ──────────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false)
@@ -161,9 +229,12 @@ function StudioContent() {
   const [masteringPreset, setMasteringPreset] = useState<MasteringPreset>('neutral')
   const [droneActive, setDroneActive] = useState(false)
   const [droneType, setDroneType] = useState<'Sa-Pa' | 'Sa-Ma'>('Sa-Pa')
+  const [ornamentMode, setOrnamentMode] = useState(false)
   const [bpm, setBpm] = useState(120)
   const [volume, setVolume] = useState(0)
   const [loopLength, setLoopLength] = useState<8 | 16 | 32>(16)
+  const [beatSuggestions, setBeatSuggestions] = useState<Array<{label: string, taal: string, description: string, hits: Array<{step: number, stroke: string}>}>>([])
+  const [beatLoading, setBeatLoading] = useState(false)
   const [swingAmount, setSwingAmount] = useState(0)          // 0–0.5
   const [ragaConstrained, setRagaConstrained] = useState(false)
   const [selectedTala, setSelectedTala] = useState<Tala>(DEFAULT_TALA)
@@ -194,15 +265,27 @@ function StudioContent() {
   const [ragasError, setRagasError] = useState(false)
   const [isBlueprintPlaying, setIsBlueprintPlaying] = useState(false)
   const [isExportingMidi, setIsExportingMidi] = useState(false)
+  const [isImportingMidi, setIsImportingMidi] = useState(false)
+  const midiInputRef = useRef<HTMLInputElement>(null)
+  const [exportFormat, setExportFormat] = useState<'webm' | 'wav'>('webm')
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [saveModalTitle, setSaveModalTitle] = useState('')
   const [showMoodPicker, setShowMoodPicker] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   const [showLearnGuide, setShowLearnGuide] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
   const [showNotation, setShowNotation] = useState(false)
   const [showEarTraining, setShowEarTraining] = useState(false)
   const [immersiveTranscriber, setImmersiveTranscriber] = useState(false)
+  const [sessionLogPrompt, setSessionLogPrompt] = useState<{ ragaName: string; minutes: number } | null>(null)
+  const [mobilePianoOpen, setMobilePianoOpen] = useState(false)
+  const [liveNotes, setLiveNotes] = useState<{ label: string; valid: boolean }[]>([])
+  const liveNotesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [pitchBend, setPitchBend] = useState(0)
+  const pitchBendRef = useRef(0)
+  const pitchDragStartY = useRef<number | null>(null)
+  const pitchDragStartVal = useRef(0)
 
   // Ref so the keyboard handler can read the latest value without re-registering
   const isImmersiveRef = useRef(isImmersive)
@@ -226,6 +309,32 @@ function StudioContent() {
   useEffect(() => { loopRef.current        = loopLength  }, [loopLength])
   useEffect(() => { isImmersiveRef.current = isImmersive }, [isImmersive])
   useEffect(() => { isPlayingRef.current   = isPlaying   }, [isPlaying])
+
+  // Task 9: push active raga into GlobalAssistant context so Ask AI knows what raga is open
+  useEffect(() => { setRagaContext(selectedRaga) }, [selectedRaga, setRagaContext])
+
+  // Task 2: track live notes played on piano → phrase validator strip
+  useEffect(() => {
+    if (!activeSwara || !selectedRaga) return
+    const scale = new Set([...(selectedRaga.aroha || []), ...(selectedRaga.avaroha || [])])
+    const valid = scale.has(activeSwara)
+    setLiveNotes(prev => [...prev.slice(-11), { label: activeSwara, valid }])
+    if (liveNotesTimerRef.current) clearTimeout(liveNotesTimerRef.current)
+    liveNotesTimerRef.current = setTimeout(() => setLiveNotes([]), 5000)
+  }, [activeSwara, selectedRaga])
+
+  // Task 3: when playback stops after >30s, prompt to log the session in journal
+  const prevIsPlayingRef = useRef(false)
+  useEffect(() => {
+    const wasPlaying = prevIsPlayingRef.current
+    prevIsPlayingRef.current = isPlaying
+    if (wasPlaying && !isPlaying && selectedRaga) {
+      const elapsed = Tone.getTransport().seconds
+      if (elapsed > 30) {
+        setSessionLogPrompt({ ragaName: selectedRaga.name, minutes: Math.max(1, Math.round(elapsed / 60)) })
+      }
+    }
+  }, [isPlaying, selectedRaga])
 
   // Enter / exit fullscreen in sync with isImmersive.
   // Also listens for browser-native fullscreen exits (e.g. user presses browser Escape
@@ -287,7 +396,9 @@ function StudioContent() {
       if (ragaData && ragaData.length > 0) {
         setRagas(ragaData as any)
         const targetId = ragaIdFromUrl || currentRagaId
-        const initial = ragaData.find((r: any) => r.id === targetId) || ragaData[0]
+        const initial = (ragaNameFromUrl ? ragaData.find((r: any) => r.name.toLowerCase() === ragaNameFromUrl.toLowerCase()) : null)
+          ?? ragaData.find((r: any) => r.id === targetId)
+          ?? ragaData[0]
         setSelectedRaga(initial as any)
         setCurrentRagaId(initial.id)
       }
@@ -427,6 +538,41 @@ function StudioContent() {
     setActiveStep(-1)
   }
 
+  // ── Beat suggestions ──────────────────────────────────────────────────────────
+  const fetchBeatSuggestions = async () => {
+    if (!selectedRaga || beatLoading) return
+    setBeatLoading(true)
+    setBeatSuggestions([])
+    try {
+      const res = await fetch('/api/ai/beat-suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ragaName: selectedRaga.name, mood: selectedRaga.mood ?? '' }),
+      })
+      const json = await res.json()
+      if (json.patterns) setBeatSuggestions(json.patterns)
+    } catch {
+      // silent fail
+    } finally {
+      setBeatLoading(false)
+    }
+  }
+
+  const loadBeatPattern = (hits: Array<{step: number, stroke: string}>) => {
+    const trackId = tracks.find(t => t.type === 'rhythm' && t.id === activeTrackId)?.id ?? activeTrackId
+    pushHistory(tracks)
+    setTracks(prev => prev.map(t => {
+      if (t.id !== trackId) return t
+      const seq: (StepEvent | null)[] = new Array(loopLength).fill(null)
+      hits.forEach(h => {
+        if (h.step >= 1 && h.step <= loopLength) {
+          seq[h.step - 1] = { label: h.stroke, stroke: h.stroke, velocity: 0.8 }
+        }
+      })
+      return { ...t, sequence: seq }
+    }))
+  }
+
   // ── Step toggling ─────────────────────────────────────────────────────────────
   const handleToggleStep = (stepIdx: number, value: StepEvent, trackId = activeTrackId) => {
     pushHistory(tracks)
@@ -497,6 +643,35 @@ function StudioContent() {
     }
   }, [droneActive, droneType])
 
+  // ── Pitch Bend drag handler ───────────────────────────────────────────────────
+  const handlePitchDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    const y = 'touches' in e ? e.touches[0].clientY : e.clientY
+    pitchDragStartY.current = y
+    pitchDragStartVal.current = pitchBendRef.current
+
+    const onMove = (ev: MouseEvent | TouchEvent) => {
+      const curY = 'touches' in ev ? (ev as TouchEvent).touches[0].clientY : (ev as MouseEvent).clientY
+      const delta = (pitchDragStartY.current! - curY) * 2
+      const newVal = Math.max(-200, Math.min(200, pitchDragStartVal.current + delta))
+      pitchBendRef.current = newVal
+      setPitchBend(Math.round(newVal))
+      audioEngine?.setDetune(Math.round(newVal))
+    }
+    const onUp = () => {
+      pitchBendRef.current = 0
+      setPitchBend(0)
+      audioEngine?.setDetune(0)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchmove', onMove as any)
+      window.removeEventListener('touchend', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchmove', onMove as any, { passive: true })
+    window.addEventListener('touchend', onUp)
+  }
+
   // ── Blueprint (aroha/avaroha demo) ────────────────────────────────────────────
   const handlePlayBlueprint = () => {
     if (!audioEngine || !selectedRaga?.aroha || !selectedRaga?.avaroha) return
@@ -537,7 +712,11 @@ function StudioContent() {
       await audioEngine.startRecording()
       setIsRecording(true)
     } else {
-      await audioEngine.stopRecording()
+      if (exportFormat === 'wav') {
+        await audioEngine.stopRecordingAsWav()
+      } else {
+        await audioEngine.stopRecording()
+      }
       setIsRecording(false)
     }
   }
@@ -594,6 +773,39 @@ function StudioContent() {
       alert('MIDI export failed.')
     } finally {
       setIsExportingMidi(false)
+    }
+  }
+
+  const handleImportMidi = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsImportingMidi(true)
+    try {
+      const buf = await file.arrayBuffer()
+      const noteEvents = parseMidiNoteEvents(buf)
+      if (!noteEvents.length) { alert('No notes found in MIDI file.'); return }
+
+      const maxTick = noteEvents[noteEvents.length - 1].tick || 1
+      const newSeq: (StepEvent | null)[] = new Array(loopRef.current).fill(null)
+      for (const ev of noteEvents) {
+        const stepIdx = Math.floor((ev.tick / maxTick) * loopRef.current) % loopRef.current
+        const swara = MIDI_TO_SWARA[ev.midiNote] ?? MIDI_TO_SWARA[(ev.midiNote % 12) + 60]
+        if (!swara) continue
+        const freq = swaraToFrequency(swara)
+        newSeq[stepIdx] = { label: swara, frequency: freq, velocity: 0.8 }
+      }
+
+      setTracks(prev => prev.map(t =>
+        t.type === 'melody' && t.id === prev.find(tt => tt.type === 'melody')?.id
+          ? { ...t, sequence: newSeq }
+          : t
+      ))
+    } catch (err) {
+      console.error('MIDI import failed:', err)
+      alert('Failed to parse MIDI file.')
+    } finally {
+      setIsImportingMidi(false)
+      if (midiInputRef.current) midiInputRef.current.value = ''
     }
   }
 
@@ -705,10 +917,10 @@ function StudioContent() {
 
   // ── Save project ──────────────────────────────────────────────────────────────
   const handleSaveProject = async (titleOverride?: string) => {
-    if (!user) { alert('Please sign in to save projects.'); return }
+    if (!user) { setSaveStatus('error'); return }
     const saveTitle = titleOverride || projectName
+    setSaveStatus('saving')
     try {
-      // Resolve token (handles cookie-auth users)
       let token = accessToken
       if (!token) {
         const { data: { session } } = await supabaseClient.auth.getSession()
@@ -725,15 +937,20 @@ function StudioContent() {
         body: JSON.stringify({ projectId, title: saveTitle, raga_id: selectedRaga?.id, bpm, sequence: melodyTrack.sequence }),
       })
       const data = await res.json()
-      if (data.id) { 
+      if (data.id) {
         setProjectId(data.id)
         setProjectName(saveTitle)
         setShowSaveModal(false)
-        alert('Project saved!')
+        setSaveStatus('saved')
+        setTimeout(() => setSaveStatus('idle'), 3000)
+      } else {
+        setSaveStatus('error')
+        setTimeout(() => setSaveStatus('idle'), 4000)
       }
     } catch (err) {
       console.error('Save error:', err)
-      alert('Failed to save project.')
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus('idle'), 4000)
     }
   }
 
@@ -802,6 +1019,11 @@ function StudioContent() {
   }
 
   const colors = (idx: number) => TRACK_COLORS[idx % TRACK_COLORS.length]
+
+  const melodyTrack = tracks.find(t => t.type === 'melody')
+  const notationSequence = melodyTrack
+    ? melodyTrack.sequence.map(ev => ev?.label ?? null)
+    : []
 
   // ── Render ────────────────────────────────────────────────────────────────────
   if (!mounted) {
@@ -1172,8 +1394,8 @@ function StudioContent() {
                     key={raga.id}
                     onClick={() => { setSelectedRaga(raga); setCurrentRagaId(raga.id) }}
                     className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all relative overflow-hidden ${
-                      selectedRaga?.id === raga.id 
-                        ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_15px_-3px_rgba(var(--primary-rgb),0.3)]' 
+                      selectedRaga?.id === raga.id
+                        ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_15px_-3px_rgba(var(--primary-rgb),0.3)]'
                         : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high border border-transparent'
                     }`}
                   >
@@ -1186,6 +1408,52 @@ function StudioContent() {
               })()}
             </div>
           </div>
+
+          {/* ── Authentic Ornament Mode ── */}
+          {selectedRaga && (
+            <div className="px-4 py-3 border-t border-white/5">
+              <button
+                onClick={() => setOrnamentMode(v => !v)}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border transition-all ${
+                  ornamentMode
+                    ? 'bg-violet-500/20 border-violet-400/30 text-violet-300'
+                    : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined !text-base">auto_fix_high</span>
+                  <span className="font-mono text-[9px] uppercase tracking-widest font-bold">Authentic Ornaments</span>
+                </div>
+                <div className={`w-8 h-4 rounded-full transition-all relative ${ornamentMode ? 'bg-violet-500' : 'bg-white/20'}`}>
+                  <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${ornamentMode ? 'left-[18px]' : 'left-0.5'}`} />
+                </div>
+              </button>
+              {ornamentMode && (
+                <p className="mt-2 font-mono text-[8px] text-on-surface-variant/40 uppercase tracking-wide px-1">
+                  Ornaments auto-applied from raga gamaka profile
+                </p>
+              )}
+            </div>
+          )}
+          {/* ── Pitch Bend Wheel ── */}
+          {isStarted && (
+            <div className="px-4 py-3 border-t border-white/5 flex flex-col items-center gap-2">
+              <span className="font-mono text-[8px] uppercase tracking-widest text-white/30">Pitch</span>
+              <div
+                className="relative w-10 h-24 bg-white/5 rounded-xl border border-white/10 cursor-ns-resize flex items-center justify-center overflow-hidden select-none touch-none"
+                onMouseDown={handlePitchDragStart}
+                onTouchStart={handlePitchDragStart}
+                title="Drag to bend pitch (±2 semitones). Releases on mouse up."
+              >
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-white/20" />
+                <div
+                  className="absolute w-8 h-5 rounded-lg bg-primary/60 border border-primary/40"
+                  style={{ top: `calc(50% - ${(pitchBend / 200) * 38}px - 10px)` }}
+                />
+              </div>
+              <span className="font-mono text-[7px] text-white/20">{pitchBend > 0 ? '+' : ''}{pitchBend}¢</span>
+            </div>
+          )}
         </div>
         </div>{/* end full sidebar content */}
       </aside>
@@ -1277,9 +1545,13 @@ function StudioContent() {
             <button
               id="save-project-btn"
               onClick={() => { setSaveModalTitle(projectName); setShowSaveModal(true) }}
-              className="px-3 md:px-5 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95"
+              disabled={saveStatus === 'saving'}
+              className="flex items-center gap-2 px-3 md:px-5 py-2 bg-primary/10 border border-primary/20 rounded-xl font-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Save
+              {saveStatus === 'saving' && <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />}
+              {saveStatus === 'saved'  && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
+              {saveStatus === 'error'  && <div className="w-2.5 h-2.5 rounded-full bg-red-400" />}
+              {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Error' : 'Save'}
             </button>
             {isStarted && (
               <button
@@ -1410,6 +1682,34 @@ function StudioContent() {
                     </div>
                   )}
                 </div>
+
+                {/* Hidden MIDI file input */}
+                <input
+                  ref={midiInputRef}
+                  type="file"
+                  accept=".mid,.midi"
+                  className="hidden"
+                  onChange={handleImportMidi}
+                />
+                {/* MIDI import button */}
+                <button
+                  onClick={() => midiInputRef.current?.click()}
+                  disabled={isImportingMidi}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-[10px] font-mono uppercase tracking-widest disabled:opacity-40"
+                >
+                  <span className="material-symbols-outlined !text-base">upload_file</span>
+                  {isImportingMidi ? 'Importing…' : 'Import MIDI'}
+                </button>
+
+                {/* WAV / WebM export format toggle */}
+                <button
+                  onClick={() => setExportFormat(f => f === 'webm' ? 'wav' : 'webm')}
+                  title="Toggle recording export format"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all text-[10px] font-mono uppercase tracking-widest"
+                >
+                  <span className="material-symbols-outlined !text-base">audio_file</span>
+                  {exportFormat.toUpperCase()}
+                </button>
 
                 <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">
                   {activeStep >= 0 && !isPlaying ? `Step ${activeStep + 1}` : isPlaying ? '▶' : ''}
@@ -1610,6 +1910,72 @@ function StudioContent() {
                       handleToggleStep(activeStep, { label: stroke, stroke, velocity: 0.8 })
                     }}
                   />
+                  {/* Beat suggestion panel */}
+                  {selectedRaga && (
+                    <div className="mt-5 pt-5 border-t border-outline-variant/10">
+                      {beatSuggestions.length === 0 ? (
+                        <button
+                          onClick={fetchBeatSuggestions}
+                          disabled={beatLoading}
+                          className="w-full py-3 rounded-2xl bg-primary/8 border border-primary/15 font-mono text-[9px] uppercase tracking-widest text-primary/70 hover:bg-primary/15 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {beatLoading ? (
+                            <>
+                              <div className="w-3 h-3 border border-primary/40 border-t-primary rounded-full animate-spin" />
+                              <span>Finding patterns for {selectedRaga.name}…</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined !text-sm">drum</span>
+                              <span>Suggest a pattern</span>
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-[9px] uppercase tracking-widest text-primary/50 font-bold">3 patterns for {selectedRaga.name}</span>
+                            <button onClick={() => setBeatSuggestions([])} className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30 hover:text-on-surface-variant transition-colors">Clear</button>
+                          </div>
+                          {beatSuggestions.map((pattern, pi) => (
+                            <div key={pi} className="p-4 rounded-2xl bg-surface-container-low/20 border border-outline-variant/10 hover:border-primary/20 transition-all">
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <div>
+                                  <div className="font-mono text-[9px] uppercase tracking-widest text-primary/70 font-bold">{pattern.label}</div>
+                                  <div className="font-sans text-[11px] text-on-surface-variant/50 mt-0.5">{pattern.description}</div>
+                                </div>
+                                <button
+                                  onClick={() => loadBeatPattern(pattern.hits)}
+                                  className="flex-shrink-0 px-3 py-1.5 rounded-xl bg-primary/15 border border-primary/25 font-mono text-[8px] uppercase tracking-widest text-primary/80 hover:bg-primary/25 transition-all"
+                                >
+                                  Load
+                                </button>
+                              </div>
+                              {/* 16-step mini grid */}
+                              <div className="flex gap-1">
+                                {Array.from({ length: 16 }, (_, i) => {
+                                  const hit = pattern.hits.find(h => h.step === i + 1)
+                                  return (
+                                    <div
+                                      key={i}
+                                      className={`flex-1 h-5 rounded-sm text-[6px] flex items-center justify-center font-mono transition-all ${
+                                        hit
+                                          ? 'bg-primary/40 text-primary border border-primary/30'
+                                          : 'bg-surface-container-low/30 border border-outline-variant/5 text-on-surface-variant/20'
+                                      }`}
+                                      title={hit ? hit.stroke : '—'}
+                                    >
+                                      {hit ? hit.stroke[0] : '·'}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </section>
               )
             }
@@ -1626,7 +1992,15 @@ function StudioContent() {
             }
 
             return (
-              <section className="animate-slide-up">
+              <>
+              {/* Mobile piano drawer — fixed bottom sheet on small screens */}
+              <div className={`
+                md:block
+                ${mobilePianoOpen
+                  ? 'fixed inset-x-0 bottom-0 z-[200] bg-background/95 backdrop-blur-xl border-t border-outline-variant/10 rounded-t-3xl shadow-2xl max-h-[72vh] overflow-y-auto'
+                  : 'hidden md:block'}
+              `}>
+              <section className="animate-slide-up p-4 md:p-0">
                 {/* ── Keyboard layout tabs ── */}
                 {(() => {
                   const LAYOUT_OPTIONS: { value: KeyboardLayout; label: string; instrument: string }[] = [
@@ -1740,6 +2114,58 @@ function StudioContent() {
                   </div>
                 )}
 
+                {/* Phrase validator strip — live note feedback */}
+                {liveNotes.length > 0 && selectedRaga && (
+                  <div className="flex items-center gap-1.5 px-2 py-2 min-h-[36px] overflow-x-auto scrollbar-none">
+                    {liveNotes.map((n, i) => (
+                      <span
+                        key={i}
+                        className={`font-label text-xs px-2.5 py-1 rounded-lg border transition-all flex-shrink-0 ${
+                          n.valid
+                            ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-400'
+                            : 'bg-red-500/15 border-red-400/30 text-red-400'
+                        }`}
+                      >
+                        {n.label}
+                      </span>
+                    ))}
+                    {detectedPhrases.length > 0 && (
+                      <div className="ml-2 flex items-center gap-1.5">
+                        <div className="w-px h-4 bg-white/10" />
+                        {detectedPhrases.map((p, i) => (
+                          <span key={i} className="px-2.5 py-1 rounded-lg bg-secondary/15 border border-secondary/30 font-mono text-[8px] uppercase tracking-widest text-secondary flex items-center gap-1">
+                            <span className="material-symbols-outlined !text-[10px]">verified</span>
+                            {p.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Live sargam notation strip */}
+                {isPlaying && notationSequence.some(n => n !== null) && (
+                  <div className="px-2 py-1.5 flex items-center gap-1 overflow-x-auto scrollbar-none border-b border-outline-variant/10">
+                    {notationSequence.map((note, i) => (
+                      <span
+                        key={i}
+                        className={[
+                          'font-display text-sm px-2 py-0.5 rounded-md transition-all flex-shrink-0',
+                          note === null
+                            ? 'text-on-surface-variant/10'
+                            : i === activeStep
+                              ? 'bg-primary/30 text-primary font-semibold scale-110'
+                              : i < activeStep
+                                ? 'text-on-surface-variant/30'
+                                : 'text-on-surface-variant/50',
+                        ].join(' ')}
+                      >
+                        {note ?? '·'}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {/* Keyboard — full width, unaffected by side panels */}
                 {keyboardLayout === 'SwaPad' ? (
                   <SwaPad
@@ -1757,6 +2183,8 @@ function StudioContent() {
                     vadiNote={selectedRaga?.vadi}
                     samvadiNote={selectedRaga?.samvadi}
                     onNoteClick={onNoteRecord}
+                    ornamentMode={ornamentMode}
+                    selectedRagaName={selectedRaga?.name}
                   />
                 )}
 
@@ -1791,6 +2219,8 @@ function StudioContent() {
                   </div>
                 )}
               </section>
+              </div>
+              </>
             )
           })()}
 
@@ -1919,6 +2349,54 @@ function StudioContent() {
           />
         )}
 
+        {/* ── Raga Conformance Score ── */}
+        {!isImmersive && (
+          <div className="mx-8">
+            <ConformanceScore
+              isRecording={isRecording}
+              aroha={selectedRaga?.aroha}
+              avaroha={selectedRaga?.avaroha}
+              ragaName={selectedRaga?.name}
+            />
+          </div>
+        )}
+
+        {/* ── Session log prompt (Task 3) ── */}
+        {sessionLogPrompt && !isImmersive && (
+          <div className="mx-8 mb-4 px-5 py-3.5 rounded-2xl bg-primary/10 border border-primary/20 backdrop-blur-md flex items-center justify-between gap-4 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined !text-lg text-primary/60">edit_document</span>
+              <span className="font-sans text-sm text-on-surface/80">
+                Session ended — <span className="font-semibold">{sessionLogPrompt.minutes} min</span> on Raga {sessionLogPrompt.ragaName}. Log it?
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => router.push(`/journal?raga=${encodeURIComponent(sessionLogPrompt.ragaName)}`)}
+                className="px-4 py-2 bg-primary text-on-primary rounded-xl font-mono text-[9px] uppercase tracking-widest hover:bg-primary/90 transition-all active:scale-95"
+              >
+                Log Session
+              </button>
+              <button
+                onClick={() => setSessionLogPrompt(null)}
+                className="p-2 text-on-surface-variant/40 hover:text-on-surface transition-colors"
+              >
+                <span className="material-symbols-outlined !text-base">close</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile piano toggle — fixed bottom-right, only on small screens */}
+        {!isImmersive && (
+          <button
+            className="md:hidden fixed bottom-6 right-4 z-[199] flex items-center gap-2 px-5 py-3 rounded-2xl bg-primary text-on-primary shadow-glow font-mono text-[10px] uppercase tracking-widest font-bold active:scale-95 transition-all"
+            onClick={() => setMobilePianoOpen(v => !v)}
+          >
+            <span className="material-symbols-outlined !text-lg">{mobilePianoOpen ? 'keyboard_arrow_down' : 'piano'}</span>
+            {mobilePianoOpen ? 'Close' : 'Piano'}
+          </button>
+        )}
 
         {/* ── Immersive HUD ── */}
         {isImmersive && (

@@ -1,4 +1,4 @@
-import { Raga, Swara } from './types';
+import { Raga, Swara, SwaraMetadata, SwaraWeight, SwaraDirection } from './types';
 
 /**
  * RagaEngine - Musical logic for raga-bound operations
@@ -51,7 +51,7 @@ export const RagaEngine = {
   detectPhrases(sequence: string[], raga: Raga): { label: string; offset: number }[] {
     const found: { label: string; offset: number }[] = [];
     const phrases = raga.phrases || [];
-    
+
     const sSeq = sequence.join(',');
     phrases.forEach(p => {
       if (!Array.isArray(p.sequence) || p.sequence.length === 0) return;
@@ -61,7 +61,33 @@ export const RagaEngine = {
         found.push({ label: p.label, offset: index });
       }
     });
-    
+
     return found;
-  }
+  },
+
+  // ── Grammar-aware per-swara lookups (requires raga.grammar) ──────────────────
+
+  getSwaraMeta(swara: string, raga: Raga): SwaraMetadata | null {
+    return raga.grammar?.swaras.find(s => s.name === swara) ?? null;
+  },
+
+  isVarjya(swara: string, raga: Raga): boolean {
+    return RagaEngine.getSwaraMeta(swara, raga)?.varjya ?? false;
+  },
+
+  isNyasa(swara: string, raga: Raga): boolean {
+    return RagaEngine.getSwaraMeta(swara, raga)?.nyasa ?? false;
+  },
+
+  getSwaraDirection(swara: string, raga: Raga): SwaraDirection | null {
+    return RagaEngine.getSwaraMeta(swara, raga)?.direction ?? null;
+  },
+
+  getSwaraWeight(swara: string, raga: Raga): SwaraWeight | null {
+    return RagaEngine.getSwaraMeta(swara, raga)?.weight ?? null;
+  },
+
+  getVadiSamvadi(raga: Raga): { vadi: string; samvadi: string } {
+    return { vadi: raga.vadi, samvadi: raga.samvadi };
+  },
 };

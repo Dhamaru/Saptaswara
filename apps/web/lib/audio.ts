@@ -1,6 +1,30 @@
 import * as Tone from 'tone'
 import { swaraToFrequency } from '@/lib/musicalMath'
 
+// ── WAV encoder ──────────────────────────────────────────────────────────────
+function encodeWav(buffer: AudioBuffer): ArrayBuffer {
+  const numCh = buffer.numberOfChannels
+  const sr = buffer.sampleRate
+  const dataLen = buffer.length * numCh * 2  // 16-bit samples
+  const ab = new ArrayBuffer(44 + dataLen)
+  const v = new DataView(ab)
+  const write = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)) }
+  write(0, 'RIFF'); v.setUint32(4, 36 + dataLen, true); write(8, 'WAVE')
+  write(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true)
+  v.setUint16(22, numCh, true); v.setUint32(24, sr, true)
+  v.setUint32(28, sr * numCh * 2, true); v.setUint16(32, numCh * 2, true)
+  v.setUint16(34, 16, true); write(36, 'data'); v.setUint32(40, dataLen, true)
+  let off = 44
+  for (let i = 0; i < buffer.length; i++) {
+    for (let c = 0; c < numCh; c++) {
+      const s = Math.max(-1, Math.min(1, buffer.getChannelData(c)[i]))
+      v.setInt16(off, s < 0 ? s * 32768 : s * 32767, true)
+      off += 2
+    }
+  }
+  return ab
+}
+
 // ── Public types ─────────────────────────────────────────────────────────────
 export type TraditionType = 'carnatic' | 'hindustani'
 export type MasteringPreset = 'neutral' | 'clear' | 'warm' | 'punchy' | 'raga' | 'concert' | 'vocal' | 'deep' | 'bright'
@@ -829,10 +853,32 @@ export class AudioEngine {
       anchor.download = `Saptaswara_Composition_${Date.now()}.webm`
       anchor.href = url
       anchor.click()
-      // Cleanup URL after a delay
       setTimeout(() => URL.revokeObjectURL(url), 10000)
     } catch (e) {
       console.error('Failed to stop recording:', e)
+    }
+  }
+
+  async stopRecordingAsWav() {
+    if (this.recorder.state !== 'started') return
+    try {
+      const recording = await this.recorder.stop()
+      const arrayBuffer = await recording.arrayBuffer()
+      const audioCtx = new AudioContext()
+      const decoded = await audioCtx.decodeAudioData(arrayBuffer)
+      audioCtx.close()
+
+      const wav = encodeWav(decoded)
+      const blob = new Blob([wav], { type: 'audio/wav' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.download = `Saptaswara_Composition_${Date.now()}.wav`
+      anchor.href = url
+      anchor.click()
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch (e) {
+      console.error('Failed to export WAV, falling back to webm:', e)
+      await this.stopRecording()
     }
   }
 
@@ -978,6 +1024,12 @@ export class AudioEngine {
       symp.triggerAttackRelease([frequency * 1.5, frequency * 2], '2n', Tone.now(), 0.28)
       setTimeout(() => { try { symp.dispose(); fverb.dispose() } catch { /* ignore */ } }, 4000)
     } catch { /* ignore */ }
+  }
+
+  setDetune(cents: number) {
+    if (!this.isStarted) return
+    try { (this.timbreNode as any)?.set?.({ detune: cents }) } catch { /* ignore */ }
+    try { this.synth?.set({ detune: cents }) } catch { /* ignore */ }
   }
 
   getMeterLevel(): number {

@@ -1,10 +1,18 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
 import { checkRateLimitSync } from '@/lib/rateLimit'
 import { getVarjyaNotes, stripOctave } from '@/lib/ragaUtils'
 
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '')
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const groqClient = process.env.GROQ_API_KEY
+  ? new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' })
+  : null
+
+const nvidiaClient = process.env.NVIDIA_API_KEY
+  ? new OpenAI({ apiKey: process.env.NVIDIA_API_KEY, baseURL: 'https://integrate.api.nvidia.com/v1' })
+  : null
 
 const GENERATE_SYSTEM = `You are a composer of Indian classical music. Generate step-sequencer patterns following strict raga grammar.
 Return ONLY valid JSON — no prose, no markdown fences.`
@@ -46,10 +54,31 @@ Return this exact JSON array (no wrapper object):
 ]`
 }
 
+function parseSteps(text: string, body: GenerateBody) {
+  const start = text.indexOf('[')
+  const end = text.lastIndexOf(']')
+  if (start === -1 || end === -1) throw new Error('No JSON array in response')
+
+  const raw: { step: number; note: string; octave: number; velocity: number }[] =
+    JSON.parse(text.slice(start, end + 1))
+
+  const varjyaSet = getVarjyaNotes(body.aroha, body.avaroha)
+  const valid = raw.filter(s =>
+    typeof s.step === 'number' &&
+    s.step >= 1 && s.step <= body.steps &&
+    typeof s.note === 'string' &&
+    !varjyaSet.has(stripOctave(s.note)) &&
+    [3, 4, 5].includes(s.octave) &&
+    [25, 50, 75, 100].includes(s.velocity)
+  )
+
+  if (valid.length === 0) throw new Error('No valid steps after validation')
+  return valid
+}
+
 export async function POST(req: Request) {
   const ip = req.headers.get('x-forwarded-for') ?? 'unknown'
-  const allowed = checkRateLimitSync(ip)
-  if (!allowed) {
+  if (!checkRateLimitSync(ip)) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
   }
 
@@ -65,40 +94,46 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  try {
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: GENERATE_SYSTEM,
-    })
+  const prompt = buildPrompt(body)
 
-    const result = await model.generateContent(buildPrompt(body))
-    const text = result.response.text()
-
-    // Extract JSON array
-    const start = text.indexOf('[')
-    const end = text.lastIndexOf(']')
-    if (start === -1 || end === -1) throw new Error('No JSON array in response')
-
-    const raw: { step: number; note: string; octave: number; velocity: number }[] =
-      JSON.parse(text.slice(start, end + 1))
-
-    // Validate: guard against varjya notes slipping through
-    const varjyaSet = getVarjyaNotes(body.aroha, body.avaroha)
-    const valid = raw.filter(s =>
-      typeof s.step === 'number' &&
-      s.step >= 1 && s.step <= body.steps &&
-      typeof s.note === 'string' &&
-      !varjyaSet.has(stripOctave(s.note)) &&
-
-      [3, 4, 5].includes(s.octave) &&
-      [25, 50, 75, 100].includes(s.velocity)
-    )
-
-    if (valid.length === 0) throw new Error('No valid steps after validation')
-
-    return NextResponse.json({ steps: valid })
-  } catch (err) {
-    console.error('[generate/route] error:', err)
-    return NextResponse.json({ error: 'Failed to generate sequence' }, { status: 500 })
+  // Gemini first
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: GENERATE_SYSTEM })
+      const result = await model.generateContent(prompt)
+      return NextResponse.json({ steps: parseSteps(result.response.text(), body) })
+    } catch (err: any) {
+      const isQuota = err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('Quota')
+      if (!isQuota || (!groqClient && !nvidiaClient)) {
+        console.error('[generate] gemini error:', err)
+        return NextResponse.json({ error: 'Failed to generate sequence' }, { status: 500 })
+      }
+    }
   }
+
+  // Groq fallback
+  if (groqClient) {
+    try {
+      const c = await groqClient.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'system', content: GENERATE_SYSTEM }, { role: 'user', content: prompt }],
+        max_tokens: 1500, temperature: 0.6,
+      })
+      return NextResponse.json({ steps: parseSteps(c.choices[0]?.message?.content ?? '', body) })
+    } catch (err) { console.error('[generate] groq error:', err) }
+  }
+
+  // NVIDIA fallback
+  if (nvidiaClient) {
+    try {
+      const c = await nvidiaClient.chat.completions.create({
+        model: 'meta/llama-3.3-70b-instruct',
+        messages: [{ role: 'system', content: GENERATE_SYSTEM }, { role: 'user', content: prompt }],
+        max_tokens: 1500, temperature: 0.6,
+      })
+      return NextResponse.json({ steps: parseSteps(c.choices[0]?.message?.content ?? '', body) })
+    } catch (err) { console.error('[generate] nvidia error:', err) }
+  }
+
+  return NextResponse.json({ error: 'No AI provider available' }, { status: 503 })
 }

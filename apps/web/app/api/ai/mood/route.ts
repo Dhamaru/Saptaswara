@@ -5,6 +5,13 @@ import { checkRateLimitSync } from '@/lib/rateLimit'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '')
 
+const groqClient = process.env.GROQ_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: 'https://api.groq.com/openai/v1',
+    })
+  : null
+
 const nvidiaClient = process.env.NVIDIA_API_KEY
   ? new OpenAI({
       apiKey: process.env.NVIDIA_API_KEY,
@@ -78,10 +85,29 @@ export async function POST(req: Request) {
         geminiErr?.status === 429 ||
         geminiErr?.message?.includes('429') ||
         geminiErr?.message?.includes('Quota')
-      if (!isQuota || !nvidiaClient) {
+      if (!isQuota || (!groqClient && !nvidiaClient)) {
         console.error('[mood/route] gemini error:', geminiErr)
         return NextResponse.json({ error: 'Recommendation service unavailable — please try again.' }, { status: 500 })
       }
+    }
+  }
+
+  // Groq fallback
+  if (groqClient) {
+    try {
+      const completion = await groqClient.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: MOOD_SYSTEM },
+          { role: 'user', content: MOOD_PROMPT(mood) },
+        ],
+        max_tokens: 800,
+        temperature: 0.5,
+      })
+      const text = completion.choices[0]?.message?.content ?? ''
+      return NextResponse.json({ ragas: parseRagas(text) })
+    } catch (groqErr) {
+      console.error('[mood/route] groq error:', groqErr)
     }
   }
 
@@ -104,5 +130,5 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ error: 'No AI provider available — check GEMINI_API_KEY or NVIDIA_API_KEY.' }, { status: 503 })
+  return NextResponse.json({ error: 'No AI provider available — check GEMINI_API_KEY, GROQ_API_KEY, or NVIDIA_API_KEY.' }, { status: 503 })
 }

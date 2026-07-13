@@ -1,3 +1,5 @@
+export const runtime = 'edge'
+
 import * as Sentry from '@sentry/nextjs'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import OpenAI from 'openai'
@@ -14,6 +16,13 @@ import {
 } from '@/lib/ragCache'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+
+const groqClient = process.env.GROQ_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: 'https://api.groq.com/openai/v1',
+    })
+  : null
 
 const nvidiaClient = process.env.NVIDIA_API_KEY
   ? new OpenAI({
@@ -75,6 +84,8 @@ TIME & RASA:
 4. If user asks for a melody: provide a swara sequence WITH rhythm notation (| = bar line, - = hold, e.g., "Sa Re Ga | Ma Pa -")
 5. If user seems stuck or frustrated: be encouraging, remind them learning raga takes time, suggest a simpler task
 6. If user asks about a concept (komal, tivra, etc.): explain it clearly then give a musical example from the active raga
+7. When answering any question, connect the answer to the active raga where relevant — don't answer in the abstract when a concrete raga example is available
+8. If user asks about a DIFFERENT raga than the active one: answer fully, then end with "Once you've explored {active_raga} further, {other_raga} would be a great next step"
 
 ═══ OUTPUT FORMAT ═══
 - Keep responses concise but complete — 3-6 sentences for explanations, longer for exercises
@@ -175,91 +186,112 @@ function compactHistory(
 
 // ── POST handler ──────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
-  try {
-    const authHeader = req.headers.get('Authorization')
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const authClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    const { data: userData, error: authError } = await authClient.auth.getUser(token)
-    const activeUser = userData?.user
-    if (authError || !activeUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const rl = await checkRateLimit(activeUser.id, 'ai')
-    if (!rl.allowed) return rateLimitedResponse(rl)
-
-    const { messages, ragaContext, studioContext, mode } = await req.json()
-
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json({ error: 'messages must be a non-empty array' }, { status: 400 })
-    }
-    for (const m of messages) {
-      if (!m || typeof m.content !== 'string' || !['user', 'assistant'].includes(m.role)) {
-        return NextResponse.json({ error: 'Invalid message format' }, { status: 400 })
+  // ── Pre-stream work: auth, rate-limit, RAG, prompt construction ─────────────
+  type PreStreamResult =
+    | { ok: false; response: Response }
+    | {
+        ok: true
+        lastUserMessage: string
+        systemContext: string
+        compactedValid: Array<{ role: string; content: string }>
       }
+
+  const preStream = await Sentry.startSpan(
+    { name: 'ai.chat', op: 'ai.request' },
+    async (): Promise<PreStreamResult> => {
+      const authHeader = req.headers.get('Authorization')
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
+      if (!token) return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+
+      const authClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      const { data: userData, error: authError } = await authClient.auth.getUser(token)
+      const activeUser = userData?.user
+      if (authError || !activeUser) {
+        return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+      }
+
+      const rl = await checkRateLimit(activeUser.id, 'ai')
+      if (!rl.allowed) return { ok: false, response: rateLimitedResponse(rl) }
+
+      const { messages, ragaContext, studioContext, mode } = await req.json()
+
+      if (!Array.isArray(messages) || messages.length === 0) {
+        return { ok: false, response: NextResponse.json({ error: 'messages must be a non-empty array' }, { status: 400 }) }
+      }
+      for (const m of messages) {
+        if (!m || typeof m.content !== 'string' || !['user', 'assistant'].includes(m.role)) {
+          return { ok: false, response: NextResponse.json({ error: 'Invalid message format' }, { status: 400 }) }
+        }
+      }
+
+      const lastUserMessage = messages[messages.length - 1].content
+      const ragaName: string | null = ragaContext?.name ?? null
+
+      // All messages except the last one — used for history and RAG enrichment
+      const priorMessages = messages.slice(0, -1)
+
+      // ── Context-aware RAG (parallel with history compaction) ─────────────────
+      const ragVectorContext = await getRagaContext(lastUserMessage, ragaName, priorMessages)
+
+      // ── Build raga session context ────────────────────────────────────────────
+      const ragaInfo = ragaContext
+        ? [
+            `Active Raga: ${ragaContext.name}`,
+            ragaContext.tradition ? `Tradition: ${ragaContext.tradition}` : null,
+            ragaContext.aroha
+              ? `Aroha (ascending): ${Array.isArray(ragaContext.aroha) ? ragaContext.aroha.join(' – ') : ragaContext.aroha}`
+              : null,
+            ragaContext.avaroha
+              ? `Avaroha (descending): ${Array.isArray(ragaContext.avaroha) ? ragaContext.avaroha.join(' – ') : ragaContext.avaroha}`
+              : null,
+            ragaContext.vadi ? `Vadi (most important / king note): ${ragaContext.vadi}` : null,
+            ragaContext.samvadi ? `Samvadi (second most important / minister note): ${ragaContext.samvadi}` : null,
+            ragaContext.mood ? `Rasa / Mood: ${ragaContext.mood}` : null,
+            ragaContext.time_of_day ? `Traditional time of performance: ${ragaContext.time_of_day}` : null,
+            ragaContext.raga_phrases?.length
+              ? `Characteristic Pakads:\n${ragaContext.raga_phrases
+                  .map((p: any) => `  ${p.label}: ${Array.isArray(p.sequence) ? p.sequence.join(' ') : p.sequence}`)
+                  .join('\n')}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join('\n')
+        : 'No raga selected yet. Encourage the user to pick one from the library.'
+
+      const learnModePrefix = mode === 'learn'
+        ? '\n═══ LEARN MODE ACTIVE ═══\nThe user is in Beginner / Learn Mode. Use simple, friendly language. Avoid Sanskrit terms without explanation. Use everyday analogies. Keep responses short and focused on one idea at a time. Always end with a concrete "Try this:" action step.\n'
+        : ''
+
+      const systemContext = [
+        SYSTEM_PROMPT,
+        learnModePrefix,
+        '\n--- SESSION CONTEXT ---',
+        ragaInfo,
+        studioContext ? `\n--- STUDIO GRID ---\n${studioContext}` : null,
+        ragVectorContext ? `\n--- RAGA KNOWLEDGE BASE (retrieved) ---\n${ragVectorContext}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n')
+
+      // ── Compact history ───────────────────────────────────────────────────────
+      const compacted = compactHistory(priorMessages)
+      const firstUserIndex = compacted.findIndex(m => m.role === 'user')
+      const compactedValid = (firstUserIndex === -1 ? [] : compacted.slice(firstUserIndex))
+        .filter(m => m.content?.trim())
+
+      return { ok: true, lastUserMessage, systemContext, compactedValid }
     }
+  )
 
-    const lastUserMessage = messages[messages.length - 1].content
-    const ragaName: string | null = ragaContext?.name ?? null
+  if (!preStream.ok) return preStream.response
 
-    // All messages except the last one — used for history and RAG enrichment
-    const priorMessages = messages.slice(0, -1)
+  const { lastUserMessage, systemContext, compactedValid } = preStream
 
-    // ── Context-aware RAG (parallel with history compaction) ─────────────────
-    const ragVectorContext = await getRagaContext(lastUserMessage, ragaName, priorMessages)
-
-    // ── Build raga session context ────────────────────────────────────────────
-    const ragaInfo = ragaContext
-      ? [
-          `Active Raga: ${ragaContext.name}`,
-          ragaContext.tradition ? `Tradition: ${ragaContext.tradition}` : null,
-          ragaContext.aroha
-            ? `Aroha (ascending): ${Array.isArray(ragaContext.aroha) ? ragaContext.aroha.join(' – ') : ragaContext.aroha}`
-            : null,
-          ragaContext.avaroha
-            ? `Avaroha (descending): ${Array.isArray(ragaContext.avaroha) ? ragaContext.avaroha.join(' – ') : ragaContext.avaroha}`
-            : null,
-          ragaContext.vadi ? `Vadi (most important / king note): ${ragaContext.vadi}` : null,
-          ragaContext.samvadi ? `Samvadi (second most important / minister note): ${ragaContext.samvadi}` : null,
-          ragaContext.mood ? `Rasa / Mood: ${ragaContext.mood}` : null,
-          ragaContext.time_of_day ? `Traditional time of performance: ${ragaContext.time_of_day}` : null,
-          ragaContext.raga_phrases?.length
-            ? `Characteristic Pakads:\n${ragaContext.raga_phrases
-                .map((p: any) => `  ${p.label}: ${Array.isArray(p.sequence) ? p.sequence.join(' ') : p.sequence}`)
-                .join('\n')}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join('\n')
-      : 'No raga selected yet. Encourage the user to pick one from the library.'
-
-    const learnModePrefix = mode === 'learn'
-      ? '\n═══ LEARN MODE ACTIVE ═══\nThe user is in Beginner / Learn Mode. Use simple, friendly language. Avoid Sanskrit terms without explanation. Use everyday analogies. Keep responses short and focused on one idea at a time. Always end with a concrete "Try this:" action step.\n'
-      : ''
-
-    const systemContext = [
-      SYSTEM_PROMPT,
-      learnModePrefix,
-      '\n--- SESSION CONTEXT ---',
-      ragaInfo,
-      studioContext ? `\n--- STUDIO GRID ---\n${studioContext}` : null,
-      ragVectorContext ? `\n--- RAGA KNOWLEDGE BASE (retrieved) ---\n${ragVectorContext}` : null,
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    // ── Compact history ───────────────────────────────────────────────────────
-    const compacted = compactHistory(priorMessages)
-    const firstUserIndex = compacted.findIndex(m => m.role === 'user')
-    const compactedValid = (firstUserIndex === -1 ? [] : compacted.slice(firstUserIndex))
-      .filter(m => m.content?.trim())
-
-    // ── Try Gemini first, fall back to NVIDIA on quota errors ────────────────
+  try {
+    // ── Try Gemini first, fall back to Groq on quota errors ──────────────────────
     const SSE_HEADERS = {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -302,7 +334,7 @@ export async function POST(req: Request) {
         geminiError?.message?.includes('Quota') ||
         geminiError?.message?.includes('Too Many Requests')
 
-      if (!isQuota || !nvidiaClient) {
+      if (!isQuota || (!groqClient && !nvidiaClient)) {
         Sentry.captureException(geminiError, { tags: { route: 'ai/chat', provider: 'gemini' } })
         const isKeyMissing = !process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your-gemini-api-key'
         const msg = isKeyMissing
@@ -315,8 +347,8 @@ export async function POST(req: Request) {
         )
       }
 
-      // ── NVIDIA fallback ───────────────────────────────────────────────────
-      const nvidiaMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      // ── Groq fallback ─────────────────────────────────────────────────────────
+      const groqMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemContext },
         ...compactedValid.map(m => ({
           role: (m.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
@@ -325,9 +357,12 @@ export async function POST(req: Request) {
         { role: 'user', content: lastUserMessage },
       ]
 
-      const nvidiaStream = await nvidiaClient.chat.completions.create({
-        model: 'meta/llama-3.3-70b-instruct',
-        messages: nvidiaMessages,
+      const fallbackClient = groqClient ?? nvidiaClient!
+      const fallbackModel = groqClient ? 'llama-3.3-70b-versatile' : 'meta/llama-3.3-70b-instruct'
+
+      const fallbackStream = await fallbackClient.chat.completions.create({
+        model: fallbackModel,
+        messages: groqMessages,
         stream: true,
         max_tokens: 1024,
         temperature: 0.7,
@@ -337,7 +372,7 @@ export async function POST(req: Request) {
       const stream = new ReadableStream({
         async start(controller) {
           try {
-            for await (const chunk of nvidiaStream) {
+            for await (const chunk of fallbackStream) {
               const text = chunk.choices[0]?.delta?.content
               if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
             }

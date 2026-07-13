@@ -71,6 +71,15 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { projectId, title, raga_id, bpm, sequence } = body
 
+    if (!projectId) {
+      const missing: string[] = []
+      if (!title || typeof title !== 'string' || title.trim() === '') missing.push('title')
+      if (title && title.length > 100) return NextResponse.json({ error: 'title exceeds 100 characters' }, { status: 400 })
+      if (!raga_id || !/^[0-9a-f-]{36}$/i.test(raga_id)) missing.push('raga_id (valid UUID)')
+      if (bpm !== undefined && (typeof bpm !== 'number' || bpm < 40 || bpm > 200)) return NextResponse.json({ error: 'bpm must be between 40 and 200' }, { status: 400 })
+      if (missing.length) return NextResponse.json({ error: `Missing or invalid fields: ${missing.join(', ')}` }, { status: 400 })
+    }
+
     let currentPid = projectId
 
     if (!currentPid) {

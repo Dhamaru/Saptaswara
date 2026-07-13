@@ -5,6 +5,7 @@ import { audioEngine } from '@/lib/audio'
 import { NOTES_IN_OCTAVE, swaraToFrequency, normalizeSwara } from '@/lib/musicalMath'
 import { getSwaraType, swaraAccent } from '@/lib/swaraUtils'
 import { useComposition, type InstrumentType, type TraditionType } from '@/context/CompositionContext'
+import { getGamakaProfile } from '@/lib/gamakaData'
 
 interface PianoProps {
   activeRagaNotes: string[]
@@ -15,6 +16,8 @@ interface PianoProps {
   samvadiNote?: string
   varjyaNotes?: string[]
   nyasaNotes?: string[]
+  ornamentMode?: boolean
+  selectedRagaName?: string
 }
 
 // ── Keyboard mapping ──────────────────────────────────────────────────────────
@@ -90,6 +93,8 @@ export default function Piano({
   samvadiNote,
   varjyaNotes = [],
   nyasaNotes = [],
+  ornamentMode = false,
+  selectedRagaName,
 }: PianoProps) {
   const [playingNote, setPlayingNote]   = useState<string | null>(null)
   const [heldNotes, setHeldNotes]       = useState<Set<string>>(new Set())
@@ -233,6 +238,26 @@ export default function Piano({
       ;(audioEngine as any)?.playSympatheticResonance?.(freq)
     }
 
+    // ── Authentic Ornaments: apply gamaka from raga profile on attack ──────────
+    if (ornamentMode && selectedRagaName && audioEngine) {
+      const profile = getGamakaProfile(selectedRagaName)
+      if (profile) {
+        const norm = normalizeSwara(label)
+        const spec = profile.specs.find(s => normalizeSwara(s.swara) === norm)
+        if (spec) {
+          const adjacentFreq = freq * Math.pow(2, 2 / 12)
+          if (spec.type === 'meend') {
+            const fromFreq = freq * Math.pow(2, -2 / 12)
+            audioEngine.playMeend(fromFreq, freq, 0.5)
+          } else if (spec.type === 'andolan') {
+            audioEngine.playAndolan(freq, 1.5, 2.0, 0.3)
+          } else if (spec.type === 'gamak') {
+            audioEngine.playGamak(freq, adjacentFreq, 3, 0.15)
+          }
+        }
+      }
+    }
+
     // KR-06: long press (650ms) → gamak (whole-step oscillation)
     const timer = setTimeout(() => {
       if (isDraggingRef.current && dragFromNoteId.current === noteId) {
@@ -244,7 +269,7 @@ export default function Piano({
       }
     }, 650)
     longPressTimers.current.set(noteId, timer)
-  }, [calcVelocity, activeInstrument])
+  }, [calcVelocity, activeInstrument, ornamentMode, selectedRagaName])
 
   const handleRelease = useCallback((noteId: string, freq: number) => {
     // Clear long-press gamak timer
@@ -461,7 +486,7 @@ export default function Piano({
       <div className="w-full overflow-x-auto pb-4 pt-2 scroll-thin">
         <div
           className="relative flex p-2 bg-[#050505] rounded-[32px] border border-white/5 shadow-2xl mx-auto flex-shrink-0"
-          style={{ width: '896px', minWidth: '896px' }}
+          style={{ width: '896px', minWidth: '896px', touchAction: 'none' }}
         >
           {/* KR-10: Ripple canvas overlay */}
           <canvas

@@ -20,7 +20,7 @@ function parseInline(text: string): React.ReactNode[] {
   const parts = text.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*)/g)
   return parts.map((part, i) => {
     if (part.startsWith('`') && part.endsWith('`') && part.length > 2)
-      return <code key={i} className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded-md text-yellow-200 border border-yellow-400/10 whitespace-nowrap">{part.slice(1, -1)}</code>
+      return <code key={i} className="font-mono text-[11px] bg-primary/15 px-1.5 py-0.5 rounded-md text-primary-light border border-primary/20 whitespace-nowrap">{part.slice(1, -1)}</code>
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4)
       return <strong key={i} className="font-semibold text-white">{part.slice(2, -2)}</strong>
     if (part.startsWith('*') && part.endsWith('*') && part.length > 2)
@@ -37,7 +37,7 @@ function RenderMessage({ content }: { content: string }) {
   lines.forEach((line, i) => {
     if (line.startsWith('```')) { inCodeBlock = !inCodeBlock; return }
     if (inCodeBlock) {
-      nodes.push(<code key={i} className="block font-mono text-[11px] bg-black/30 px-2 py-0.5 text-yellow-200">{line}</code>)
+      nodes.push(<code key={i} className="block font-mono text-[11px] bg-primary/15 px-2 py-0.5 text-primary-light">{line}</code>)
       return
     }
     if (line.startsWith('### '))
@@ -323,6 +323,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
           messages: [...messages, { role: 'user', content: sendText }],
           ragaContext,
           studioContext,
+          mode: learnMode ? 'learn' : undefined,
         }),
         signal: controller.signal,
       })

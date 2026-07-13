@@ -75,8 +75,39 @@ export default function TransportBar({
   // Calculate meter percentage (approx -60dB to 0dB range)
   const meterWidth = Math.max(0, Math.min(100, (meterLevel + 60) * 1.6))
 
+  // Tala visualizer: current matra index (0-based)
+  const currentMatra = Math.floor(currentTime * bpm / 60) % tala.matras
+
+  // Build flat list of matra types from vibhags
+  const matraTypes: ('tali' | 'khali' | 'sam')[] = []
+  let matraIdx = 0
+  for (const vibhag of tala.vibhags) {
+    for (let i = 0; i < vibhag.size; i++) {
+      matraTypes.push(matraIdx === 0 ? 'sam' : vibhag.type as 'tali' | 'khali')
+      matraIdx++
+    }
+  }
+
   return (
-    <div className="h-20 glass-panel mx-8 mb-8 rounded-[32px] border border-white/5 flex items-center justify-between px-6 shadow-2xl bg-black/40 backdrop-blur-xl">
+    <div className="mx-8 mb-8 flex flex-col gap-2">
+    {/* Tala visualizer strip */}
+    <div className="flex items-center gap-1.5 px-4">
+      {matraTypes.map((type, i) => (
+        <div
+          key={i}
+          className={`h-1.5 flex-1 rounded-full transition-all duration-75 ${
+            isPlaying && i === currentMatra
+              ? 'bg-primary shadow-[0_0_6px_rgba(var(--primary-rgb),0.8)] scale-y-150'
+              : type === 'sam'
+              ? 'bg-primary/60'
+              : type === 'tali'
+              ? 'bg-white/30'
+              : 'bg-white/10'
+          }`}
+        />
+      ))}
+    </div>
+    <div className="h-20 glass-panel rounded-[32px] border border-white/5 flex items-center justify-between px-6 shadow-2xl bg-black/40 backdrop-blur-xl">
       
       {/* ── Section: Metronome + Tempo ── */}
       <div className="flex items-center bg-white/5 rounded-2xl p-1 gap-1 border border-white/5">
@@ -169,6 +200,7 @@ export default function TransportBar({
         </div>
       </div>
 
+    </div>
     </div>
   )
 }

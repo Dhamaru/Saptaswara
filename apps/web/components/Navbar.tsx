@@ -19,7 +19,9 @@ export default function Navbar() {
   const navLinks = [
     { name: 'Naad', href: '/studio' },
     { name: 'Ragam', href: '/library' },
+    { name: 'Riyaz', href: '/riyaz' },
     { name: 'Saadhana', href: '/journal' },
+    { name: 'Profile', href: '/profile' },
   ]
 
   const [user, setUser] = React.useState<any>(null)
@@ -68,11 +70,12 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`font-mono text-[10px] uppercase tracking-widest transition-all ${
-                pathname === link.href
-                  ? 'text-primary'
-                  : 'text-on-surface-variant/40 hover:text-on-surface'
-              }`}
+              className={`font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 relative pb-1
+                after:absolute after:bottom-0 after:left-0 after:h-[1.5px] after:bg-primary after:transition-all after:duration-300 after:content-['']
+                ${pathname === link.href
+                  ? 'text-primary after:w-full'
+                  : 'text-on-surface-variant/40 hover:text-on-surface after:w-0'
+                }`}
             >
               {link.name}
             </Link>

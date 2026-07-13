@@ -73,7 +73,7 @@ Saptaswara/
 │       │   ├── studio/page.tsx      # Main studio editor
 │       │   ├── library/page.tsx     # Raga library browser
 │       │   ├── journal/page.tsx     # Practice journal
-│       │   ├── login/page.tsx       # Login form
+│       │   ├── login/page.tsx       # Email / OAuth login + Remember Me
 │       │   ├── signup/page.tsx      # Signup form
 │       │   ├── auth/callback/       # OAuth callback handler
 │       │   └── api/
@@ -85,14 +85,14 @@ Saptaswara/
 │       │       ├── export/midi/route.ts
 │       │       └── projects/route.ts
 │       ├── components/
-│       │   ├── Piano.tsx
+│       │   ├── Piano.tsx            # Interactive keyboard + QWERTY key map
 │       │   ├── DrumPad.tsx
 │       │   ├── SwaPad.tsx
-│       │   ├── Assistant.tsx
-│       │   ├── GlobalAssistant.tsx
+│       │   ├── Assistant.tsx        # Studio-local AI chat (streaming SSE)
+│       │   ├── GlobalAssistant.tsx  # Floating site-wide AI widget
 │       │   ├── Navbar.tsx
 │       │   ├── TransportBar.tsx
-│       │   ├── RagaCard.tsx
+│       │   ├── RagaCard.tsx         # Unique visual identity per raga (hash + hue-rotate)
 │       │   ├── RagaBrowser.tsx
 │       │   ├── RagaRing.tsx
 │       │   ├── EarTraining.tsx
@@ -108,7 +108,7 @@ Saptaswara/
 │       │   ├── PlaybackContext.tsx
 │       │   └── CompositionContext.tsx
 │       └── lib/
-│           ├── toneAudioEngine.ts   # AudioEngine singleton (Tone.js)
+│           ├── audio.ts             # AudioEngine singleton (Tone.js) — mastering chain
 │           ├── musicalMath.ts       # Swara↔frequency math
 │           ├── ragaUtils.ts         # Varjya checking, scale utilities
 │           ├── ragCache.ts          # Embedding + RAG result caches
@@ -255,6 +255,9 @@ dispose()          // disposes Tone.js nodes and resets _instance = null
    - `PolySynth` (melody fallback)
    - `Sampler` (Salamander piano samples)
    - `PolySynth` (percussion fallback)
+   - `masterOutput` (Volume node — all instruments connect here)
+   - `masterEQ` (EQ3) + `limiter` (Limiter) — mastering chain
+   - Signal path: `masterOutput.chain(masterEQ, limiter, Tone.getDestination())`
 2. **`start()`** — called on first user gesture:
    - Resumes Tone.js `AudioContext`
    - Creates drone `PolySynth`
@@ -263,6 +266,9 @@ dispose()          // disposes Tone.js nodes and resets _instance = null
 3. **`setTimbre()`** — 100 ms crossfade:
    - Ramps old gain to -120 dB, disposes it
    - Builds a new timbre node
+
+**Mastering chain:**
+All instruments connect to `masterOutput`. The chain `masterOutput → masterEQ (EQ3) → limiter (Limiter) → Tone.getDestination()` ensures mastering presets (NEUTRAL/WARM/CLEAR/BRIGHT/DEEP) actually affect all audio output. Do **not** call `masterOutput.toDestination()` — that short-circuits the EQ.
 
 **Instrument routing by tradition:**
 
@@ -1039,15 +1045,25 @@ Tests for `AudioEngine` (singleton):
 
 ## 11. Environment Variables
 
+**Required:**
+
 | Variable | Service | Visibility | Notes |
 |---|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase | Public (browser + server) | Project URL from Supabase dashboard |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase | Public (browser + server) | Anon key — safe for client use; RLS enforces access |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase | Server-only — never expose | Bypasses RLS — never put in `NEXT_PUBLIC_*` |
-| `GEMINI_API_KEY` | Google AI | Server-only | Used in API routes only |
-| `NEXT_PUBLIC_APP_URL` | App | Public (browser) | Base URL, e.g. `https://saptaswara.app` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase | Public | Project URL from Supabase dashboard |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase | Public | Anon key — RLS enforces access |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase | Server-only | Bypasses RLS — never put in `NEXT_PUBLIC_*` |
+| `GEMINI_API_KEY` | Google AI | Server-only | AI chat + embeddings. App shows clear error if missing or placeholder. |
+| `NEXT_PUBLIC_APP_URL` | App | Public | Base URL, e.g. `https://saptaswara.app` |
 
-Place these in `apps/web/.env.local` for local development. In production (Vercel), add them as environment variables in the project settings.
+**Optional (production):**
+
+| Variable | Service | Notes |
+|---|---|---|
+| `NVIDIA_API_KEY` | NVIDIA NIM | Gemini 429 quota fallback (llama-3.3-70b) |
+| `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Upstash | Distributed rate limiting; falls back to in-memory without these |
+| `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_ORG` + `SENTRY_PROJECT` + `SENTRY_AUTH_TOKEN` | Sentry | Error tracking (production only) |
+
+Place required vars in `apps/web/.env.local` for local development. In production (Vercel), set all as environment variables in project settings.
 
 ---
 

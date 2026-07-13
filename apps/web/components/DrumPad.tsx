@@ -88,9 +88,18 @@ function Pad({
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
+// Ghost Teentaal pattern shown on first open (steps 1-16, 1-indexed)
+const GHOST_TEENTAAL: Record<string, number[]> = {
+  Dha:  [1, 5, 9, 16],
+  Dhin: [2, 3, 6, 7, 15],
+  Na:   [10, 11],
+  Te:   [12, 13],
+}
+
 export default function DrumPad({ onStroke, keyboardActive = true }: DrumPadProps) {
   const [instrument, setInstrument] = useState<'tabla' | 'mridangam'>('tabla')
   const [flashing, setFlashing] = useState<string | null>(null)
+  const [hasTriggered, setHasTriggered] = useState(false)
 
   const strokes = instrument === 'tabla' ? TABLA_STROKES : MRIDANGAM_STROKES
 
@@ -98,6 +107,7 @@ export default function DrumPad({ onStroke, keyboardActive = true }: DrumPadProp
     audioEngine?.playStroke(stroke)
     onStroke?.(stroke)
     setFlashing(stroke)
+    setHasTriggered(true)
     setTimeout(() => setFlashing(null), 120)
   }, [onStroke])
 
@@ -157,14 +167,28 @@ export default function DrumPad({ onStroke, keyboardActive = true }: DrumPadProp
           : 'grid-cols-2 sm:grid-cols-4'
       )}>
         {strokes.map(def => (
-          <Pad
-            key={def.label}
-            def={def}
-            flashing={flashing === def.label}
-            onClick={() => triggerStroke(def.label)}
-          />
+          <div key={def.label} className="flex flex-col gap-1">
+            {/* Ghost pattern dots — shown on first open, tabla only */}
+            {!hasTriggered && instrument === 'tabla' && (
+              <div className="flex gap-0.5 justify-center h-3">
+                {(GHOST_TEENTAAL[def.label] ?? []).map(step => (
+                  <div key={step} className="w-1 h-1 rounded-full bg-primary/20 mt-1" title={`Beat ${step}`} />
+                ))}
+              </div>
+            )}
+            <Pad
+              def={def}
+              flashing={flashing === def.label}
+              onClick={() => triggerStroke(def.label)}
+            />
+          </div>
         ))}
       </div>
+      {!hasTriggered && instrument === 'tabla' && (
+        <p className="mt-3 text-center font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/25">
+          Dots show a Teentaal pattern — tap any pad to start
+        </p>
+      )}
 
       {/* Keyboard legend */}
       {keyboardActive && (
