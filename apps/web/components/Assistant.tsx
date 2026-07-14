@@ -512,7 +512,9 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
           )}
 
           {/* Chat thread */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-4 scroll-thin">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col px-5 py-5 scroll-thin">
+            <div className="flex-1" />
+            <div className="space-y-4">
             {messages.map((m, i) => (
               <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-sm break-words overflow-x-hidden word-spacing-normal ${
@@ -538,6 +540,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.3s]" />
               </div>
             )}
+            </div>
           </div>
 
           {/* Suggestion chips */}
