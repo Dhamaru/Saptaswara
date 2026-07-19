@@ -47,6 +47,7 @@ import { EarTraining } from '@/components/EarTraining'
 import TransportBar from '@/components/TransportBar'
 import { ImmersiveHUD } from '@/components/ImmersiveHUD'
 import { ConformanceScore } from '@/components/ConformanceScore'
+import { CompositionScore } from '@/components/CompositionScore'
 import { MobileSwaraStrip } from '@/components/MobileSwaraStrip'
 
 // ── Track system ──────────────────────────────────────────────────────────────
@@ -2534,7 +2535,21 @@ function StudioContent() {
           />
         )}
 
-        {/* ── Raga Conformance Score ── */}
+        {/* ── Composition Score (sequencer analysis) ── */}
+        {!isImmersive && selectedRaga && (
+          <div className="mx-8 mb-2">
+            <CompositionScore
+              sequence={tracks.find(t => t.type === 'melody')?.sequence ?? []}
+              aroha={selectedRaga.aroha}
+              avaroha={selectedRaga.avaroha}
+              vadi={selectedRaga.vadi}
+              samvadi={selectedRaga.samvadi}
+              ragaName={selectedRaga.name}
+            />
+          </div>
+        )}
+
+        {/* ── Raga Conformance Score (live mic recording) ── */}
         {!isImmersive && (
           <div className="mx-8">
             <ConformanceScore
