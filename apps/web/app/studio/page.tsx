@@ -1754,7 +1754,7 @@ function StudioContent() {
         </div>
 
         {/* Scrollable content */}
-        <div className={`flex-1 scroll-thin ${isImmersive ? 'flex flex-col overflow-hidden p-4 md:p-6 gap-2 pb-24 pt-2' : 'overflow-auto p-4 md:p-10 space-y-8 md:space-y-14'}`}>
+        <div className={`flex-1 scroll-thin ${isImmersive ? 'overflow-y-auto p-4 md:p-6 pb-28 pt-2 space-y-4' : 'overflow-auto p-4 md:p-10 space-y-8 md:space-y-14'}`}>
 
           {/* ── Immersive raga reference strip (DAW-style compact header) ── */}
           {isImmersive && selectedRaga && (
@@ -1781,8 +1781,8 @@ function StudioContent() {
           )}
 
           {/* ── Step Sequencer ── */}
-          <section className={`animate-slide-up ${isImmersive ? 'flex-1 flex flex-col min-h-0' : ''}`}>
-            <div className={`flex items-center justify-between mb-5 ${isImmersive ? 'hidden' : ''}`}>
+          {!isImmersive && <section className="animate-slide-up">
+            <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                   <span className="material-symbols-outlined !text-base">grid_on</span>
@@ -2096,10 +2096,10 @@ function StudioContent() {
                 </div>
               )
             })()}
-          </section>
+          </section>}
 
-          {/* ── Input section: hidden in immersive — use QWERTY keys or side panels ── */}
-          {!isImmersive && (() => {
+          {/* ── Input section: keyboard + piano ── */}
+          {(() => {
             const activeTrack = tracks.find(t => t.id === activeTrackId)
             const isRhythmTrack = activeTrack?.type === 'rhythm'
 
@@ -2205,14 +2205,15 @@ function StudioContent() {
 
             return (
               <>
-              {/* Mobile piano drawer — fixed bottom sheet on small screens */}
-              <div className={`
-                md:block
-                ${mobilePianoOpen
-                  ? 'fixed inset-x-0 bottom-0 z-[200] bg-background/95 backdrop-blur-xl border-t border-outline-variant/10 rounded-t-3xl shadow-2xl max-h-[72vh] overflow-y-auto'
-                  : 'hidden md:block'}
-              `}>
-              <section className="animate-slide-up p-4 md:p-0">
+              {/* Mobile piano drawer — fixed bottom sheet on small screens; always visible in immersive */}
+              <div className={
+                isImmersive
+                  ? 'block'
+                  : `md:block ${mobilePianoOpen
+                      ? 'fixed inset-x-0 bottom-0 z-[200] bg-background/95 backdrop-blur-xl border-t border-outline-variant/10 rounded-t-3xl shadow-2xl max-h-[72vh] overflow-y-auto'
+                      : 'hidden md:block'}`
+              }>
+              <section className={`animate-slide-up ${isImmersive ? 'p-0' : 'p-4 md:p-0'}`}>
                 {/* ── Keyboard layout tabs ── */}
                 {(() => {
                   const LAYOUT_OPTIONS: { value: KeyboardLayout; label: string; instrument: string }[] = [
@@ -2286,7 +2287,7 @@ function StudioContent() {
                 })()}
 
                 {/* Context hint + Swara Transcriber */}
-                <div className="relative flex items-center gap-2 mb-3">
+                <div className={`relative flex items-center gap-2 mb-3 ${isImmersive ? 'hidden' : ''}`}>
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeStep >= 0 ? 'bg-primary animate-pulse' : 'bg-outline-variant/30'}`} />
                   <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 flex-1">
                     {activeStep >= 0
@@ -2390,7 +2391,7 @@ function StudioContent() {
                   />
                 </div>
                 {/* Desktop: full keyboard */}
-                <div className="hidden md:block">
+                <div className={isImmersive ? 'block' : 'hidden md:block'}>
                   {keyboardLayout === 'SwaPad' ? (
                     <SwaPad
                       activeRagaNotes={allRagaNotes}
