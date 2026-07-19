@@ -2016,7 +2016,7 @@ function StudioContent() {
                                 ? `${track.type === 'melody' ? event!.label : event!.stroke} (vel ${velPct}%)${noteIsVarjya ? ' · ⚠ Varjya note — outside this raga' : ''} · Shift+click to cycle velocity`
                                 : `Record to step ${stepIdx + 1}`
                             }
-                            className={`relative rounded-md font-mono font-bold transition-all border overflow-hidden ${isImmersive ? 'h-11 md:h-13 text-[9px] flex items-center justify-center' : 'h-8 text-[7px] flex items-end justify-center pb-0.5'} ${
+                            className={`relative rounded-md font-mono font-bold transition-all border overflow-hidden ${isImmersive ? 'h-12 md:h-14 text-[9px] flex items-center justify-center' : 'h-8 text-[7px] flex items-end justify-center pb-0.5'} ${
                               isActiveStep
                                 ? `${c.active} border-transparent shadow-step-active`
                                 : isSelected
@@ -2505,8 +2505,8 @@ function StudioContent() {
             </section>
           )}
 
-          {/* ── Melodic Guide ── */}
-          <section className="animate-slide-up max-w-4xl mx-auto border-t border-outline-variant/5 pt-14">
+          {/* ── Melodic Guide (hidden in immersive) ── */}
+          {!isImmersive && <section className="animate-slide-up max-w-4xl mx-auto border-t border-outline-variant/5 pt-14">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
@@ -2553,7 +2553,7 @@ function StudioContent() {
                 </div>
               )}
             </div>
-          </section>
+          </section>}
         </div>
 
         {/* ── Transport Rail (hidden in immersive) ── */}
