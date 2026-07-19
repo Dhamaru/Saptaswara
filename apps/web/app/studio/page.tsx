@@ -1927,7 +1927,7 @@ function StudioContent() {
               </div>
             </div>
 
-            <div className={`overflow-x-auto ${isImmersive ? 'flex-1 flex flex-col min-h-0 -mx-4 md:-mx-6 px-4 md:px-6 py-3 border-t border-b border-outline-variant/10 bg-black/20' : 'rounded-[20px] bg-surface-lowest border border-outline-variant/10 p-3 md:p-5'}`}>
+            <div className={`overflow-x-auto ${isImmersive ? 'flex-1 flex flex-col min-h-0 -mx-4 md:-mx-6 px-4 md:px-6 pt-2 border-t border-b border-outline-variant/10 bg-black/20' : 'rounded-[20px] bg-surface-lowest border border-outline-variant/10 p-3 md:p-5'}`}>
               <div className={`min-w-[480px] ${isImmersive ? 'flex-1 flex flex-col min-h-0' : ''}`}>
               {/* Tala-aware beat markers */}
               {(() => {
@@ -1935,7 +1935,7 @@ function StudioContent() {
                 // Only show up to loopLength cells; pad if tala < loopLength
                 const displayCells = Array.from({ length: loopLength }, (_, i) => cells[i % cells.length])
                 return (
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className={`flex items-center gap-2 mb-2 ${isImmersive ? 'flex-shrink-0' : ''}`}>
                     <div className="w-28 flex-shrink-0" />
                     <div className="flex-1" style={{ display: 'grid', gridTemplateColumns: `repeat(${loopLength}, minmax(0,1fr))`, gap: '3px' }}>
                       {displayCells.map((cell, i) => (
@@ -1968,7 +1968,7 @@ function StudioContent() {
                 const hasSolo = tracks.some(t => t.soloed)
                 const isAudible = !track.muted && (!hasSolo || track.soloed)
                 return (
-                  <div key={track.id} className={`flex items-center gap-2 ${isImmersive ? 'flex-1 min-h-0' : 'py-1'} ${!isAudible ? 'opacity-30' : ''}`}>
+                  <div key={track.id} className={`flex gap-2 ${isImmersive ? 'flex-1 min-h-0 items-stretch' : 'py-1 items-center'} ${!isAudible ? 'opacity-30' : ''}`}>
                     {/* Track label */}
                     <button
                       onClick={() => setActiveTrackId(track.id)}
