@@ -1754,7 +1754,7 @@ function StudioContent() {
         </div>
 
         {/* Scrollable content */}
-        <div className={`flex-1 overflow-auto scroll-thin ${isImmersive ? 'p-4 md:p-6 space-y-3 pb-28 pt-2' : 'p-4 md:p-10 space-y-8 md:space-y-14'}`}>
+        <div className={`flex-1 scroll-thin ${isImmersive ? 'flex flex-col overflow-hidden p-4 md:p-6 gap-2 pb-24 pt-2' : 'overflow-auto p-4 md:p-10 space-y-8 md:space-y-14'}`}>
 
           {/* ── Immersive raga reference strip (DAW-style compact header) ── */}
           {isImmersive && selectedRaga && (
@@ -1781,7 +1781,7 @@ function StudioContent() {
           )}
 
           {/* ── Step Sequencer ── */}
-          <section className="animate-slide-up">
+          <section className={`animate-slide-up ${isImmersive ? 'flex-1 flex flex-col min-h-0' : ''}`}>
             <div className={`flex items-center justify-between mb-5 ${isImmersive ? 'hidden' : ''}`}>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -1927,8 +1927,8 @@ function StudioContent() {
               </div>
             </div>
 
-            <div className={`overflow-x-auto ${isImmersive ? '-mx-4 md:-mx-6 px-4 md:px-6 py-3 border-t border-b border-outline-variant/10 bg-black/20' : 'rounded-[20px] bg-surface-lowest border border-outline-variant/10 p-3 md:p-5'}`}>
-              <div className="min-w-[480px]">
+            <div className={`overflow-x-auto ${isImmersive ? 'flex-1 flex flex-col min-h-0 -mx-4 md:-mx-6 px-4 md:px-6 py-3 border-t border-b border-outline-variant/10 bg-black/20' : 'rounded-[20px] bg-surface-lowest border border-outline-variant/10 p-3 md:p-5'}`}>
+              <div className={`min-w-[480px] ${isImmersive ? 'flex-1 flex flex-col min-h-0' : ''}`}>
               {/* Tala-aware beat markers */}
               {(() => {
                 const cells = expandTala(selectedTala)
@@ -1961,17 +1961,18 @@ function StudioContent() {
               })()}
 
               {/* Track rows */}
+              <div className={isImmersive ? 'flex-1 flex flex-col min-h-0' : 'contents'}>
               {tracks.map(track => {
                 const c = colors(track.colorIdx)
                 const isActiveTrack = activeTrackId === track.id
                 const hasSolo = tracks.some(t => t.soloed)
                 const isAudible = !track.muted && (!hasSolo || track.soloed)
                 return (
-                  <div key={track.id} className={`flex items-center gap-2 ${isImmersive ? 'py-0.5' : 'py-1'} ${!isAudible ? 'opacity-30' : ''}`}>
+                  <div key={track.id} className={`flex items-center gap-2 ${isImmersive ? 'flex-1 min-h-0' : 'py-1'} ${!isAudible ? 'opacity-30' : ''}`}>
                     {/* Track label */}
                     <button
                       onClick={() => setActiveTrackId(track.id)}
-                      className={`w-28 flex-shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all text-left ${
+                      className={`w-28 flex-shrink-0 flex items-center gap-1.5 px-2 rounded-lg transition-all text-left ${isImmersive ? 'h-full py-0' : 'py-1'} ${
                         isActiveTrack ? `${c.fill} border` : 'hover:bg-surface-container-high/30'
                       }`}
                     >
@@ -1984,7 +1985,7 @@ function StudioContent() {
                     </button>
 
                     {/* Step cells */}
-                    <div className="flex-1" style={{ display: 'grid', gridTemplateColumns: `repeat(${loopLength}, minmax(0,1fr))`, gap: '3px' }}>
+                    <div className={`flex-1 ${isImmersive ? 'h-full' : ''}`} style={{ display: 'grid', gridTemplateColumns: `repeat(${loopLength}, minmax(0,1fr))`, gap: '3px' }}>
                       {track.sequence.map((event, stepIdx) => {
                         const isActiveStep = activeStep === stepIdx && isPlaying
                         const isSelected = activeStep === stepIdx && !isPlaying && isActiveTrack
@@ -2016,7 +2017,7 @@ function StudioContent() {
                                 ? `${track.type === 'melody' ? event!.label : event!.stroke} (vel ${velPct}%)${noteIsVarjya ? ' · ⚠ Varjya note — outside this raga' : ''} · Shift+click to cycle velocity`
                                 : `Record to step ${stepIdx + 1}`
                             }
-                            className={`relative rounded-md font-mono font-bold transition-all border overflow-hidden ${isImmersive ? 'h-12 md:h-14 text-[9px] flex items-center justify-center' : 'h-8 text-[7px] flex items-end justify-center pb-0.5'} ${
+                            className={`relative rounded-md font-mono font-bold transition-all border overflow-hidden ${isImmersive ? 'h-full text-[10px] flex items-center justify-center' : 'h-8 text-[7px] flex items-end justify-center pb-0.5'} ${
                               isActiveStep
                                 ? `${c.active} border-transparent shadow-step-active`
                                 : isSelected
@@ -2060,6 +2061,7 @@ function StudioContent() {
                   </div>
                 )
               })}
+              </div>{/* end track rows wrapper */}
             </div>{/* end min-w-[480px] */}
             </div>
 
