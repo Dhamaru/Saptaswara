@@ -347,7 +347,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
           const chunk = decoder.decode(value, { stream: true })
           for (const line of chunk.split('\n')) {
             if (!line.startsWith('data: ')) continue
-            const data = line.slice(6)
+            const data = line.slice(6).replace(/\\n/g, '\n')
             if (data === '[DONE]') break
             // BUG-026: functional setState accumulates without stale closure
             setMessages(prev => {

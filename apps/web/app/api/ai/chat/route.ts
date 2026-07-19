@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI, SchemaType, FunctionCallingMode } from '@google/generative-ai'
 import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -97,6 +97,49 @@ const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+// ── Wikipedia raga tool ───────────────────────────────────────────────────────
+async function fetchRagaWiki(ragaName: string): Promise<string> {
+  const tryFetch = async (title: string): Promise<string | null> => {
+    try {
+      const res = await fetch(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
+        {
+          headers: { 'User-Agent': 'Saptaswara/1.0 (kasivasi2005@gmail.com)' },
+          signal: AbortSignal.timeout(5000),
+        }
+      )
+      if (!res.ok) return null
+      const data = await res.json() as { extract?: string }
+      return data.extract ?? null
+    } catch {
+      return null
+    }
+  }
+  return (
+    (await tryFetch(ragaName)) ??
+    (await tryFetch(`Raga ${ragaName}`)) ??
+    (await tryFetch(`${ragaName} (music)`)) ??
+    `No Wikipedia article found for "${ragaName}".`
+  )
+}
+
+const RAGA_WIKI_TOOL = {
+  functionDeclarations: [{
+    name: 'fetch_raga_wiki',
+    description: 'Fetch Wikipedia information about a raga when the user asks about a raga not covered by the session context, or needs detailed historical, theoretical, or gharana-specific information.',
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        raga_name: {
+          type: SchemaType.STRING,
+          description: 'The raga name to look up (e.g. "Puriya Dhanashree", "Bhimpalasi", "Yaman")',
+        } as any,
+      },
+      required: ['raga_name'],
+    },
+  }],
+}
 
 // ── Embedding with in-process cache ──────────────────────────────────────────
 async function getEmbedding(text: string): Promise<number[] | null> {
@@ -304,23 +347,57 @@ export async function POST(req: Request) {
       const model = genAI.getGenerativeModel({
         model: 'gemini-2.0-flash',
         systemInstruction: { role: 'system', parts: [{ text: systemContext }] },
+        tools: [RAGA_WIKI_TOOL],
+        toolConfig: { functionCallingConfig: { mode: FunctionCallingMode.AUTO } },
       })
       const chat = model.startChat({ history: geminiHistory })
-      const result = await chat.sendMessageStream(lastUserMessage)
 
+      // Phase 1: non-streaming call so we can detect and execute tool calls
+      const phase1 = await chat.sendMessage(lastUserMessage)
+      const functionCalls = phase1.response.functionCalls()
       const encoder = new TextEncoder()
-      const stream = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of result.stream) {
-              const text = chunk.text()
-              if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
+
+      if (functionCalls?.length) {
+        // Execute all requested tool calls (typically just one)
+        const toolResults = await Promise.all(
+          functionCalls.map(async (call) => {
+            const wikiText = call.name === 'fetch_raga_wiki'
+              ? await fetchRagaWiki((call.args as { raga_name: string }).raga_name)
+              : 'Unknown tool.'
+            return { functionResponse: { name: call.name, response: { content: wikiText } } }
+          })
+        )
+
+        // Phase 2: stream the final answer with wiki context now in chat history
+        const phase2 = await chat.sendMessageStream(toolResults as any)
+        const stream = new ReadableStream({
+          async start(controller) {
+            try {
+              for await (const chunk of phase2.stream) {
+                const text = chunk.text()
+                if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
+              }
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+              controller.close()
+            } catch (err) {
+              controller.error(err)
             }
-            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-            controller.close()
-          } catch (err) {
-            controller.error(err)
+          },
+        })
+        return new Response(stream, { headers: SSE_HEADERS })
+      }
+
+      // No tool call — emit the phase1 text response as SSE.
+      // Encode \n as \\n so the client's line-split parser preserves newlines.
+      const directText = phase1.response.text()
+      const stream = new ReadableStream({
+        start(controller) {
+          if (directText) {
+            const encoded = directText.replace(/\n/g, '\\n')
+            controller.enqueue(encoder.encode(`data: ${encoded}\n\n`))
           }
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+          controller.close()
         },
       })
       return new Response(stream, { headers: SSE_HEADERS })
