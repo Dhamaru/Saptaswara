@@ -1016,6 +1016,14 @@ function StudioContent() {
           }
           break
         }
+        case 's': {
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault()
+            setSaveModalTitle(projectName)
+            setShowSaveModal(true)
+          }
+          break
+        }
       }
     }
     window.addEventListener('keydown', handler)
@@ -1580,7 +1588,7 @@ function StudioContent() {
       <main className="flex-1 relative flex flex-col bg-surface overflow-hidden min-w-0">
 
         {/* HUD */}
-        <div className="min-h-14 md:h-20 px-3 md:px-10 flex flex-nowrap justify-between items-center border-b border-outline-variant/5 bg-surface/40 backdrop-blur-md flex-shrink-0 gap-2 py-2 md:py-0">
+        <div className={`px-3 md:px-10 flex flex-nowrap justify-between items-center border-b border-outline-variant/5 backdrop-blur-md flex-shrink-0 gap-2 transition-all duration-300 ${isImmersive ? 'h-12 bg-surface-lowest/60 border-outline-variant/10' : 'min-h-14 md:h-20 bg-surface/40 py-2 md:py-0'}`}>
           <div className="flex items-center gap-2 min-w-0 overflow-hidden flex-1">
             {/* Mobile sidebar open button */}
             <button
@@ -1597,7 +1605,7 @@ function StudioContent() {
               </span>
             </div>
             {/* Laya presets — tempo feel selector */}
-            <div className="hidden sm:flex items-center gap-1 p-1 rounded-xl bg-surface-container-high/40 border border-outline-variant/10">
+            <div className={`items-center gap-1 p-1 rounded-xl bg-surface-container-high/40 border border-outline-variant/10 ${isImmersive ? 'hidden' : 'hidden sm:flex'}`}>
               {(['vilambit', 'madhya', 'drut'] as const).map(lay => {
                 const [lo, hi] = selectedTala.laya[lay]
                 const midBpm   = Math.round((lo + hi) / 2)
@@ -1619,7 +1627,7 @@ function StudioContent() {
             </div>
 
             {/* ── Sa Tuning + Metronome beat dot ── */}
-            {isStarted && (
+            {isStarted && !isImmersive && (
               <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                 {/* beat flash dot */}
                 <div className={`w-2 h-2 rounded-full transition-all duration-75 ${isPlaying ? (beatFlash ? 'bg-primary scale-125' : 'bg-primary/20') : 'bg-outline-variant/15'}`} title="Beat" />
@@ -1661,8 +1669,8 @@ function StudioContent() {
                 )}
               </div>
             )}
-            {/* Phrase detection badges — desktop only */}
-            <div className="hidden lg:flex gap-2">
+            {/* Phrase detection badges — desktop only, hidden in immersive */}
+            <div className={`gap-2 ${isImmersive ? 'hidden' : 'hidden lg:flex'}`}>
               {detectedPhrases.map((phrase, i) => (
                 <div key={i} className="px-3 py-1.5 rounded-full bg-secondary/10 border border-secondary/20 flex items-center gap-1.5 animate-glow">
                   <span className="material-symbols-outlined !text-xs text-secondary">verified</span>
@@ -1672,7 +1680,7 @@ function StudioContent() {
             </div>
           </div>
           <div className="flex items-center gap-3 md:gap-6 flex-shrink-0">
-            <div className="hidden sm:flex flex-col items-end">
+            <div className={`flex-col items-end ${isImmersive ? 'hidden' : 'hidden sm:flex'}`}>
               <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">Tempo</span>
               <span className="font-mono text-lg font-light text-primary">{bpm} <span className="text-[9px] text-on-surface-variant/40">BPM</span></span>
             </div>
@@ -1713,7 +1721,7 @@ function StudioContent() {
                 </span>
               )}
             </div>
-            {isStarted && (
+            {isStarted && !isImmersive && (
               <button
                 onClick={() => setShowEarTraining(true)}
                 title="Ear Training — identify swaras by listening"
@@ -1723,6 +1731,7 @@ function StudioContent() {
                 Ear
               </button>
             )}
+            {!isImmersive && (
             <button
               onClick={() => setShowLearnGuide(v => !v)}
               title="Open Learner's Guide"
@@ -1731,6 +1740,8 @@ function StudioContent() {
               <span className="material-symbols-outlined !text-sm">school</span>
               Learn
             </button>
+            )}
+            {!isImmersive && (
             <button
               onClick={() => setShowGuide(v => !v)}
               title="Open Studio Guide (?)"
@@ -1738,15 +1749,40 @@ function StudioContent() {
             >
               ?
             </button>
+            )}
           </div>
         </div>
 
         {/* Scrollable content */}
-        <div className={`flex-1 overflow-auto p-4 md:p-10 space-y-8 md:space-y-14 scroll-thin ${isImmersive && selectedRaga?.aroha ? 'pt-12' : ''}`}>
+        <div className={`flex-1 overflow-auto scroll-thin ${isImmersive ? 'p-4 md:p-6 space-y-3 pb-28 pt-2' : 'p-4 md:p-10 space-y-8 md:space-y-14'}`}>
+
+          {/* ── Immersive raga reference strip (DAW-style compact header) ── */}
+          {isImmersive && selectedRaga && (
+            <div className="flex items-center justify-between animate-fade-in border-b border-outline-variant/8 pb-2">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[8px] uppercase tracking-[0.3em] text-primary/40">Raga</span>
+                <span className="font-display text-base font-light text-on-surface/30 uppercase tracking-[0.15em]">
+                  {selectedRaga.name}
+                </span>
+              </div>
+              <div className="flex items-center gap-6">
+                {selectedRaga.aroha && selectedRaga.aroha.length > 0 && (
+                  <span className="font-mono text-[9px] text-primary/25 tracking-widest">
+                    ↑ {selectedRaga.aroha.join(' · ')}
+                  </span>
+                )}
+                {selectedRaga.avaroha && selectedRaga.avaroha.length > 0 && (
+                  <span className="font-mono text-[9px] text-secondary/20 tracking-widest">
+                    ↓ {selectedRaga.avaroha.join(' · ')}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ── Step Sequencer ── */}
           <section className="animate-slide-up">
-            <div className="flex items-center justify-between mb-5">
+            <div className={`flex items-center justify-between mb-5 ${isImmersive ? 'hidden' : ''}`}>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                   <span className="material-symbols-outlined !text-base">grid_on</span>
@@ -1891,7 +1927,7 @@ function StudioContent() {
               </div>
             </div>
 
-            <div className="rounded-[20px] bg-surface-lowest border border-outline-variant/10 p-3 md:p-5 overflow-x-auto">
+            <div className={`overflow-x-auto ${isImmersive ? '-mx-4 md:-mx-6 px-4 md:px-6 py-3 border-t border-b border-outline-variant/10 bg-black/20' : 'rounded-[20px] bg-surface-lowest border border-outline-variant/10 p-3 md:p-5'}`}>
               <div className="min-w-[480px]">
               {/* Tala-aware beat markers */}
               {(() => {
@@ -1931,7 +1967,7 @@ function StudioContent() {
                 const hasSolo = tracks.some(t => t.soloed)
                 const isAudible = !track.muted && (!hasSolo || track.soloed)
                 return (
-                  <div key={track.id} className={`flex items-center gap-2 py-1 ${!isAudible ? 'opacity-30' : ''}`}>
+                  <div key={track.id} className={`flex items-center gap-2 ${isImmersive ? 'py-0.5' : 'py-1'} ${!isAudible ? 'opacity-30' : ''}`}>
                     {/* Track label */}
                     <button
                       onClick={() => setActiveTrackId(track.id)}
@@ -1980,7 +2016,7 @@ function StudioContent() {
                                 ? `${track.type === 'melody' ? event!.label : event!.stroke} (vel ${velPct}%)${noteIsVarjya ? ' · ⚠ Varjya note — outside this raga' : ''} · Shift+click to cycle velocity`
                                 : `Record to step ${stepIdx + 1}`
                             }
-                            className={`relative h-8 rounded-md font-mono text-[7px] font-bold transition-all border flex items-end justify-center pb-0.5 overflow-hidden ${
+                            className={`relative rounded-md font-mono font-bold transition-all border overflow-hidden ${isImmersive ? 'h-11 md:h-13 text-[9px] flex items-center justify-center' : 'h-8 text-[7px] flex items-end justify-center pb-0.5'} ${
                               isActiveStep
                                 ? `${c.active} border-transparent shadow-step-active`
                                 : isSelected
@@ -2060,8 +2096,8 @@ function StudioContent() {
             })()}
           </section>
 
-          {/* ── Input section: Piano for melodic tracks, DrumPad for rhythm ── */}
-          {(() => {
+          {/* ── Input section: hidden in immersive — use QWERTY keys or side panels ── */}
+          {!isImmersive && (() => {
             const activeTrack = tracks.find(t => t.id === activeTrackId)
             const isRhythmTrack = activeTrack?.type === 'rhythm'
 
@@ -2266,10 +2302,11 @@ function StudioContent() {
                 </div>
 
                 {/* Aroha — fixed left panel, only in immersive mode with a raga loaded */}
+                {/* Reversed: S' (highest) at top, Sa (lowest) at bottom — standard pitch-height convention */}
                 {isImmersive && selectedRaga?.aroha && (
                   <div className="fixed left-0 top-1/2 -translate-y-1/2 z-[150] flex flex-col gap-2 px-4 py-5 bg-surface-lowest/85 backdrop-blur-xl border-r border-outline-variant/15 rounded-r-2xl shadow-2xl">
                     <span className="font-mono text-[7px] uppercase tracking-widest text-primary/60 font-bold mb-1">Aroha ↑</span>
-                    {(selectedRaga.aroha as string[]).map((n, i) => {
+                    {[...(selectedRaga.aroha as string[])].reverse().map((n, i) => {
                       const key = SWARA_KEY_LABELS[n]
                       const isActive = activeSwara === n
                       return (
@@ -2410,8 +2447,8 @@ function StudioContent() {
             )
           })()}
 
-          {/* ── Raga Ring Diagram ── */}
-          {selectedRaga?.aroha && selectedRaga?.avaroha && (
+          {/* ── Raga Ring Diagram (hidden in immersive) ── */}
+          {!isImmersive && selectedRaga?.aroha && selectedRaga?.avaroha && (
             <section className="animate-slide-up max-w-4xl mx-auto border-t border-outline-variant/5 pt-14">
               <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
                 <div className="flex-shrink-0">

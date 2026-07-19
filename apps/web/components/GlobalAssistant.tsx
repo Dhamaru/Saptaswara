@@ -38,27 +38,44 @@ function parseInline(text: string): React.ReactNode[] {
 function RenderMessage({ content }: { content: string }) {
   const lines = content.split('\n')
   const nodes: React.ReactNode[] = []
+  let codeLines: string[] = []
   let inCodeBlock = false
+  let keyIdx = 0
+
+  const flushCode = () => {
+    if (!codeLines.length) return
+    nodes.push(
+      <div key={`code-${keyIdx++}`} className="overflow-x-auto rounded-lg bg-black/20 border border-outline-variant/15 px-3 py-2 my-1">
+        {codeLines.map((l, j) => (
+          <code key={j} className="block font-mono text-[11px] text-yellow-200/80 whitespace-pre">{l || ' '}</code>
+        ))}
+      </div>
+    )
+    codeLines = []
+  }
 
   lines.forEach((line, i) => {
-    if (line.startsWith('```')) { inCodeBlock = !inCodeBlock; return }
-    if (inCodeBlock) {
-      nodes.push(<code key={i} className="block font-mono text-[11px] bg-black/30 px-2 py-0.5 text-yellow-200">{line}</code>)
+    if (line.startsWith('```')) {
+      if (inCodeBlock) { flushCode(); inCodeBlock = false }
+      else inCodeBlock = true
       return
     }
+    if (inCodeBlock) { codeLines.push(line); return }
+    const k = `l-${i}`
     if (line.startsWith('### '))
-      return nodes.push(<p key={i} className="font-semibold text-on-surface text-sm mt-1">{parseInline(line.slice(4))}</p>)
+      return nodes.push(<p key={k} className="font-semibold text-on-surface text-sm mt-1">{parseInline(line.slice(4))}</p>)
     if (line.startsWith('## '))
-      return nodes.push(<p key={i} className="font-bold text-on-surface text-sm mt-1">{parseInline(line.slice(3))}</p>)
+      return nodes.push(<p key={k} className="font-bold text-on-surface text-sm mt-1">{parseInline(line.slice(3))}</p>)
     if (line.startsWith('- ') || line.startsWith('• '))
-      return nodes.push(<p key={i} className="leading-relaxed text-sm text-on-surface/90 pl-3 before:content-['·'] before:mr-2 before:opacity-50">{parseInline(line.slice(2))}</p>)
+      return nodes.push(<p key={k} className="leading-relaxed text-sm text-on-surface/90 pl-3 before:content-['·'] before:mr-2 before:opacity-50">{parseInline(line.slice(2))}</p>)
     if (line.trim() === '---')
-      return nodes.push(<hr key={i} className="border-outline-variant/20 my-1" />)
+      return nodes.push(<hr key={k} className="border-outline-variant/20 my-1" />)
     if (line.trim() === '')
-      return nodes.push(<div key={i} className="h-1" />)
-    nodes.push(<p key={i} className="leading-relaxed text-sm text-on-surface/90">{parseInline(line)}</p>)
+      return nodes.push(<div key={k} className="h-1" />)
+    nodes.push(<p key={k} className="leading-relaxed text-sm text-on-surface/90">{parseInline(line)}</p>)
   })
 
+  if (inCodeBlock) flushCode()
   return <div className="space-y-0.5">{nodes}</div>
 }
 
@@ -417,7 +434,7 @@ export function GlobalAssistant() {
               ) : (
                 messages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`group relative max-w-[85%] px-4 py-2.5 rounded-2xl break-words overflow-x-hidden ${
+                    <div className={`group relative max-w-[85%] px-4 py-2.5 rounded-2xl [overflow-wrap:anywhere] ${
                       msg.role === 'user'
                         ? 'bg-primary/20 border border-primary/20 text-on-surface ml-4 rounded-br-md'
                         : 'bg-surface-container-high border border-outline-variant/10 text-on-surface mr-4 rounded-bl-md'

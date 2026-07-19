@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { usePlayback } from '@/context/PlaybackContext'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -32,26 +33,45 @@ function parseInline(text: string): React.ReactNode[] {
 function RenderMessage({ content }: { content: string }) {
   const lines = content.split('\n')
   const nodes: React.ReactNode[] = []
+  let codeLines: string[] = []
   let inCodeBlock = false
+  let keyIdx = 0
+
+  const flushCode = () => {
+    if (codeLines.length === 0) return
+    nodes.push(
+      <div key={`code-${keyIdx++}`} className="overflow-x-auto rounded-lg bg-white/5 border border-primary/15 px-3 py-2 my-1">
+        {codeLines.map((l, j) => (
+          <code key={j} className="block font-mono text-[11px] text-primary-light whitespace-pre">{l || ' '}</code>
+        ))}
+      </div>
+    )
+    codeLines = []
+  }
 
   lines.forEach((line, i) => {
-    if (line.startsWith('```')) { inCodeBlock = !inCodeBlock; return }
-    if (inCodeBlock) {
-      nodes.push(<code key={i} className="block font-mono text-[11px] bg-primary/15 px-2 py-0.5 text-primary-light">{line}</code>)
+    if (line.startsWith('```')) {
+      if (inCodeBlock) { flushCode(); inCodeBlock = false }
+      else inCodeBlock = true
       return
     }
+    if (inCodeBlock) { codeLines.push(line); return }
+
+    const k = `l-${i}`
     if (line.startsWith('### '))
-      return nodes.push(<p key={i} className="font-semibold text-white text-sm mt-2">{parseInline(line.slice(4))}</p>)
+      return nodes.push(<p key={k} className="font-semibold text-white text-sm mt-2">{parseInline(line.slice(4))}</p>)
     if (line.startsWith('## '))
-      return nodes.push(<p key={i} className="font-bold text-white text-sm mt-2">{parseInline(line.slice(3))}</p>)
+      return nodes.push(<p key={k} className="font-bold text-white text-sm mt-2">{parseInline(line.slice(3))}</p>)
     if (line.startsWith('- ') || line.startsWith('• '))
-      return nodes.push(<p key={i} className="leading-relaxed text-sm pl-3 before:content-['·'] before:mr-2 before:opacity-50">{parseInline(line.slice(2))}</p>)
+      return nodes.push(<p key={k} className="leading-relaxed text-sm pl-3 before:content-['·'] before:mr-2 before:opacity-50">{parseInline(line.slice(2))}</p>)
     if (line.trim() === '---')
-      return nodes.push(<hr key={i} className="border-white/10 my-1" />)
+      return nodes.push(<hr key={k} className="border-white/10 my-1" />)
     if (line.trim() === '')
-      return nodes.push(<div key={i} className="h-1" />)
-    nodes.push(<p key={i} className="leading-relaxed text-sm">{parseInline(line)}</p>)
+      return nodes.push(<div key={k} className="h-1" />)
+    nodes.push(<p key={k} className="leading-relaxed text-sm">{parseInline(line)}</p>)
   })
+
+  if (inCodeBlock) flushCode()
 
   return <div className="space-y-0.5">{nodes}</div>
 }
@@ -198,6 +218,7 @@ const STORAGE_KEY = 'saptaswara_chat_history'
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function Assistant({ ragaContext, studioContext }: AssistantProps) {
+  const { isImmersive } = usePlayback()
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
       const saved = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
@@ -389,11 +410,15 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
   const containerClass = isMinimized
     ? 'w-14 h-14'
     : isExpanded
-    ? 'w-[calc(100vw-2rem)] md:w-[600px] h-[calc(100dvh-5rem)] md:h-[750px]'
-    : 'w-[calc(100vw-2rem)] md:w-[400px] h-[calc(100dvh-5rem)] md:h-[560px]'
+    ? 'w-[calc(100vw-2rem)] md:w-[600px] h-[calc(100dvh-5rem)] md:h-[700px]'
+    : 'w-[calc(100vw-2rem)] md:w-[420px] h-[calc(100dvh-5rem)] md:h-[540px]'
+
+  const bottomPos = isImmersive
+    ? 'bottom-24 md:bottom-28'
+    : 'bottom-4 md:bottom-8'
 
   return (
-    <div className={`fixed right-4 bottom-4 md:right-8 md:bottom-8 z-[200] transition-all duration-500 ease-in-out ${containerClass}`}>
+    <div className={`fixed right-4 ${bottomPos} md:right-8 z-[200] transition-all duration-500 ease-in-out ${containerClass}`}>
       {isMinimized ? (
         /* ── Minimised FAB ── */
         <button
@@ -517,7 +542,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
             <div className="space-y-4">
             {messages.map((m, i) => (
               <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-sm break-words overflow-x-hidden word-spacing-normal ${
+                <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-sm [overflow-wrap:anywhere] ${
                   m.role === 'assistant'
                     ? 'bg-gradient-to-br from-primary to-primary/60 text-white shadow-glow'
                     : 'bg-surface-container-high text-on-surface border border-outline-variant/5 shadow-sm'
