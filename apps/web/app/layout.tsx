@@ -36,11 +36,17 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: 'Saptaswara | Raga-Guided Music Creation',
   description: 'Create and explore Indian Classical Music with AI-assisted Raga guidance.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Saptaswara',
+  },
   icons: {
-    icon: '/icon.png',
+    icon: '/favicon.png',
     shortcut: '/favicon.png',
-    apple: '/icon.png',
-  }
+    apple: '/logo.png',
+  },
 }
 
 export default function RootLayout({
@@ -51,6 +57,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <meta name="theme-color" content="#7c3aed" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
         <Script id="theme-init" strategy="beforeInteractive">{`try{var t=localStorage.getItem('saptaswara-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}`}</Script>
       </head>

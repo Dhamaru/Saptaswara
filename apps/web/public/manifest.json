@@ -1,0 +1,37 @@
+{
+  "name": "Saptaswara",
+  "short_name": "Saptaswara",
+  "description": "Raga-guided Indian Classical Music creation with AI",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#7c3aed",
+  "orientation": "portrait-primary",
+  "categories": ["music", "education"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open Studio",
+      "url": "/studio",
+      "description": "Jump straight into the composition studio"
+    },
+    {
+      "name": "My Projects",
+      "url": "/dashboard",
+      "description": "View saved compositions"
+    }
+  ]
+}
