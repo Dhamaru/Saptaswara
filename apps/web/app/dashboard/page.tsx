@@ -1,9 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Music, Calendar, ChevronRight, Trash2, FolderOpen, Plus, Sparkles } from 'lucide-react'
+import { Music, Calendar, ChevronRight, Trash2, FolderOpen, Plus, Sparkles, Clock, Sunrise } from 'lucide-react'
 import Link from 'next/link'
 import OnboardingModal from '@/components/OnboardingModal'
+
+interface RagaOfDay {
+  id: string
+  name: string
+  mood: string | null
+  time_of_day: string | null
+  vadi: string | null
+  aroha: string[] | null
+  prahara: number
+  praharaLabel: string
+  praharaName: string
+}
 
 interface Project {
   id: string
@@ -18,6 +30,14 @@ interface Project {
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [ragaOfDay, setRagaOfDay] = useState<RagaOfDay | null>(null)
+
+  useEffect(() => {
+    fetch('/api/ragas/today')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && !d.error) setRagaOfDay(d) })
+      .catch(() => {})
+  }, [])
 
   // BUG-036: use AbortController so fetch is cancelled if component unmounts
   useEffect(() => {
@@ -76,6 +96,46 @@ export default function Dashboard() {
             New Composition
           </Link>
         </header>
+
+        {/* Raga of the Day */}
+        {ragaOfDay && (
+          <div className="mb-10 glass rounded-3xl overflow-hidden border border-primary/10">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 p-6 sm:p-8">
+              <div className="w-14 h-14 rounded-2xl glass-gold flex items-center justify-center shrink-0">
+                <Sunrise className="w-7 h-7 text-primary-light" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-primary/60 font-bold">Raga of the Moment</span>
+                  <span className="flex items-center gap-1 font-mono text-[9px] text-on-surface-variant/40">
+                    <Clock className="w-3 h-3" />{ragaOfDay.praharaName} · {ragaOfDay.praharaLabel}
+                  </span>
+                </div>
+                <h2 className="text-2xl font-black text-gradient-subtle mb-1">{ragaOfDay.name}</h2>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {ragaOfDay.mood && (
+                    <span className="px-2.5 py-1 rounded-lg glass-light text-[10px] font-mono text-on-surface-variant/60 capitalize">{ragaOfDay.mood}</span>
+                  )}
+                  {ragaOfDay.vadi && (
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-400/10 border border-amber-400/20 text-[10px] font-mono text-amber-300">Vadi: {ragaOfDay.vadi}</span>
+                  )}
+                  {ragaOfDay.aroha && (
+                    <span className="px-2.5 py-1 rounded-lg glass-light text-[10px] font-mono text-primary/60">
+                      {ragaOfDay.aroha.join(' – ')}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <Link
+                href={`/studio?raga_id=${ragaOfDay.id}`}
+                className="btn-primary flex items-center gap-2 shrink-0 self-start sm:self-auto"
+              >
+                <Music className="w-4 h-4" />
+                Explore Now
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         {loading ? (
