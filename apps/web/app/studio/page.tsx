@@ -2367,11 +2367,15 @@ function StudioContent() {
                     samvadiSwara={selectedRaga?.samvadi}
                   />
                 </div>
-                {/* Desktop: full keyboard flanked by aroha/avaroha panels in immersive */}
-                <div className={isImmersive ? 'flex items-center gap-3' : 'hidden md:block'}>
+                {/* Desktop: full keyboard flanked by aroha/avaroha panels when raga selected */}
+                <div className={
+                  selectedRaga?.aroha
+                    ? (isImmersive ? 'flex items-center gap-3' : 'hidden md:flex md:items-center md:gap-4')
+                    : 'hidden md:block'
+                }>
 
                   {/* Aroha — left of keyboard, S' at top, Sa at bottom */}
-                  {isImmersive && selectedRaga?.aroha && (
+                  {selectedRaga?.aroha && (
                     <div className="flex-shrink-0 flex flex-col gap-1.5 py-2">
                       <span className="font-mono text-[7px] uppercase tracking-widest text-primary/40 font-bold mb-1 text-center">↑</span>
                       {[...(selectedRaga.aroha as string[])].reverse().map((n, i) => {
@@ -2388,7 +2392,7 @@ function StudioContent() {
                   )}
 
                   {/* Keyboard */}
-                  <div className={isImmersive ? 'flex-1 min-w-0' : ''}>
+                  <div className={selectedRaga?.aroha ? 'flex-1 min-w-0' : ''}>
                     {keyboardLayout === 'SwaPad' ? (
                       <SwaPad
                         activeRagaNotes={allRagaNotes}
@@ -2412,7 +2416,7 @@ function StudioContent() {
                   </div>
 
                   {/* Avaroha — right of keyboard */}
-                  {isImmersive && selectedRaga?.avaroha && (
+                  {selectedRaga?.avaroha && (
                     <div className="flex-shrink-0 flex flex-col gap-1.5 py-2">
                       <span className="font-mono text-[7px] uppercase tracking-widest text-secondary/40 font-bold mb-1 text-center">↓</span>
                       {(selectedRaga.avaroha as string[]).map((n, i) => {
