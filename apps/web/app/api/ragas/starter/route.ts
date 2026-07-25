@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 const STARTER_NAMES = ['Yaman', 'Bhoopali', 'Bhimpalasi', 'Bhairavi', 'Desh', 'Kafi', 'Hamsadhwani', 'Durga']
 
 let cache: any[] | null = null
@@ -16,9 +11,14 @@ export async function GET() {
   try {
     if (cache && Date.now() - cacheAt < TTL) {
       return NextResponse.json({ ragas: cache }, {
-        headers: { 'Cache-Control': 'public, max-age=3600' }
+        headers: { 'Cache-Control': 'public, max-age=3600' },
       })
     }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
     const { data, error } = await supabase
       .from('ragas')
@@ -32,7 +32,7 @@ export async function GET() {
     cacheAt = Date.now()
 
     return NextResponse.json({ ragas: cache }, {
-      headers: { 'Cache-Control': 'public, max-age=3600' }
+      headers: { 'Cache-Control': 'public, max-age=3600' },
     })
   } catch (err: any) {
     console.error('[ragas/starter]', err)

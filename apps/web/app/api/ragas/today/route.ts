@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 const PRAHARA_LABELS: Record<number, string> = {
   1: '6–9 AM', 2: '9 AM–12 PM', 3: '12–3 PM', 4: '3–6 PM',
   5: '6–9 PM', 6: '9 PM–12 AM', 7: '12–3 AM', 8: '3–6 AM',
@@ -44,6 +39,11 @@ export async function GET() {
       })
     }
 
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+
     const { data, error } = await supabase
       .from('ragas')
       .select('id, name, tradition, time_of_day, mood, aroha, avaroha, vadi, samvadi, prahara')
@@ -51,7 +51,6 @@ export async function GET() {
 
     if (error) throw error
 
-    // Deterministic daily pick — rotate through matching ragas by day-of-year
     const ragas = data ?? []
     if (ragas.length === 0) {
       return NextResponse.json({ error: 'No raga found for current prahara' }, { status: 404 })
