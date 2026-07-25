@@ -52,10 +52,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --prefer-offline
-        working-directory: .
 
       - name: Run ESLint
-        run: node ../../node_modules/eslint/bin/eslint.js . --ext .ts,.tsx,.js,.jsx
+        run: npm run lint
 
   # ── Dependency audit ────────────────────────────────────────────────────────
   audit:
