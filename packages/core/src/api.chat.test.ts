@@ -15,6 +15,16 @@ const mockSendMessageStream = vi.hoisted(() =>
   }))
 )
 
+// mockSendMessage is the phase-1 non-streaming call the route uses to detect tool calls.
+const mockSendMessage = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    response: {
+      functionCalls: () => null,
+      text: () => 'Sa Re Ga Ma Pa — a peaceful ascent.',
+    },
+  })
+)
+
 vi.mock('@sentry/nextjs', () => ({
   startSpan: vi.fn().mockImplementation(async (_opts: any, fn: any) => fn()),
   captureException: vi.fn(),
@@ -51,9 +61,14 @@ vi.mock('@google/generative-ai', () => ({
     return {
       getGenerativeModel: vi.fn(function () {
         return {
-          // Chat route uses startChat().sendMessageStream() — not generateContentStream.
+          // Chat route uses startChat().sendMessage() for phase 1 (tool call detection),
+          // then sendMessageStream() for phase 2 (when tool calls are present).
+          // The direct text path (no tool calls) uses phase1.response.text().
           startChat: vi.fn(function () {
-            return { sendMessageStream: mockSendMessageStream }
+            return {
+              sendMessage: mockSendMessage,
+              sendMessageStream: mockSendMessageStream,
+            }
           }),
           // Embedding model path (getRagaContext) uses embedContent.
           embedContent: vi.fn().mockResolvedValue({
@@ -63,6 +78,19 @@ vi.mock('@google/generative-ai', () => ({
       }),
     }
   }),
+  // SchemaType and FunctionCallingMode are used in tool declarations in the chat route.
+  SchemaType: {
+    OBJECT: 'object',
+    STRING: 'string',
+    NUMBER: 'number',
+    BOOLEAN: 'boolean',
+    ARRAY: 'array',
+  },
+  FunctionCallingMode: {
+    AUTO: 'AUTO',
+    ANY: 'ANY',
+    NONE: 'NONE',
+  },
 }))
 
 // NextResponse is still used by the route for 400/500 error paths.
@@ -158,10 +186,10 @@ describe('/api/ai/chat', () => {
     expect(body).toHaveProperty('error')
   })
 
-  it('returns 500 when the Gemini stream call rejects', async () => {
-    // sendMessageStream rejects before any chunks are yielded →
-    // the inner try/catch in the route catches it and returns a 500.
-    mockSendMessageStream.mockRejectedValueOnce(new Error('Quota exceeded'))
+  it('returns 500 when the Gemini call rejects', async () => {
+    // sendMessage (phase 1) rejects → route enters Gemini catch block.
+    // With no fallback clients in test env, returns 500.
+    mockSendMessage.mockRejectedValueOnce(new Error('Quota exceeded'))
 
     const req = makeRequest({
       messages: [{ role: 'user', content: 'Suggest a raga.' }],
