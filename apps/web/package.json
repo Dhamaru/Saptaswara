@@ -6,7 +6,7 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -28,11 +28,13 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.6",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.0.0",
-    "eslint": "^8.57.1",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.2.11",
     "postcss": "^8.0.0",
     "tailwindcss": "^3.3.0",
     "typescript": "^5.0.0"
