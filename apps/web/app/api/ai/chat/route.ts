@@ -257,7 +257,13 @@ export async function POST(req: Request) {
       const rl = await checkRateLimit(activeUser.id, 'ai')
       if (!rl.allowed) return { ok: false, response: rateLimitedResponse(rl) }
 
-      const { messages, ragaContext, studioContext, mode } = await req.json()
+      let parsedBody: { messages?: unknown; ragaContext?: unknown; studioContext?: unknown; mode?: unknown }
+      try {
+        parsedBody = await req.json()
+      } catch {
+        return { ok: false, response: NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
+      }
+      const { messages, ragaContext, studioContext, mode } = parsedBody
 
       if (!Array.isArray(messages) || messages.length === 0) {
         return { ok: false, response: NextResponse.json({ error: 'messages must be a non-empty array' }, { status: 400 }) }

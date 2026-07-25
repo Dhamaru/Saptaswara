@@ -232,7 +232,7 @@ export default function LibraryPage() {
       } else {
         fetchRagas(false)
       }
-    })
+    }).catch(() => fetchRagas(false))
   }, [])
 
   // Read initial filter state from URL on mount
@@ -296,9 +296,9 @@ export default function LibraryPage() {
       case 'name-asc':  return a.name.localeCompare(b.name)
       case 'name-desc': return b.name.localeCompare(a.name)
       case 'time': {
-        const ai = TIME_ORDER.indexOf(a.time_of_day?.toUpperCase()) ?? 99
-        const bi = TIME_ORDER.indexOf(b.time_of_day?.toUpperCase()) ?? 99
-        return ai - bi
+        const ai = TIME_ORDER.indexOf(a.time_of_day?.toUpperCase() ?? '')
+        const bi = TIME_ORDER.indexOf(b.time_of_day?.toUpperCase() ?? '')
+        return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi)
       }
       case 'melakarta': return (a.melakarta_number ?? 999) - (b.melakarta_number ?? 999)
       default: return 0
