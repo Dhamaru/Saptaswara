@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAnonClient } from '@supabase/supabase-js'
+import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
 
 // ---------------------------------------------------------------------------
 // Auth helper — cookie-first, Bearer-token fallback (matches /api/projects)
@@ -52,6 +53,8 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { user, supabase } = resolved
+    const rl = await checkRateLimit(user.id, 'write')
+    if (!rl.allowed) return rateLimitedResponse(rl)
 
     // 2. Await dynamic route param (Next.js 15+/16 params are async)
     const { id: layerId } = await params

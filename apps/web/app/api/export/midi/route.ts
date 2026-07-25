@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import MidiWriter from 'midi-writer-js'
 import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
 
 const LayerSchema = z.object({
   id: z.string(),
@@ -34,6 +35,8 @@ export async function POST(req: Request) {
     if (authError || !userData?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const rl = await checkRateLimit(userData.user.id, 'write')
+    if (!rl.allowed) return rateLimitedResponse(rl)
 
     const body = await req.json()
     const parsed = MidiExportSchema.safeParse(body)

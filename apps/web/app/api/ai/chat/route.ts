@@ -432,33 +432,51 @@ export async function POST(req: Request) {
         { role: 'user', content: lastUserMessage },
       ]
 
-      const fallbackClient = groqClient ?? nvidiaClient!
-      const fallbackModel = groqClient ? 'llama-3.3-70b-versatile' : 'meta/llama-3.3-70b-instruct'
+      // Try Groq first, then NVIDIA as second fallback
+      const makeStream = (client: typeof groqClient, model: string) => {
+        const encoder = new TextEncoder()
+        return (completionsStream: AsyncIterable<any>) => new ReadableStream({
+          async start(controller) {
+            try {
+              for await (const chunk of completionsStream) {
+                const text = chunk.choices[0]?.delta?.content
+                if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
+              }
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+              controller.close()
+            } catch (err) {
+              controller.error(err)
+            }
+          },
+        })
+      }
 
-      const fallbackStream = await fallbackClient.chat.completions.create({
-        model: fallbackModel,
+      if (groqClient) {
+        try {
+          const groqStream = await groqClient.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: groqMessages,
+            stream: true,
+            max_tokens: 1024,
+            temperature: 0.7,
+          })
+          return new Response(makeStream(groqClient, 'llama-3.3-70b-versatile')(groqStream), { headers: SSE_HEADERS })
+        } catch {
+          // Groq failed — fall through to NVIDIA
+        }
+      }
+
+      if (!nvidiaClient) {
+        throw new Error('No fallback provider available')
+      }
+      const nvidiaStream = await nvidiaClient.chat.completions.create({
+        model: 'meta/llama-3.3-70b-instruct',
         messages: groqMessages,
         stream: true,
         max_tokens: 1024,
         temperature: 0.7,
       })
-
-      const encoder = new TextEncoder()
-      const stream = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of fallbackStream) {
-              const text = chunk.choices[0]?.delta?.content
-              if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
-            }
-            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-            controller.close()
-          } catch (err) {
-            controller.error(err)
-          }
-        },
-      })
-      return new Response(stream, { headers: SSE_HEADERS })
+      return new Response(makeStream(nvidiaClient, 'meta/llama-3.3-70b-instruct')(nvidiaStream), { headers: SSE_HEADERS })
     }
   } catch (error: any) {
     Sentry.captureException(error, { tags: { route: 'ai/chat' } })

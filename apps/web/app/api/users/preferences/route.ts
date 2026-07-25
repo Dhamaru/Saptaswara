@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAnonClient } from '@supabase/supabase-js'
 import { z } from 'zod'
+import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
 
 async function resolveUser(req: Request) {
   try {
@@ -38,6 +39,8 @@ export async function GET(req: Request) {
     const resolved = await resolveUser(req)
     if (!resolved) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const { user, supabase } = resolved
+    const rl = await checkRateLimit(user.id, 'read')
+    if (!rl.allowed) return rateLimitedResponse(rl)
 
     const { data, error } = await supabase
       .from('user_preferences')
@@ -58,6 +61,8 @@ export async function PATCH(req: Request) {
     const resolved = await resolveUser(req)
     if (!resolved) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const { user, supabase } = resolved
+    const rl = await checkRateLimit(user.id, 'write')
+    if (!rl.allowed) return rateLimitedResponse(rl)
 
     let rawBody: unknown
     try {
