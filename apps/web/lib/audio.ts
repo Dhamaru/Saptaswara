@@ -143,8 +143,6 @@ export class AudioEngine {
     }).connect(this.masterOutput)
     this.clickSynth.volume.value = -12
 
-    Tone.Destination.volume.value = 5
-
     // polySynths[0] — melody fallback
     this.synth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: 'sine' },
