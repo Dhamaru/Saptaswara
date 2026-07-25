@@ -112,6 +112,7 @@ jobs:
       # Stub env vars so Next.js build doesn't fail on missing secrets
       NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+      SUPABASE_SERVICE_ROLE_KEY: placeholder
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       GEMINI_API_KEY: placeholder
       SENTRY_ORG: placeholder
