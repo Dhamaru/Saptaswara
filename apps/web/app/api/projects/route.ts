@@ -87,7 +87,40 @@ export async function POST(req: Request) {
     if (!rl.allowed) return rateLimitedResponse(rl)
 
     const body = await req.json()
-    const { projectId, title, raga_id, bpm, sequence } = body
+    const { projectId, title, raga_id, bpm, sequence, tracks } = body
+
+    // Helper: upsert track layers for a project by type (update if exists, insert otherwise).
+    // Non-fatal per track — a single track failure doesn't abort the whole save.
+    const upsertTracks = async (pid: string, trackList: any[]) => {
+      const { data: existing } = await supabase
+        .from('layers')
+        .select('id, type')
+        .eq('project_id', pid)
+      const byType = new Map<string, string>((existing || []).map((l: any) => [l.type, l.id]))
+
+      for (const t of trackList) {
+        if (!t?.type || !Array.isArray(t.sequence)) continue
+        const events = {
+          sequence: t.sequence,
+          muted: t.muted ?? false,
+          volume: t.volume ?? -10,
+          colorIdx: t.colorIdx ?? 0,
+        }
+        const existingId = byType.get(t.type)
+        if (existingId) {
+          const { error } = await supabase
+            .from('layers')
+            .update({ events, name: t.name || t.type })
+            .eq('id', existingId)
+          if (error) console.error(`layer UPDATE error (${t.type}):`, error)
+        } else {
+          const { error } = await supabase
+            .from('layers')
+            .insert({ project_id: pid, name: t.name || t.type, type: t.type, events })
+          if (error) console.error(`layer INSERT error (${t.type}):`, error)
+        }
+      }
+    }
 
     if (!projectId) {
       const missing: string[] = []
@@ -97,15 +130,17 @@ export async function POST(req: Request) {
       if (bpm !== undefined && (typeof bpm !== 'number' || bpm < 40 || bpm > 200)) return NextResponse.json({ error: 'bpm must be between 40 and 200' }, { status: 400 })
       if (missing.length) return NextResponse.json({ error: `Missing or invalid fields: ${missing.join(', ')}` }, { status: 400 })
 
-      // Fix 5: Atomic project+layer creation via database RPC.
-      // A single PL/pgSQL transaction prevents orphaned projects if the layer insert fails.
+      // Atomic project + melody layer creation via RPC.
+      const melodySeq = Array.isArray(tracks)
+        ? (tracks.find((t: any) => t.type === 'melody')?.sequence ?? sequence ?? null)
+        : (sequence ?? null)
       const { data: rpcData, error: rpcError } = await supabase
         .rpc('create_project_with_layer', {
           p_title:    title.trim(),
           p_raga_id:  raga_id,
           p_bpm:      bpm ?? 120,
           p_user_id:  user.id,
-          p_sequence: sequence ?? null,
+          p_sequence: melodySeq,
         })
 
       if (rpcError) {
@@ -113,12 +148,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Failed to create project' }, { status: 500 })
       }
 
-      return NextResponse.json({ id: (rpcData as any).project_id, success: true })
+      const newProjectId = (rpcData as any).project_id
+
+      // Insert non-melody tracks (melody already created by RPC above).
+      if (Array.isArray(tracks)) {
+        await upsertTracks(newProjectId, tracks.filter((t: any) => t.type !== 'melody'))
+      }
+
+      return NextResponse.json({ id: newProjectId, success: true })
     }
 
     // --- Update existing project ---
 
-    // Build update payload — only include fields present in the request.
     const projectUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (title !== undefined) projectUpdate.title = title
     if (bpm !== undefined) {
@@ -128,9 +169,6 @@ export async function POST(req: Request) {
       projectUpdate.bpm = bpm
     }
 
-    // Fix 4: Use .select().single() so Supabase returns PGRST116 if 0 rows match
-    // (wrong ID or ownership mismatch). Without this, a 0-row update returns no error
-    // and the caller gets a false { success: true }.
     const { data: updatedProject, error: uError } = await supabase
       .from('projects')
       .update(projectUpdate)
@@ -140,14 +178,14 @@ export async function POST(req: Request) {
       .single()
 
     if (uError || !updatedProject) {
-      // PGRST116 = 0 rows; treat as not found / access denied.
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
-    // Update the layer's sequence if provided.
-    if (sequence !== undefined) {
-      // Fix 1: Check error from layer SELECT — a failure here must not silently
-      // fall through to an insert that creates a duplicate layer.
+    if (Array.isArray(tracks)) {
+      // Multi-track save: upsert each track by type.
+      await upsertTracks(projectId, tracks)
+    } else if (sequence !== undefined) {
+      // Legacy single-sequence fallback (old clients).
       const { data: existingLayers, error: lSelectError } = await supabase
         .from('layers')
         .select('id')
@@ -159,27 +197,18 @@ export async function POST(req: Request) {
       }
 
       if (existingLayers && existingLayers.length > 0) {
-        // Fix 2: Check error from layer UPDATE — previously ignored entirely.
         const { error: lUpdateError } = await supabase
           .from('layers')
           .update({ events: { sequence } })
           .eq('id', existingLayers[0].id)
-
         if (lUpdateError) {
           console.error('layer UPDATE error:', lUpdateError)
           return NextResponse.json({ error: 'Failed to save layer' }, { status: 500 })
         }
       } else {
-        // Fix 3: Check error from layer INSERT — previously ignored entirely.
         const { error: lInsertError } = await supabase
           .from('layers')
-          .insert({
-            project_id: projectId,
-            name: 'Main Sequence',
-            type: 'melody',
-            events: { sequence },
-          })
-
+          .insert({ project_id: projectId, name: 'Main Sequence', type: 'melody', events: { sequence } })
         if (lInsertError) {
           console.error('layer INSERT error:', lInsertError)
           return NextResponse.json({ error: 'Failed to save layer' }, { status: 500 })

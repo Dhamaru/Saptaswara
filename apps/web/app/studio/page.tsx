@@ -479,14 +479,28 @@ function StudioContent() {
             const { project, layers } = await res.json()
             if (project?.title) setProjectName(project.title)
             if (typeof project?.bpm === 'number') setBpm(project.bpm)
-            const melodyLayer = (layers as any[])?.find((l: any) => l.type === 'melody')
-            const saved: (any | null)[] | undefined = melodyLayer?.events?.sequence
-            if (Array.isArray(saved) && saved.length > 0) {
-              const len = saved.length
-              if (len === 8 || len === 16 || len === 32) setLoopLength(len as 8 | 16 | 32)
-              setTracks(prev => prev.map(t =>
-                t.type === 'melody' ? { ...t, sequence: saved } : t
-              ))
+            if (Array.isArray(layers) && layers.length > 0) {
+              // Derive loop length from first layer with a non-empty sequence
+              const firstSeq = (layers as any[]).find(
+                l => Array.isArray(l.events?.sequence) && l.events.sequence.length > 0
+              )?.events?.sequence
+              if (firstSeq) {
+                const len = firstSeq.length
+                if (len === 8 || len === 16 || len === 32) setLoopLength(len as 8 | 16 | 32)
+              }
+              // Restore each track from its matching layer (old projects only have melody — others stay at default)
+              setTracks(prev => prev.map(t => {
+                const layer = (layers as any[]).find(l => l.type === t.type)
+                if (!layer?.events) return t
+                return {
+                  ...t,
+                  name: layer.name || t.name,
+                  sequence: Array.isArray(layer.events.sequence) ? layer.events.sequence : t.sequence,
+                  muted: layer.events.muted ?? t.muted,
+                  volume: typeof layer.events.volume === 'number' ? layer.events.volume : t.volume,
+                  colorIdx: typeof layer.events.colorIdx === 'number' ? layer.events.colorIdx : t.colorIdx,
+                }
+              }))
             }
             // Mark as saved so beforeunload guard doesn't fire on fresh load
             setSaveStatus('saved')
@@ -1042,14 +1056,26 @@ function StudioContent() {
         token = session?.access_token ?? null
         if (token) setAccessToken(token)
       }
-      const melodyTrack = tracks.find(t => t.type === 'melody') || tracks[0]
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ projectId, title: saveTitle, raga_id: selectedRaga?.id, bpm, sequence: melodyTrack.sequence }),
+        body: JSON.stringify({
+          projectId,
+          title: saveTitle,
+          raga_id: selectedRaga?.id,
+          bpm,
+          tracks: tracks.map(t => ({
+            type: t.type,
+            name: t.name,
+            sequence: t.sequence,
+            muted: t.muted,
+            volume: t.volume,
+            colorIdx: t.colorIdx,
+          })),
+        }),
       })
       const data = await res.json()
       if (res.ok && data.id) {
