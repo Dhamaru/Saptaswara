@@ -85,16 +85,10 @@ export async function updateSession(request: NextRequest) {
   // Only redirect when we definitively know there is no session.
   // If getUser() threw a network error, pass through — don't log the user out.
   if (isProtected && !user && !authNetworkError) {
-    // Check for guest bypass in development, testing, or if explicitly requested via param
-    const isGuestBypass = request.nextUrl.searchParams.get('guest') === 'true'
-
-    if (!isGuestBypass) {
-      const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = '/login'
-      // Preserve the intended destination
-      redirectUrl.searchParams.set('next', pathname)
-      return NextResponse.redirect(redirectUrl)
-    }
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = '/login'
+    redirectUrl.searchParams.set('next', pathname)
+    return NextResponse.redirect(redirectUrl)
   }
 
   return response

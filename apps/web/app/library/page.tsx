@@ -366,7 +366,7 @@ export default function LibraryPage() {
                 </span>
               )}
             </div>
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 md:gap-10">
+            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 md:gap-10">
               <div className="max-w-xl">
                 <h1 className="font-display text-5xl md:text-7xl font-light text-on-surface tracking-tight mb-4 md:mb-6">Explore.</h1>
                 <p className="font-sans text-sm md:text-lg text-on-surface-variant font-light leading-relaxed opacity-70">

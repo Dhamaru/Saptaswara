@@ -36,6 +36,25 @@ export async function POST(req: Request) {
         if (!query || typeof query !== 'string' || query.trim() === '') {
           return NextResponse.json({ error: 'query is required and must be a non-empty string' }, { status: 400 })
         }
+        if (query.length > 500) {
+          return NextResponse.json({ error: 'query must be 500 characters or fewer' }, { status: 400 })
+        }
+
+        // Validate ragaContext to prevent prompt injection — must be a known-shape object or absent
+        let safeRagaContext = 'None'
+        if (ragaContext && typeof ragaContext === 'object' && !Array.isArray(ragaContext)) {
+          const allowed = ['name', 'aroha', 'avaroha', 'vadi', 'samvadi', 'mood', 'time_of_day', 'thaat']
+          const safe: Record<string, unknown> = {}
+          for (const key of allowed) {
+            if (ragaContext[key] !== undefined) safe[key] = ragaContext[key]
+          }
+          if (safe.name && typeof safe.name === 'string') {
+            safeRagaContext = JSON.stringify(safe)
+          }
+        } else if (typeof ragaContext === 'string' && ragaContext.length <= 200) {
+          // Legacy string callers — strip to plain text only
+          safeRagaContext = ragaContext.replace(/[<>{}[\]]/g, '').slice(0, 200)
+        }
 
         // 1. Generate embedding for the user query (must match 768d of the DB)
         const model = genAI.getGenerativeModel({ model: 'models/gemini-embedding-001' })
@@ -63,7 +82,7 @@ export async function POST(req: Request) {
       Context about relevant ragas:
       ${contextText}
 
-      Current Raga Session: ${ragaContext || 'None'}
+      Current Raga Session: ${safeRagaContext}
 
       User Question: ${query}
 
