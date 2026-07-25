@@ -257,7 +257,7 @@ export async function POST(req: Request) {
       const rl = await checkRateLimit(activeUser.id, 'ai')
       if (!rl.allowed) return { ok: false, response: rateLimitedResponse(rl) }
 
-      let parsedBody: { messages?: unknown; ragaContext?: unknown; studioContext?: unknown; mode?: unknown }
+      let parsedBody: any
       try {
         parsedBody = await req.json()
       } catch {
