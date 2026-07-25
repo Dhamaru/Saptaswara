@@ -1537,20 +1537,20 @@ function StudioContent() {
 
           {/* ── Authentic Ornament Mode ── */}
           {selectedRaga && (
-            <div className="px-4 py-3 border-t border-white/5">
+            <div className="px-4 py-3 border-t border-outline-variant/10">
               <button
                 onClick={() => setOrnamentMode(v => !v)}
                 className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border transition-all ${
                   ornamentMode
                     ? 'bg-violet-500/20 border-violet-400/30 text-violet-300'
-                    : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10'
+                    : 'bg-surface-container-low border-outline-variant/10 text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-container-high'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined !text-base">auto_fix_high</span>
                   <span className="font-mono text-[9px] uppercase tracking-widest font-bold">Authentic Ornaments</span>
                 </div>
-                <div className={`w-8 h-4 rounded-full transition-all relative ${ornamentMode ? 'bg-violet-500' : 'bg-white/20'}`}>
+                <div className={`w-8 h-4 rounded-full transition-all relative ${ornamentMode ? 'bg-violet-500' : 'bg-outline-variant/20'}`}>
                   <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${ornamentMode ? 'left-[18px]' : 'left-0.5'}`} />
                 </div>
               </button>
@@ -1563,21 +1563,21 @@ function StudioContent() {
           )}
           {/* ── Pitch Bend Wheel ── */}
           {isStarted && (
-            <div className="px-4 py-3 border-t border-white/5 flex flex-col items-center gap-2">
-              <span className="font-mono text-[8px] uppercase tracking-widest text-white/30">Pitch</span>
+            <div className="px-4 py-3 border-t border-outline-variant/10 flex flex-col items-center gap-2">
+              <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">Pitch</span>
               <div
-                className="relative w-10 h-24 bg-white/5 rounded-xl border border-white/10 cursor-ns-resize flex items-center justify-center overflow-hidden select-none touch-none"
+                className="relative w-10 h-24 bg-surface-container-low rounded-xl border border-outline-variant/10 cursor-ns-resize flex items-center justify-center overflow-hidden select-none touch-none"
                 onMouseDown={handlePitchDragStart}
                 onTouchStart={handlePitchDragStart}
                 title="Drag to bend pitch (±2 semitones). Releases on mouse up."
               >
-                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-white/20" />
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-outline-variant/20" />
                 <div
                   className="absolute w-8 h-5 rounded-lg bg-primary/60 border border-primary/40"
                   style={{ top: `calc(50% - ${(pitchBend / 200) * 38}px - 10px)` }}
                 />
               </div>
-              <span className="font-mono text-[7px] text-white/20">{pitchBend > 0 ? '+' : ''}{pitchBend}¢</span>
+              <span className="font-mono text-[7px] text-on-surface-variant/20">{pitchBend > 0 ? '+' : ''}{pitchBend}¢</span>
             </div>
           )}
         </div>
@@ -1599,7 +1599,7 @@ function StudioContent() {
             </button>
 
             <div className="px-3 md:px-5 py-1.5 md:py-2 rounded-full bg-surface-container-high border border-outline-variant/10 flex items-center gap-2 min-w-0 max-w-[160px] sm:max-w-[240px] md:max-w-[360px] overflow-hidden">
-              <span className="font-mono text-[7px] md:text-[8px] uppercase tracking-[0.2em] text-primary/60 font-bold hidden sm:block flex-shrink-0">Active Resonance</span>
+              <span className="font-mono text-[7px] md:text-[8px] uppercase tracking-widest text-primary/60 font-bold hidden sm:block flex-shrink-0">Active Resonance</span>
               <span className="font-display text-sm md:text-base font-light text-on-surface tracking-wide uppercase truncate">
                 {selectedRaga?.name || (ragasLoading ? '...' : 'Select a Raga')}
               </span>
@@ -1702,7 +1702,7 @@ function StudioContent() {
                 disabled={saveStatus === 'saving'}
                 className={`flex items-center gap-2 px-3 md:px-5 py-2 rounded-xl font-mono text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${
                   saveStatus === 'error'
-                    ? 'bg-red-500/10 border border-red-400/40 text-red-400 hover:bg-red-500/20'
+                    ? 'bg-error/10 border border-error/40 text-error hover:bg-error/20'
                     : saveStatus === 'saved'
                     ? 'bg-emerald-500/10 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/20'
                     : 'bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20'
@@ -1865,7 +1865,7 @@ function StudioContent() {
                         autoFocus
                       />
                       {generateError && (
-                        <p className="font-sans text-[10px] text-red-400 mb-2">{generateError}</p>
+                        <p className="font-sans text-[10px] text-error mb-2">{generateError}</p>
                       )}
                       <div className="flex gap-2">
                         <button
@@ -1905,7 +1905,7 @@ function StudioContent() {
                 <button
                   onClick={() => midiInputRef.current?.click()}
                   disabled={isImportingMidi}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-[10px] font-mono uppercase tracking-widest disabled:opacity-40"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/10 text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high transition-all text-[10px] font-mono uppercase tracking-widest disabled:opacity-40"
                 >
                   <span className="material-symbols-outlined !text-base">upload_file</span>
                   {isImportingMidi ? 'Importing…' : 'Import MIDI'}
@@ -1915,7 +1915,7 @@ function StudioContent() {
                 <button
                   onClick={() => setExportFormat(f => f === 'webm' ? 'wav' : 'webm')}
                   title="Toggle recording export format"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all text-[10px] font-mono uppercase tracking-widest"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/10 text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-container-high transition-all text-[10px] font-mono uppercase tracking-widest"
                 >
                   <span className="material-symbols-outlined !text-base">audio_file</span>
                   {exportFormat.toUpperCase()}
@@ -2214,8 +2214,8 @@ function StudioContent() {
                       : 'hidden md:block'}`
               }>
               <section className={`animate-slide-up ${isImmersive ? 'p-0' : 'p-4 md:p-0'}`}>
-                {/* ── Keyboard layout tabs ── */}
-                {(() => {
+                {/* ── Keyboard layout tabs (hidden in immersive — focus on playing) ── */}
+                {!isImmersive && (() => {
                   const LAYOUT_OPTIONS: { value: KeyboardLayout; label: string; instrument: string }[] = [
                     { value: 'SwaPad',    label: 'Swara Pad',  instrument: 'piano'    },
                     { value: 'Piano',     label: 'Piano',      instrument: 'piano'    },
@@ -2244,8 +2244,8 @@ function StudioContent() {
                   )
                 })()}
 
-                {/* ── Mastering strip ── */}
-                {(() => {
+                {/* ── Mastering strip (hidden in immersive — focus on playing) ── */}
+                {!isImmersive && (() => {
                   const MASTERING_PRESETS: MasteringPreset[] = ['neutral', 'warm', 'clear', 'punchy', 'raga', 'concert', 'vocal', 'deep', 'bright']
                   const MASTERING_HINTS: Record<MasteringPreset, string> = {
                     neutral: 'Flat',
@@ -2287,7 +2287,7 @@ function StudioContent() {
                 })()}
 
                 {/* Context hint + Swara Transcriber */}
-                <div className={`relative flex items-center gap-2 mb-3 ${isImmersive ? 'hidden' : ''}`}>
+                {!isImmersive && <div className="relative flex items-center gap-2 mb-3">
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeStep >= 0 ? 'bg-primary animate-pulse' : 'bg-outline-variant/30'}`} />
                   <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 flex-1">
                     {activeStep >= 0
@@ -2302,8 +2302,7 @@ function StudioContent() {
                       handleToggleStep(activeStep, { label: note, velocity: 0.8 })
                     }}
                   />
-                </div>
-
+                </div>}
 
                 {/* Phrase validator strip — live note feedback */}
                 {liveNotes.length > 0 && selectedRaga && (
@@ -2376,7 +2375,7 @@ function StudioContent() {
 
                   {/* Aroha — left of keyboard, S' at top, Sa at bottom */}
                   {selectedRaga?.aroha && (
-                    <div className="flex-shrink-0 flex flex-col gap-1.5 py-2">
+                    <div className="flex-shrink-0 flex flex-col gap-2 py-2">
                       <span className="font-mono text-[7px] uppercase tracking-widest text-primary/40 font-bold mb-1 text-center">↑</span>
                       {[...(selectedRaga.aroha as string[])].reverse().map((n, i) => {
                         const isActive = activeSwara === n
@@ -2417,7 +2416,7 @@ function StudioContent() {
 
                   {/* Avaroha — right of keyboard */}
                   {selectedRaga?.avaroha && (
-                    <div className="flex-shrink-0 flex flex-col gap-1.5 py-2">
+                    <div className="flex-shrink-0 flex flex-col gap-2 py-2">
                       <span className="font-mono text-[7px] uppercase tracking-widest text-secondary/40 font-bold mb-1 text-center">↓</span>
                       {(selectedRaga.avaroha as string[]).map((n, i) => {
                         const isActive = activeSwara === n

@@ -426,7 +426,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
           className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-glow hover:scale-110 active:scale-95 transition-all group relative"
           title="Open Raga Assistant"
         >
-          <span className="material-symbols-outlined text-white !text-2xl animate-pulse group-hover:animate-none">auto_fix_high</span>
+          <span className="material-symbols-outlined text-white !text-2xl">auto_fix_high</span>
           {unread > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-secondary text-on-secondary text-[10px] font-mono font-bold flex items-center justify-center">
               {unread > 9 ? '9+' : unread}
@@ -452,7 +452,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {/* Learn mode toggle */}
               <button
                 onClick={() => setLearnMode(l => !l)}
