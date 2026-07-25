@@ -1761,18 +1761,18 @@ function StudioContent() {
             <div className="flex items-center justify-between animate-fade-in border-b border-outline-variant/8 pb-2">
               <div className="flex items-center gap-3">
                 <span className="font-mono text-[8px] uppercase tracking-[0.3em] text-primary/40">Raga</span>
-                <span className="font-display text-base font-light text-on-surface/30 uppercase tracking-[0.15em]">
+                <span className="font-display text-base font-light text-on-surface/60 uppercase tracking-[0.15em]">
                   {selectedRaga.name}
                 </span>
               </div>
               <div className="flex items-center gap-6">
                 {selectedRaga.aroha && selectedRaga.aroha.length > 0 && (
-                  <span className="font-mono text-[9px] text-primary/25 tracking-widest">
+                  <span className="font-mono text-[9px] text-primary/50 tracking-widest">
                     ↑ {selectedRaga.aroha.join(' · ')}
                   </span>
                 )}
                 {selectedRaga.avaroha && selectedRaga.avaroha.length > 0 && (
-                  <span className="font-mono text-[9px] text-secondary/20 tracking-widest">
+                  <span className="font-mono text-[9px] text-secondary/40 tracking-widest">
                     ↓ {selectedRaga.avaroha.join(' · ')}
                   </span>
                 )}
@@ -2379,11 +2379,17 @@ function StudioContent() {
                       <span className="font-mono text-[7px] uppercase tracking-widest text-primary/40 font-bold mb-1 text-center">↑</span>
                       {[...(selectedRaga.aroha as string[])].reverse().map((n, i) => {
                         const isActive = activeSwara === n
+                        const key = SWARA_KEY_LABELS[n]
                         return (
-                          <div key={i} className={`flex flex-col items-center transition-all ${isActive ? 'opacity-100' : 'opacity-30'}`}>
-                            <span className={`font-mono text-[11px] font-semibold ${isActive ? 'text-primary' : 'text-on-surface'}`}>
+                          <div key={i} className={`flex flex-col items-center gap-0.5 transition-all ${isActive ? 'opacity-100' : 'opacity-30'}`}>
+                            <span className={`font-label text-[11px] font-semibold ${isActive ? 'text-primary' : 'text-on-surface'}`}>
                               {swaraDisplayName(n)}
                             </span>
+                            {key && (
+                              <kbd className="h-4 min-w-[16px] px-1 rounded bg-surface-container-high border border-outline-variant/20 flex items-center justify-center font-mono text-[8px] text-on-surface-variant/50 leading-none">
+                                {key}
+                              </kbd>
+                            )}
                           </div>
                         )
                       })}
@@ -2420,11 +2426,17 @@ function StudioContent() {
                       <span className="font-mono text-[7px] uppercase tracking-widest text-secondary/40 font-bold mb-1 text-center">↓</span>
                       {(selectedRaga.avaroha as string[]).map((n, i) => {
                         const isActive = activeSwara === n
+                        const key = SWARA_KEY_LABELS[n]
                         return (
-                          <div key={i} className={`flex flex-col items-center transition-all ${isActive ? 'opacity-100' : 'opacity-30'}`}>
-                            <span className={`font-mono text-[11px] font-semibold ${isActive ? 'text-secondary' : 'text-on-surface'}`}>
+                          <div key={i} className={`flex flex-col items-center gap-0.5 transition-all ${isActive ? 'opacity-100' : 'opacity-30'}`}>
+                            <span className={`font-label text-[11px] font-semibold ${isActive ? 'text-secondary' : 'text-on-surface'}`}>
                               {swaraDisplayName(n)}
                             </span>
+                            {key && (
+                              <kbd className="h-4 min-w-[16px] px-1 rounded bg-surface-container-high border border-outline-variant/20 flex items-center justify-center font-mono text-[8px] text-on-surface-variant/50 leading-none">
+                                {key}
+                              </kbd>
+                            )}
                           </div>
                         )
                       })}

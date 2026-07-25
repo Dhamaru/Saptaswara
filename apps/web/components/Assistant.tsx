@@ -423,7 +423,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
         /* ── Minimised FAB ── */
         <button
           onClick={() => setIsMinimized(false)}
-          className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-glow hover:scale-110 active:scale-95 transition-all group relative"
+          className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-glow hover:scale-105 active:scale-95 transition-all group relative"
           title="Open Raga Assistant"
         >
           <span className="material-symbols-outlined text-white !text-2xl">auto_fix_high</span>
@@ -544,7 +544,7 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
               <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`max-w-[90%] px-4 py-3 rounded-2xl text-sm [overflow-wrap:anywhere] ${
                   m.role === 'assistant'
-                    ? 'bg-gradient-to-br from-primary to-primary/60 text-white shadow-glow'
+                    ? 'bg-primary/15 border border-primary/20 text-on-surface'
                     : 'bg-surface-container-high text-on-surface border border-outline-variant/5 shadow-sm'
                 }`}>
                   {m.role === 'assistant'
@@ -560,9 +560,9 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
 
             {isTyping && (
               <div className="flex items-center gap-1.5 px-4 py-2.5 bg-primary/10 rounded-full w-fit">
-                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
-                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.15s]" />
-                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.3s]" />
+                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse [animation-delay:0.2s]" />
+                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse [animation-delay:0.4s]" />
               </div>
             )}
             </div>
