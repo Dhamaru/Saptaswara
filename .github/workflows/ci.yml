@@ -70,9 +70,10 @@ jobs:
           cache-dependency-path: '**/package-lock.json'
 
       - name: Audit dependencies
-        # audit-ci handles gzip responses correctly unlike npm audit (npm bug on bulk endpoint).
-        # --level=critical: Next.js 16.x has unpatched high CVEs (no fix in 16.x line yet)
-        run: npx --yes audit-ci --level critical --omit-dev
+        # Custom script: npm audit has a gzip parsing bug on the bulk endpoint;
+        # audit-ci also fails (calls npm audit underneath). Script queries registry
+        # directly and decompresses correctly. Fails on CRITICAL only.
+        run: node .github/scripts/audit.js
 
   # ── Unit tests ──────────────────────────────────────────────────────────────
   test:
