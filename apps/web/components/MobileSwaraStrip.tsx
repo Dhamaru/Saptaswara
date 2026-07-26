@@ -49,7 +49,8 @@ export function MobileSwaraStrip({ onPlay, onRelease, allowedSwaras, vadiSwara, 
   }, [onRelease])
 
   return (
-    <div className="w-full overflow-x-auto scrollbar-none">
+    <div className="w-full relative">
+      <div className="overflow-x-auto scrollbar-none">
       <div className="flex gap-1.5 px-2 py-2 min-w-max">
         {ROWS[0].map(({ swara, komal, tivra }) => {
           const bare = stripOctave(swara)
@@ -84,6 +85,9 @@ export function MobileSwaraStrip({ onPlay, onRelease, allowedSwaras, vadiSwara, 
           )
         })}
       </div>
+      </div>
+      {/* Scroll fade — hints at hidden komal/tivra notes to the right */}
+      <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-background to-transparent" />
     </div>
   )
 }

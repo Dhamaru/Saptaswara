@@ -60,7 +60,7 @@ export function ImmersiveHUD({ bpm, loopLength, beatFlash, onToggleTranscriber, 
       <button
         onClick={() => setIsPlaying(!isPlaying)}
         title={isPlaying ? 'Stop [Space]' : 'Play [Space]'}
-        className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+        className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
           isPlaying
             ? 'bg-primary text-on-primary shadow-glow scale-105'
             : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-white/5'
@@ -93,7 +93,7 @@ export function ImmersiveHUD({ bpm, loopLength, beatFlash, onToggleTranscriber, 
       <button
         onClick={onToggleTranscriber}
         title="Toggle SwaraTranscriber"
-        className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+        className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
           transcriberActive
             ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
             : 'text-on-surface-variant/40 hover:text-on-surface hover:bg-white/5'

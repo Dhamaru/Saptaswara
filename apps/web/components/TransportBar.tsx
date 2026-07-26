@@ -130,8 +130,8 @@ export default function TransportBar({
           </span>
           <span className="font-mono text-[8px] uppercase tracking-tighter text-white/30 font-bold">BPM</span>
           <div className="flex flex-col gap-0.5 ml-auto">
-            <button onClick={() => onBpmChange(bpm + 1)} className="text-[10px] text-white/40 hover:text-white leading-none">▲</button>
-            <button onClick={() => onBpmChange(bpm - 1)} className="text-[10px] text-white/40 hover:text-white leading-none">▼</button>
+            <button onClick={() => onBpmChange(bpm + 1)} className="w-6 h-5 flex items-center justify-center text-[10px] text-white/40 hover:text-white leading-none">▲</button>
+            <button onClick={() => onBpmChange(bpm - 1)} className="w-6 h-5 flex items-center justify-center text-[10px] text-white/40 hover:text-white leading-none">▼</button>
           </div>
         </div>
         <div className="h-6 w-px bg-white/10 mx-1" />

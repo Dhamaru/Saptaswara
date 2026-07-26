@@ -1270,7 +1270,7 @@ function StudioContent() {
         {/* Mobile close button */}
         <button
           onClick={() => setSidebarOpen(false)}
-          className="md:hidden absolute top-4 right-3 z-10 w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant/40 hover:text-on-surface transition-all"
+          className="md:hidden absolute top-4 right-3 z-10 w-11 h-11 rounded-lg flex items-center justify-center text-on-surface-variant/40 hover:text-on-surface transition-all"
         >
           <span className="material-symbols-outlined !text-base">close</span>
         </button>
@@ -1399,7 +1399,7 @@ function StudioContent() {
                         <button
                           onClick={() => toggleMute(track.id)}
                           title="Mute"
-                          className={`w-6 h-6 rounded-md font-mono text-[8px] font-bold transition-all ${
+                          className={`w-8 h-8 rounded-md font-mono text-[8px] font-bold transition-all ${
                             track.muted ? 'bg-error/20 text-error border border-error/30' : 'text-on-surface-variant/30 hover:text-on-surface border border-transparent'
                           }`}
                         >
@@ -1408,7 +1408,7 @@ function StudioContent() {
                         <button
                           onClick={() => toggleSolo(track.id)}
                           title="Solo"
-                          className={`w-6 h-6 rounded-md font-mono text-[8px] font-bold transition-all ${
+                          className={`w-8 h-8 rounded-md font-mono text-[8px] font-bold transition-all ${
                             track.soloed ? 'bg-secondary/20 text-secondary border border-secondary/30' : 'text-on-surface-variant/30 hover:text-on-surface border border-transparent'
                           }`}
                         >
@@ -1418,7 +1418,7 @@ function StudioContent() {
                           <button
                             onClick={() => removeTrack(track.id)}
                             title="Remove track"
-                            className="w-6 h-6 rounded-md text-on-surface-variant/20 hover:text-error transition-all flex items-center justify-center"
+                            className="w-8 h-8 rounded-md text-on-surface-variant/20 hover:text-error transition-all flex items-center justify-center"
                           >
                             <span className="material-symbols-outlined !text-sm">remove</span>
                           </button>
@@ -1819,7 +1819,7 @@ function StudioContent() {
                     Select step → press key to record · Shift+click filled step to cycle velocity
                   </p>
                   {showSeqTip && (
-                    <div className="mt-2 flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-primary/8 border border-primary/20 animate-fade-in max-w-xl">
+                    <div className="mt-2 flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/20 animate-fade-in max-w-xl">
                       <span className="material-symbols-outlined !text-sm text-primary/60 mt-0.5 flex-shrink-0">touch_app</span>
                       <p className="font-sans text-[11px] text-on-surface/70 leading-relaxed flex-1">
                         <strong className="text-on-surface/90">How to compose:</strong> Click a step cell to select it (it highlights), then click a piano key or press a keyboard shortcut to place that note. Click a filled step to remove it.
@@ -1853,7 +1853,7 @@ function StudioContent() {
                 <button
                   onClick={() => setShowNotation(v => !v)}
                   title="Toggle notation view"
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-mono text-[8px] uppercase tracking-widest font-bold transition-all ${
+                  className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-mono text-[8px] uppercase tracking-widest font-bold transition-all ${
                     showNotation
                       ? 'bg-secondary/15 border-secondary/30 text-secondary'
                       : 'border-outline-variant/10 text-on-surface-variant/30 hover:text-on-surface-variant'
@@ -1931,7 +1931,7 @@ function StudioContent() {
                 <button
                   onClick={() => midiInputRef.current?.click()}
                   disabled={isImportingMidi}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/10 text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high transition-all text-[10px] font-mono uppercase tracking-widest disabled:opacity-40"
+                  className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/10 text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high transition-all text-[10px] font-mono uppercase tracking-widest disabled:opacity-40"
                 >
                   <span className="material-symbols-outlined !text-base">upload_file</span>
                   {isImportingMidi ? 'Importing…' : 'Import MIDI'}
@@ -1941,13 +1941,13 @@ function StudioContent() {
                 <button
                   onClick={() => setExportFormat(f => f === 'webm' ? 'wav' : 'webm')}
                   title="Toggle recording export format"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/10 text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-container-high transition-all text-[10px] font-mono uppercase tracking-widest"
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/10 text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-container-high transition-all text-[10px] font-mono uppercase tracking-widest"
                 >
                   <span className="material-symbols-outlined !text-base">audio_file</span>
                   {exportFormat.toUpperCase()}
                 </button>
 
-                <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">
+                <span className="hidden sm:inline font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">
                   {activeStep >= 0 && !isPlaying ? `Step ${activeStep + 1}` : isPlaying ? '▶' : ''}
                 </span>
               </div>
