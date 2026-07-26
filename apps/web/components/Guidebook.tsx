@@ -12,6 +12,7 @@ const SECTIONS = [
   { id: 'gamakas',    label: 'Gamakas',         icon: 'graphic_eq'      },
   { id: 'playback',   label: 'Playback',        icon: 'play_circle'     },
   { id: 'tracks',     label: 'Tracks',          icon: 'layers'          },
+  { id: 'tools',      label: 'Practice Tools',  icon: 'fitness_center'  },
 ] as const
 
 type SectionId = typeof SECTIONS[number]['id']
@@ -580,7 +581,7 @@ function SectionTracks() {
   )
 }
 
-const SECTION_CONTENT: Record<SectionId, React.ReactNode> = {
+const STATIC_SECTIONS: Partial<Record<SectionId, React.ReactNode>> = {
   start:       <SectionStart />,
   keys:        <SectionKeys />,
   sequencer:   <SectionSequencer />,
@@ -591,13 +592,76 @@ const SECTION_CONTENT: Record<SectionId, React.ReactNode> = {
   tracks:      <SectionTracks />,
 }
 
+// ── Practice tools section ────────────────────────────────────────────────────
+function SectionTools({ onOpenEarTraining, onOpenLearnGuide, onClose }: {
+  onOpenEarTraining?: () => void
+  onOpenLearnGuide?: () => void
+  onClose: () => void
+}) {
+  const tools = [
+    {
+      icon: 'hearing',
+      title: 'Ear Training',
+      desc: 'Identify swaras by listening. A note plays — you guess which swara it is. Builds your shruti recognition over time.',
+      label: 'Open Ear Training',
+      color: 'text-tertiary',
+      bg: 'bg-tertiary/10 border-tertiary/20 hover:bg-tertiary/20',
+      action: onOpenEarTraining,
+    },
+    {
+      icon: 'school',
+      title: "Learner's Guide",
+      desc: 'Structured lessons on raga grammar, ornaments, tala, and the Saptaswara workflow. Good starting point for students new to ICM.',
+      label: 'Open Learner\'s Guide',
+      color: 'text-secondary',
+      bg: 'bg-secondary/10 border-secondary/20 hover:bg-secondary/20',
+      action: onOpenLearnGuide,
+    },
+  ]
+
+  return (
+    <>
+      <Heading>Practice Tools</Heading>
+      <Para>Interactive tools to train your ear and build raga fluency. Open them while a raga is selected for best results.</Para>
+      <div className="space-y-4 mt-4">
+        {tools.map(t => (
+          <div key={t.title} className={`rounded-2xl border p-5 ${t.bg} transition-all`}>
+            <div className="flex items-start gap-4">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${t.bg}`}>
+                <span className={`material-symbols-outlined !text-xl ${t.color}`}>{t.icon}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`font-mono text-[10px] uppercase tracking-widest font-bold mb-1 ${t.color}`}>{t.title}</p>
+                <p className="font-sans text-xs text-on-surface-variant/60 leading-relaxed mb-3">{t.desc}</p>
+                {t.action ? (
+                  <button
+                    onClick={() => { t.action?.(); onClose() }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-mono text-[9px] uppercase tracking-widest font-bold transition-all ${t.bg} ${t.color}`}
+                  >
+                    <span className="material-symbols-outlined !text-sm">{t.icon}</span>
+                    {t.label}
+                  </button>
+                ) : (
+                  <p className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">Select a raga first to enable</p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 interface GuidebookProps {
   open: boolean
   onClose: () => void
+  onOpenEarTraining?: () => void
+  onOpenLearnGuide?: () => void
 }
 
-export function Guidebook({ open, onClose }: GuidebookProps) {
+export function Guidebook({ open, onClose, onOpenEarTraining, onOpenLearnGuide }: GuidebookProps) {
   const [active, setActive] = useState<SectionId>('start')
 
   // Close on Escape
@@ -673,7 +737,9 @@ export function Guidebook({ open, onClose }: GuidebookProps) {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-8 py-6 scroll-thin">
-            {SECTION_CONTENT[active]}
+            {active === 'tools'
+              ? <SectionTools onOpenEarTraining={onOpenEarTraining} onOpenLearnGuide={onOpenLearnGuide} onClose={onClose} />
+              : STATIC_SECTIONS[active]}
           </div>
         </div>
 

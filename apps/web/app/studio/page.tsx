@@ -1765,26 +1765,6 @@ function StudioContent() {
                 </span>
               )}
             </div>
-            {isStarted && !isImmersive && (
-              <button
-                onClick={() => setShowEarTraining(true)}
-                title="Ear Training — identify swaras by listening"
-                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-tertiary/20 bg-tertiary/5 font-mono text-[9px] uppercase tracking-widest text-tertiary/70 hover:text-tertiary hover:border-tertiary/40 hover:bg-tertiary/10 transition-all active:scale-95"
-              >
-                <span className="material-symbols-outlined !text-sm">hearing</span>
-                Ear
-              </button>
-            )}
-            {!isImmersive && (
-            <button
-              onClick={() => setShowLearnGuide(v => !v)}
-              title="Open Learner's Guide"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-secondary/20 bg-secondary/5 font-mono text-[9px] uppercase tracking-widest text-secondary/70 hover:text-secondary hover:border-secondary/40 hover:bg-secondary/10 transition-all active:scale-95"
-            >
-              <span className="material-symbols-outlined !text-sm">school</span>
-              Learn
-            </button>
-            )}
             {!isImmersive && (
             <button
               onClick={() => setShowGuide(v => !v)}
@@ -2704,7 +2684,12 @@ function StudioContent() {
         )}
       </main>
 
-      <Guidebook open={showGuide} onClose={() => setShowGuide(false)} />
+      <Guidebook
+        open={showGuide}
+        onClose={() => setShowGuide(false)}
+        onOpenEarTraining={isStarted ? () => setShowEarTraining(true) : undefined}
+        onOpenLearnGuide={() => setShowLearnGuide(true)}
+      />
       <LearnerGuide open={showLearnGuide} onClose={() => setShowLearnGuide(false)} />
       {showEarTraining && (
         <EarTraining raga={selectedRaga} onClose={() => setShowEarTraining(false)} />
