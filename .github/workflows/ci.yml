@@ -69,8 +69,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
 
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
       - name: Audit dependencies
-        # Run from root so npm uses the workspace-root package-lock.json directly.
         # --audit-level=critical: Next.js 16.x has unpatched high CVEs (no fix in 16.x line yet)
         # Revisit when next@>=16.3.0 stable is released with patches
         run: npm audit --audit-level=critical --omit=dev
