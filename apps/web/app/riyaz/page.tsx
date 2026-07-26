@@ -212,6 +212,14 @@ export default function RiyazPage() {
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFeedbackSwaraRef = useRef<string | null>(null)
 
+  // ── Timed Riyaz Session ───────────────────────────────────────────────────
+  const [riyazPhase, setRiyazPhase] = useState<'idle' | 'running' | 'results'>('idle')
+  const [secondsLeft, setSecondsLeft] = useState(90)
+  const riyazTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [journalIntensity, setJournalIntensity] = useState<'Deep' | 'Meditative' | 'Focused' | 'Light' | 'Creative'>('Focused')
+  const [journalSaving, setJournalSaving] = useState(false)
+  const [journalSaved, setJournalSaved] = useState(false)
+
   // ── Record / Playback ──────────────────────────────────────────────────────
   type RecordedNote = { swara: string; freq: number; delayMs: number }
   const [isRecording, setIsRecording] = useState(false)
@@ -231,6 +239,53 @@ export default function RiyazPage() {
   const stopRecording = useCallback(() => {
     setIsRecording(false)
   }, [])
+
+  const startRiyaz = useCallback(() => {
+    setRiyazPhase('running')
+    setSecondsLeft(90)
+    setSessionStats(null)
+    setJournalSaved(false)
+    setShowTranscriber(true)
+    riyazTimerRef.current = setInterval(() => {
+      setSecondsLeft(s => {
+        if (s <= 1) {
+          clearInterval(riyazTimerRef.current!)
+          riyazTimerRef.current = null
+          // Unmounting SwaraTranscriber fires its cleanup → stopListening → onSessionEnd
+          setShowTranscriber(false)
+          setRiyazPhase('results')
+          return 0
+        }
+        return s - 1
+      })
+    }, 1000)
+  }, [])
+
+  const stopRiyazEarly = useCallback(() => {
+    if (riyazTimerRef.current) { clearInterval(riyazTimerRef.current); riyazTimerRef.current = null }
+    setShowTranscriber(false)
+    setRiyazPhase('results')
+  }, [])
+
+  const saveToJournal = useCallback(async () => {
+    if (!selectedRaga || !sessionStats || sessionStats.total === 0) return
+    setJournalSaving(true)
+    const score = Math.round((sessionStats.correct / sessionStats.total) * 100)
+    const notes = `90s riyaz · ${selectedRaga.name} · Conformance: ${score}% (${sessionStats.correct}/${sessionStats.total} correct). Vadi hits: ${sessionStats.vadiHits}.${sessionStats.varjya > 0 ? ` Varjya: ${sessionStats.varjya}.` : ''}`
+    try {
+      await fetch('/api/journal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raga: selectedRaga.name, notes, intensity: journalIntensity }),
+      })
+      setJournalSaved(true)
+    } catch {}
+    setJournalSaving(false)
+  }, [selectedRaga, sessionStats, journalIntensity])
+
+  // Cleanup timer on unmount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (riyazTimerRef.current) clearInterval(riyazTimerRef.current) }, [])
 
   const playbackRecording = useCallback(async () => {
     if (recordedSeq.length === 0) return
@@ -913,6 +968,46 @@ export default function RiyazPage() {
                 </div>
               )}
 
+              {/* ── Timed Riyaz Session ── */}
+              {riyazPhase === 'idle' && (
+                <button
+                  onClick={startRiyaz}
+                  className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-primary/10 border border-primary/20 text-primary font-mono text-[10px] uppercase tracking-widest font-bold hover:bg-primary/20 transition-all active:scale-95"
+                >
+                  <span className="material-symbols-outlined !text-base">timer</span>
+                  Start 90s Riyaz Session
+                </button>
+              )}
+
+              {riyazPhase === 'running' && (
+                <div className="rounded-2xl bg-surface-container-low/40 border border-outline-variant/15 p-4 space-y-3 animate-fade-in">
+                  {/* Countdown bar */}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">Singing…</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`font-display text-2xl font-light ${secondsLeft <= 10 ? 'text-error animate-pulse' : 'text-primary'}`}>
+                        {secondsLeft}
+                      </span>
+                      <span className="font-mono text-[8px] text-on-surface-variant/30">sec</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-outline-variant/10 overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-1000"
+                      style={{ width: `${(secondsLeft / 90) * 100}%` }}
+                    />
+                  </div>
+                  <button
+                    onClick={stopRiyazEarly}
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-outline-variant/15 text-on-surface-variant/40 hover:text-on-surface font-mono text-[8px] uppercase tracking-widest transition-all"
+                  >
+                    <span className="material-symbols-outlined !text-sm">stop</span>
+                    Stop early
+                  </button>
+                </div>
+              )}
+
+              {/* Live transcriber — mounted while running */}
               {showTranscriber && (
                 <SwaraTranscriber
                   aroha={selectedRaga.aroha as string[] | undefined}
@@ -923,50 +1018,98 @@ export default function RiyazPage() {
                 />
               )}
 
-              {sessionStats && sessionStats.total > 0 && (
-                <div className="rounded-2xl bg-white/5 border border-white/10 p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">Session Summary</div>
+              {/* ── Results + Journal Save ── */}
+              {riyazPhase === 'results' && sessionStats && sessionStats.total > 0 && (() => {
+                const score = Math.round((sessionStats.correct / sessionStats.total) * 100)
+                const scoreColor = score >= 80 ? 'text-secondary' : score >= 60 ? 'text-amber-400' : 'text-primary'
+                const scoreBg   = score >= 80 ? 'bg-secondary/10 border-secondary/20' : score >= 60 ? 'bg-amber-500/10 border-amber-400/20' : 'bg-primary/10 border-primary/20'
+                const tone = score >= 80
+                  ? `Strong session. ${selectedRaga.name} well maintained.`
+                  : score >= 60
+                  ? `Good effort. Some notes drifted outside ${selectedRaga.name}.`
+                  : `Keep practising ${selectedRaga.name}'s scale — it takes time.`
+                return (
+                  <div className="rounded-2xl bg-surface-container-low/40 border border-outline-variant/15 p-5 space-y-4 animate-fade-in">
+                    {/* Primary metric */}
+                    <div className="flex items-center gap-4">
+                      <div className={`w-16 h-16 rounded-2xl border flex items-center justify-center flex-shrink-0 ${scoreBg}`}>
+                        <span className={`font-display text-2xl font-light ${scoreColor}`}>{score}%</span>
+                      </div>
+                      <div>
+                        <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 mb-0.5">Raga Conformance</div>
+                        <div className="font-sans text-sm text-on-surface/70 italic">{tone}</div>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-outline-variant/10 overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${score >= 80 ? 'bg-secondary' : score >= 60 ? 'bg-amber-400' : 'bg-primary'}`}
+                          style={{ width: `${score}%` }} />
+                      </div>
+                      <span className="font-mono text-[8px] text-on-surface-variant/40 shrink-0">{sessionStats.correct}/{sessionStats.total}</span>
+                    </div>
+
+                    {/* Stat grid */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-xl bg-amber-500/8 border border-amber-400/15 p-2.5 text-center">
+                        <div className="font-display text-xl text-amber-400">{sessionStats.vadiHits}</div>
+                        <div className="font-mono text-[7px] uppercase tracking-widest text-amber-400/50 mt-0.5">Vadi hits</div>
+                      </div>
+                      <div className="rounded-xl bg-orange-500/8 border border-orange-400/15 p-2.5 text-center">
+                        <div className="font-display text-xl text-orange-400">{sessionStats.wrongVariety}</div>
+                        <div className="font-mono text-[7px] uppercase tracking-widest text-orange-400/50 mt-0.5">Wrong var.</div>
+                      </div>
+                      <div className="rounded-xl bg-error/8 border border-error/15 p-2.5 text-center">
+                        <div className="font-display text-xl text-error">{sessionStats.varjya}</div>
+                        <div className="font-mono text-[7px] uppercase tracking-widest text-error/50 mt-0.5">Varjya</div>
+                      </div>
+                    </div>
+
+                    {/* Journal save */}
+                    {!journalSaved ? (
+                      <div className="pt-2 border-t border-outline-variant/10 space-y-2">
+                        <div className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">Save to Journal</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(['Deep', 'Meditative', 'Focused', 'Light', 'Creative'] as const).map(i => (
+                            <button
+                              key={i}
+                              onClick={() => setJournalIntensity(i)}
+                              className={`px-2.5 py-1 rounded-lg border font-mono text-[8px] uppercase tracking-widest font-bold transition-all ${
+                                journalIntensity === i
+                                  ? 'bg-primary/15 border-primary/30 text-primary'
+                                  : 'border-outline-variant/10 text-on-surface-variant/40 hover:text-on-surface'
+                              }`}
+                            >{i}</button>
+                          ))}
+                        </div>
+                        <button
+                          onClick={saveToJournal}
+                          disabled={journalSaving}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary font-mono text-[9px] uppercase tracking-widest font-bold hover:bg-primary/20 transition-all active:scale-95 disabled:opacity-40"
+                        >
+                          <span className="material-symbols-outlined !text-sm">{journalSaving ? 'hourglass_empty' : 'book_2'}</span>
+                          {journalSaving ? 'Saving…' : 'Save to Journal'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 py-2 border-t border-outline-variant/10 text-secondary">
+                        <span className="material-symbols-outlined !text-sm">check_circle</span>
+                        <span className="font-mono text-[8px] uppercase tracking-widest">Saved to Journal</span>
+                      </div>
+                    )}
+
+                    {/* New session */}
                     <button
-                      onClick={() => setSessionStats(null)}
-                      className="w-6 h-6 rounded-lg flex items-center justify-center text-on-surface-variant/30 hover:text-on-surface transition-all"
+                      onClick={() => { setRiyazPhase('idle'); setSessionStats(null); setJournalSaved(false) }}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-outline-variant/10 text-on-surface-variant/40 hover:text-on-surface font-mono text-[8px] uppercase tracking-widest transition-all"
                     >
-                      <span className="material-symbols-outlined !text-sm">close</span>
+                      <span className="material-symbols-outlined !text-sm">replay</span>
+                      New session
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="rounded-xl bg-emerald-500/10 border border-emerald-400/20 p-3 text-center">
-                      <div className="font-display text-3xl text-emerald-400">{sessionStats.correct}</div>
-                      <div className="font-mono text-[8px] uppercase tracking-widest text-emerald-400/60 mt-1">Correct</div>
-                    </div>
-                    <div className="rounded-xl bg-orange-500/10 border border-orange-400/20 p-3 text-center">
-                      <div className="font-display text-3xl text-orange-400">{sessionStats.wrongVariety}</div>
-                      <div className="font-mono text-[8px] uppercase tracking-widest text-orange-400/60 mt-1">Wrong variety</div>
-                    </div>
-                    <div className="rounded-xl bg-red-500/10 border border-red-400/20 p-3 text-center">
-                      <div className="font-display text-3xl text-red-400">{sessionStats.varjya}</div>
-                      <div className="font-mono text-[8px] uppercase tracking-widest text-red-400/60 mt-1">Varjya</div>
-                    </div>
-                    <div className="rounded-xl bg-amber-500/10 border border-amber-400/20 p-3 text-center">
-                      <div className="font-display text-3xl text-amber-400">{sessionStats.vadiHits}</div>
-                      <div className="font-mono text-[8px] uppercase tracking-widest text-amber-400/60 mt-1">Vadi hits</div>
-                    </div>
-                  </div>
-                  {sessionStats.total > 0 && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-400 rounded-full transition-all"
-                          style={{ width: `${Math.round((sessionStats.correct / sessionStats.total) * 100)}%` }}
-                        />
-                      </div>
-                      <span className="font-mono text-[9px] text-on-surface-variant/50 shrink-0">
-                        {Math.round((sessionStats.correct / sessionStats.total) * 100)}% accuracy
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
+                )
+              })()}
 
               {gamakaHistory.length > 0 && (
                 <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
