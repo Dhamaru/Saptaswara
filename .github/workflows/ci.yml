@@ -69,6 +69,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
 
+      - name: Update npm to use bulk advisory endpoint
+        run: npm install -g npm@latest
+
       - name: Install dependencies
         run: npm ci --prefer-offline
 
