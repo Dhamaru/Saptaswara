@@ -69,16 +69,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
 
-      - name: Update npm to use bulk advisory endpoint
-        run: npm install -g npm@latest
-
-      - name: Install dependencies
-        run: npm ci --prefer-offline
-
       - name: Audit dependencies
-        # --audit-level=critical: Next.js 16.x has unpatched high CVEs (no fix in 16.x line yet)
-        # Revisit when next@>=16.3.0 stable is released with patches
-        run: npm audit --audit-level=critical --omit=dev
+        # audit-ci handles gzip responses correctly unlike npm audit (npm bug on bulk endpoint).
+        # --level=critical: Next.js 16.x has unpatched high CVEs (no fix in 16.x line yet)
+        run: npx --yes audit-ci --level critical --omit-dev
 
   # ── Unit tests ──────────────────────────────────────────────────────────────
   test:
