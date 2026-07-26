@@ -1227,7 +1227,7 @@ function StudioContent() {
               <button
                 id="save-confirm-btn"
                 onClick={() => { if (saveModalTitle.trim()) handleSaveProject(saveModalTitle.trim()) }}
-                className="flex-1 py-3.5 bg-gradient-to-r from-primary to-primary/80 rounded-2xl font-medium text-white shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="flex-1 py-3.5 bg-gradient-to-r from-primary to-primary/80 rounded-2xl font-medium text-white shadow-glow hover:scale-[1.02] active:scale-95 transition-all"
               >
                 Save
               </button>
@@ -1565,7 +1565,7 @@ function StudioContent() {
                     onClick={() => { setSelectedRaga(raga); setCurrentRagaId(raga.id) }}
                     className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all relative overflow-hidden ${
                       selectedRaga?.id === raga.id
-                        ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_15px_-3px_rgba(var(--primary-rgb),0.3)]'
+                        ? 'bg-primary/20 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(var(--primary-rgb),0.3)]'
                         : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high border border-transparent'
                     }`}
                   >
@@ -1581,12 +1581,12 @@ function StudioContent() {
 
           {/* ── Authentic Ornament Mode ── */}
           {selectedRaga && (
-            <div className="px-4 py-3 border-t border-outline-variant/10">
+            <div className="p-5 border-t border-outline-variant/10">
               <button
                 onClick={() => setOrnamentMode(v => !v)}
                 className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border transition-all ${
                   ornamentMode
-                    ? 'bg-violet-500/20 border-violet-400/30 text-violet-300'
+                    ? 'bg-tertiary/20 border-tertiary/30 text-tertiary'
                     : 'bg-surface-container-low border-outline-variant/10 text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-container-high'
                 }`}
               >
@@ -1594,7 +1594,7 @@ function StudioContent() {
                   <span className="material-symbols-outlined !text-base">auto_fix_high</span>
                   <span className="font-mono text-[9px] uppercase tracking-widest font-bold">Authentic Ornaments</span>
                 </div>
-                <div className={`w-8 h-4 rounded-full transition-all relative ${ornamentMode ? 'bg-violet-500' : 'bg-outline-variant/20'}`}>
+                <div className={`w-8 h-4 rounded-full transition-all relative ${ornamentMode ? 'bg-tertiary' : 'bg-outline-variant/20'}`}>
                   <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${ornamentMode ? 'left-[18px]' : 'left-0.5'}`} />
                 </div>
               </button>
@@ -1607,7 +1607,7 @@ function StudioContent() {
           )}
           {/* ── Pitch Bend Wheel ── */}
           {isStarted && (
-            <div className="px-4 py-3 border-t border-outline-variant/10 flex flex-col items-center gap-2">
+            <div className="p-5 border-t border-outline-variant/10 flex flex-col items-center gap-2">
               <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">Pitch</span>
               <div
                 className="relative w-10 h-24 bg-surface-container-low rounded-xl border border-outline-variant/10 cursor-ns-resize flex items-center justify-center overflow-hidden select-none touch-none"
@@ -1748,7 +1748,7 @@ function StudioContent() {
                   saveStatus === 'error'
                     ? 'bg-error/10 border border-error/40 text-error hover:bg-error/20'
                     : saveStatus === 'saved'
-                    ? 'bg-emerald-500/10 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/20'
+                    ? 'bg-secondary/10 border border-secondary/30 text-secondary hover:bg-secondary/20'
                     : 'bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20'
                 }`}
               >
@@ -1839,7 +1839,7 @@ function StudioContent() {
                   {showSeqTip && (
                     <div className="mt-2 flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/20 animate-fade-in max-w-xl">
                       <span className="material-symbols-outlined !text-sm text-primary/60 mt-0.5 flex-shrink-0">touch_app</span>
-                      <p className="font-sans text-[11px] text-on-surface/70 leading-relaxed flex-1">
+                      <p className="font-sans text-xs text-on-surface/70 leading-relaxed flex-1">
                         <strong className="text-on-surface/90">How to compose:</strong> Click a step cell to select it (it highlights), then click a piano key or press a keyboard shortcut to place that note. Click a filled step to remove it.
                       </p>
                       <button
@@ -1867,19 +1867,6 @@ function StudioContent() {
                     </button>
                   ))}
                 </div>
-                {/* Notation view toggle */}
-                <button
-                  onClick={() => setShowNotation(v => !v)}
-                  title="Toggle notation view"
-                  className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-mono text-[8px] uppercase tracking-widest font-bold transition-all ${
-                    showNotation
-                      ? 'bg-secondary/15 border-secondary/30 text-secondary'
-                      : 'border-outline-variant/10 text-on-surface-variant/30 hover:text-on-surface-variant'
-                  }`}
-                >
-                  <span className="material-symbols-outlined !text-sm">abc</span>
-                  Notation
-                </button>
                 {/* AI Generate */}
                 <div className="relative">
                   <button
@@ -1897,7 +1884,7 @@ function StudioContent() {
                   </button>
 
                   {generateOpen && (
-                    <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-2xl bg-[#0b0b16] border border-outline-variant/20 shadow-2xl p-4">
+                    <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-2xl bg-surface-lowest border border-outline-variant/20 shadow-2xl p-4 animate-fade-in">
                       <p className="font-mono text-[8px] uppercase tracking-widest text-secondary/60 mb-2">AI Sequence — {selectedRaga?.name}</p>
                       <input
                         value={generatePrompt}
@@ -1937,6 +1924,24 @@ function StudioContent() {
                   )}
                 </div>
 
+                {/* Notation view toggle — grouped with generate (musical controls) */}
+                <button
+                  onClick={() => setShowNotation(v => !v)}
+                  title="Toggle notation view"
+                  className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-mono text-[8px] uppercase tracking-widest font-bold transition-all ${
+                    showNotation
+                      ? 'bg-secondary/15 border-secondary/30 text-secondary'
+                      : 'border-outline-variant/10 text-on-surface-variant/30 hover:text-on-surface-variant'
+                  }`}
+                >
+                  <span className="material-symbols-outlined !text-sm">abc</span>
+                  Notation
+                </button>
+                <span className="hidden sm:inline font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">
+                  {activeStep >= 0 && !isPlaying ? `Step ${activeStep + 1}` : isPlaying ? '▶' : ''}
+                </span>
+                {/* Divider separating musical controls from file ops */}
+                <div className="hidden sm:block w-px h-5 bg-outline-variant/10 self-center mx-1" />
                 {/* Hidden MIDI file input */}
                 <input
                   ref={midiInputRef}
@@ -1965,9 +1970,6 @@ function StudioContent() {
                   {exportFormat.toUpperCase()}
                 </button>
 
-                <span className="hidden sm:inline font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">
-                  {activeStep >= 0 && !isPlaying ? `Step ${activeStep + 1}` : isPlaying ? '▶' : ''}
-                </span>
               </div>
             </div>
 
@@ -2354,9 +2356,9 @@ function StudioContent() {
                     {liveNotes.map((n, i) => (
                       <span
                         key={i}
-                        className={`font-label text-xs px-2.5 py-1 rounded-lg border transition-all flex-shrink-0 ${
+                        className={`font-mono text-xs px-2.5 py-1 rounded-lg border transition-all flex-shrink-0 ${
                           n.valid
-                            ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-400'
+                            ? 'bg-secondary/15 border-secondary/30 text-secondary'
                             : 'bg-red-500/15 border-red-400/30 text-red-400'
                         }`}
                       >
@@ -2426,7 +2428,7 @@ function StudioContent() {
                         const key = SWARA_KEY_LABELS[n]
                         return (
                           <div key={i} className={`flex flex-col items-center gap-0.5 transition-all ${isActive ? 'opacity-100' : 'opacity-30'}`}>
-                            <span className={`font-label text-[11px] font-semibold ${isActive ? 'text-primary' : 'text-on-surface'}`}>
+                            <span className={`font-mono text-[11px] font-semibold ${isActive ? 'text-primary' : 'text-on-surface'}`}>
                               {swaraDisplayName(n)}
                             </span>
                             {key && (
@@ -2473,7 +2475,7 @@ function StudioContent() {
                         const key = SWARA_KEY_LABELS[n]
                         return (
                           <div key={i} className={`flex flex-col items-center gap-0.5 transition-all ${isActive ? 'opacity-100' : 'opacity-30'}`}>
-                            <span className={`font-label text-[11px] font-semibold ${isActive ? 'text-secondary' : 'text-on-surface'}`}>
+                            <span className={`font-mono text-[11px] font-semibold ${isActive ? 'text-secondary' : 'text-on-surface'}`}>
                               {swaraDisplayName(n)}
                             </span>
                             {key && (
@@ -2519,13 +2521,13 @@ function StudioContent() {
                 <div className="flex-1 space-y-5">
                   <div>
                     <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold block mb-1">Aroha</span>
-                    <p className="font-label text-base text-on-surface/80 tracking-wide">
+                    <p className="font-mono text-base text-on-surface/80 tracking-wide">
                       {(selectedRaga.aroha as string[]).map(swaraDisplayName).join(' – ')}
                     </p>
                   </div>
                   <div>
                     <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40 font-bold block mb-1">Avaroha</span>
-                    <p className="font-label text-base text-on-surface/80 tracking-wide">
+                    <p className="font-mono text-base text-on-surface/80 tracking-wide">
                       {(selectedRaga.avaroha as string[]).map(swaraDisplayName).join(' – ')}
                     </p>
                   </div>
@@ -2533,12 +2535,12 @@ function StudioContent() {
                     <div className="flex gap-6">
                       <div>
                         <span className="font-mono text-[8px] uppercase tracking-widest text-amber-400/70 font-bold block mb-1">Vadi</span>
-                        <span className="font-label text-lg font-bold text-amber-400">{selectedRaga.vadi}</span>
+                        <span className="font-mono text-lg font-bold text-amber-400">{selectedRaga.vadi}</span>
                       </div>
                       {selectedRaga.samvadi && (
                         <div>
-                          <span className="font-mono text-[8px] uppercase tracking-widest text-blue-400/70 font-bold block mb-1">Samvadi</span>
-                          <span className="font-label text-lg font-bold text-blue-400">{selectedRaga.samvadi}</span>
+                          <span className="font-mono text-[8px] uppercase tracking-widest text-secondary/70 font-bold block mb-1">Samvadi</span>
+                          <span className="font-mono text-lg font-bold text-secondary">{selectedRaga.samvadi}</span>
                         </div>
                       )}
                     </div>
@@ -2595,7 +2597,7 @@ function StudioContent() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {phrase.sequence.map((s: string, j: number) => (
-                        <span key={j} className="font-label text-sm text-on-surface/80">
+                        <span key={j} className="font-mono text-sm text-on-surface/80">
                           {s}{j < phrase.sequence.length - 1 ? ' - ' : ''}
                         </span>
                       ))}
