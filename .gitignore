@@ -6,9 +6,12 @@
 # Dependencies
 node_modules/
 
-# Python cache
+# Python
+venv/
+.venv/
 __pycache__/
 *.pyc
+*.pyo
 
 # Next.js build output
 .next/
