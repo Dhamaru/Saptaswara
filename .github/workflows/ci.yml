@@ -60,9 +60,6 @@ jobs:
   audit:
     name: Dependency Audit
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
 
@@ -73,9 +70,10 @@ jobs:
           cache-dependency-path: '**/package-lock.json'
 
       - name: Audit dependencies
+        # Run from root so npm uses the workspace-root package-lock.json directly.
         # --audit-level=critical: Next.js 16.x has unpatched high CVEs (no fix in 16.x line yet)
         # Revisit when next@>=16.3.0 stable is released with patches
-        run: npm audit --audit-level=critical --production
+        run: npm audit --audit-level=critical --omit=dev
 
   # ── Unit tests ──────────────────────────────────────────────────────────────
   test:
