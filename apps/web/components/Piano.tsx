@@ -393,24 +393,24 @@ export default function Piano({
 
   // ── Piano / Harmonium layout ──────────────────────────────────────────────────
   return (
-    <div className="w-full bg-black/60 rounded-[28px] md:rounded-[48px] border border-white/10 p-4 md:p-8 lg:p-12 flex flex-col items-center justify-start gap-6 md:gap-10 overflow-hidden shadow-[0_0_100px_rgba(var(--primary-rgb),0.05)] backdrop-blur-3xl">
+    <div className="w-full bg-surface-lowest/80 rounded-[28px] md:rounded-[48px] border border-outline-variant/10 p-4 md:p-8 lg:p-12 flex flex-col items-center justify-start gap-6 md:gap-10 overflow-hidden shadow-[0_0_100px_rgba(var(--primary-rgb),0.05)] backdrop-blur-3xl">
 
       {/* ── DAW HUD ── */}
-      <div className="flex flex-wrap justify-center items-center gap-3 md:gap-6 px-4 md:px-10 py-2.5 md:py-3 rounded-full bg-white/5 border border-white/10 backdrop-blur-2xl shadow-xl z-50">
+      <div className="flex flex-wrap justify-center items-center gap-3 md:gap-6 px-4 md:px-10 py-2.5 md:py-3 rounded-full bg-surface-container-high/40 border border-outline-variant/10 backdrop-blur-2xl shadow-xl z-50">
         <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${normalizedActiveNotes.length > 0 ? 'bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.8)] animate-pulse' : 'bg-white/10'}`} />
-          <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/40 font-bold">
+          <div className={`w-2 h-2 rounded-full ${normalizedActiveNotes.length > 0 ? 'bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.8)] animate-pulse' : 'bg-outline-variant/20'}`} />
+          <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-on-surface-variant/40 font-bold">
             {layout} Engine
           </span>
         </div>
 
-        <div className="w-px h-4 bg-white/10" />
+        <div className="w-px h-4 bg-outline-variant/15" />
 
         {/* Instrument selector */}
         <div ref={dropdownRef} className="relative">
           <button
             onClick={() => setIsDropdownOpen(o => !o)}
-            className="flex items-center gap-2 bg-white/5 border border-white/10 text-white/60 font-mono text-[9px] uppercase tracking-widest rounded-full px-4 py-1.5 outline-none hover:border-primary/40 transition-all cursor-pointer"
+            className="flex items-center gap-2 bg-surface-container-high/20 border border-outline-variant/10 text-on-surface-variant/60 font-mono text-[9px] uppercase tracking-widest rounded-full px-4 py-1.5 outline-none hover:border-primary/40 transition-all cursor-pointer"
           >
             {INSTRUMENT_GROUPS.flatMap(g => g.instruments).find(i => i.value === activeInstrument)?.label ?? activeInstrument}
             <svg className="w-2.5 h-2.5 opacity-50" fill="none" viewBox="0 0 10 6">
@@ -419,10 +419,10 @@ export default function Piano({
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute top-full mt-1 right-0 z-50 min-w-[140px] bg-[#1a1a2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1">
+            <div className="absolute top-full mt-1 right-0 z-50 min-w-[140px] bg-surface-lowest border border-outline-variant/10 rounded-xl shadow-2xl overflow-hidden py-1">
               {INSTRUMENT_GROUPS.map(group => (
                 <div key={group.tradition}>
-                  <div className="px-3 py-1.5 font-mono text-[8px] uppercase tracking-widest text-white/25 border-b border-white/5">
+                  <div className="px-3 py-1.5 font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/25 border-b border-outline-variant/5">
                     {group.label.replace(/^— | —$/g, '')}
                   </div>
                   {group.instruments.map(inst => {
@@ -433,7 +433,7 @@ export default function Piano({
                         key={inst.value}
                         onClick={() => { handleInstrumentChange(val); setIsDropdownOpen(false) }}
                         className={`w-full text-left px-3 py-2 font-mono text-[9px] uppercase tracking-widest transition-colors ${
-                          isActive ? 'text-primary bg-primary/10' : 'text-white/60 hover:text-white hover:bg-white/5'
+                          isActive ? 'text-primary bg-primary/10' : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high/40'
                         }`}
                       >
                         {inst.label}
@@ -446,7 +446,7 @@ export default function Piano({
           )}
         </div>
 
-        <div className="w-px h-4 bg-white/10" />
+        <div className="w-px h-4 bg-outline-variant/15" />
 
         {/* Scale lock */}
         <button
@@ -455,7 +455,7 @@ export default function Piano({
           className={`flex items-center gap-2 font-mono text-[8px] uppercase tracking-[0.15em] px-5 py-2 rounded-full transition-all border ${
             isScaleLocked && normalizedActiveNotes.length > 0
               ? 'bg-primary/20 text-primary border-primary/30 shadow-glow'
-              : 'bg-white/5 text-white/30 border-white/10 hover:text-white/60'
+              : 'bg-surface-container-high/20 text-on-surface-variant/30 border-outline-variant/10 hover:text-on-surface-variant/60'
           }`}
         >
           {isScaleLocked && normalizedActiveNotes.length > 0 ? 'Scale Locked' : 'Omni Mode'}
@@ -683,11 +683,11 @@ export default function Piano({
       </div>
 
       {/* Footer metadata */}
-      <div className="flex gap-12 font-mono text-[8px] uppercase tracking-[0.2em] text-white/20">
+      <div className="flex gap-12 font-mono text-[8px] uppercase tracking-[0.2em] text-on-surface-variant/20">
         <span>2 Octave Spectrum</span>
-        <div className="w-px h-2.5 bg-white/10" />
+        <div className="w-px h-2.5 bg-outline-variant/15" />
         <span>Hold: Gamak · Drag: Meend · Edge: Kan</span>
-        <div className="w-px h-2.5 bg-white/10" />
+        <div className="w-px h-2.5 bg-outline-variant/15" />
         <span>Low Latency Engine</span>
       </div>
     </div>
