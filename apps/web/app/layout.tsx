@@ -1,6 +1,8 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import Script from 'next/script'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Manrope, DM_Sans, DM_Mono, Space_Grotesk } from 'next/font/google'
 import Navbar from '@/components/Navbar'
 import AuthListener from '@/components/AuthListener'
@@ -82,6 +84,8 @@ export default function RootLayout({
             {children}
           </main>
           <GlobalAssistant />
+          <Analytics />
+          <SpeedInsights />
           </ToastProvider>
           </GlobalAssistantProvider>
         </PlaybackProvider>
