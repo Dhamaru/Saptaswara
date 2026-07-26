@@ -26,9 +26,13 @@ export function ImmersiveHUD({ bpm, loopLength, beatFlash, onToggleTranscriber, 
     resetHideTimer()
     window.addEventListener('mousemove', resetHideTimer)
     window.addEventListener('keydown', resetHideTimer)
+    window.addEventListener('touchstart', resetHideTimer)
+    window.addEventListener('touchmove', resetHideTimer)
     return () => {
       window.removeEventListener('mousemove', resetHideTimer)
       window.removeEventListener('keydown', resetHideTimer)
+      window.removeEventListener('touchstart', resetHideTimer)
+      window.removeEventListener('touchmove', resetHideTimer)
       if (hideTimer.current) clearTimeout(hideTimer.current)
     }
   }, [resetHideTimer])

@@ -89,9 +89,9 @@ export default function TransportBar({
   }
 
   return (
-    <div className="mx-8 mb-8 flex flex-col gap-2">
+    <div className="mx-4 md:mx-8 mb-4 md:mb-8 flex flex-col gap-2">
     {/* Tala visualizer strip */}
-    <div className="flex items-center gap-1.5 px-4">
+    <div className="flex items-center gap-1.5 px-4 overflow-x-auto">
       {matraTypes.map((type, i) => (
         <div
           key={i}
@@ -107,7 +107,7 @@ export default function TransportBar({
         />
       ))}
     </div>
-    <div className="h-20 glass-panel rounded-[32px] border border-white/5 flex items-center justify-between px-6 shadow-2xl bg-black/40 backdrop-blur-xl">
+    <div className="h-auto md:h-20 glass-panel rounded-[32px] border border-white/5 flex flex-col md:flex-row items-center justify-between px-4 md:px-6 py-3 md:py-0 gap-3 md:gap-0 shadow-2xl bg-black/40 backdrop-blur-xl">
       
       {/* ── Section: Metronome + Tempo ── */}
       <div className="flex items-center bg-white/5 rounded-2xl p-1 gap-1 border border-white/5">
@@ -174,7 +174,7 @@ export default function TransportBar({
       </div>
 
       {/* ── Section: Mastering + Volume ── */}
-      <div className="flex items-center gap-6">
+      <div className="hidden md:flex items-center gap-6">
         
 
         {/* Meter + Volume */}

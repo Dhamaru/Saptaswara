@@ -101,7 +101,6 @@ export default function Piano({
   const [heldNotes, setHeldNotes]       = useState<Set<string>>(new Set())
   const [isScaleLocked, setIsScaleLocked] = useState(true)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [droneOn, setDroneOn]           = useState(false)
 
   // ── KR gesture refs ──────────────────────────────────────────────────────────
   const isDraggingRef    = useRef(false)
@@ -462,25 +461,6 @@ export default function Piano({
           {isScaleLocked && normalizedActiveNotes.length > 0 ? 'Scale Locked' : 'Omni Mode'}
         </button>
 
-        <div className="w-px h-4 bg-white/10" />
-
-        {/* KR-04: Drone toggle */}
-        <button
-          onClick={() => {
-            const next = !droneOn
-            setDroneOn(next)
-            audioEngine?.toggleDrone(next, 'Sa-Pa')
-          }}
-          title={droneOn ? 'Disable tanpura drone' : 'Enable tanpura drone (Sa-Pa)'}
-          className={`flex items-center gap-2 font-mono text-[8px] uppercase tracking-[0.15em] px-4 py-2 rounded-full transition-all border ${
-            droneOn
-              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 shadow-[0_0_10px_rgba(251,191,36,0.15)]'
-              : 'bg-white/5 text-white/30 border-white/10 hover:text-amber-300/60'
-          }`}
-        >
-          <span className="material-symbols-outlined !text-xs">music_note</span>
-          Drone
-        </button>
       </div>
 
       {/* ── Keyboard — scrollable on narrow screens ── */}

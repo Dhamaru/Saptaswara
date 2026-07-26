@@ -1791,14 +1791,14 @@ function StudioContent() {
                   {selectedRaga.name}
                 </span>
               </div>
-              <div className="flex items-center gap-6">
+              <div className="hidden sm:flex items-center gap-6 overflow-hidden min-w-0">
                 {selectedRaga.aroha && selectedRaga.aroha.length > 0 && (
-                  <span className="font-mono text-[9px] text-primary/50 tracking-widest">
+                  <span className="font-mono text-[9px] text-primary/50 tracking-widest truncate">
                     ↑ {selectedRaga.aroha.join(' · ')}
                   </span>
                 )}
                 {selectedRaga.avaroha && selectedRaga.avaroha.length > 0 && (
-                  <span className="font-mono text-[9px] text-secondary/40 tracking-widest">
+                  <span className="font-mono text-[9px] text-secondary/40 tracking-widest truncate">
                     ↓ {selectedRaga.avaroha.join(' · ')}
                   </span>
                 )}
@@ -1814,7 +1814,7 @@ function StudioContent() {
                   <span className="material-symbols-outlined !text-base">grid_on</span>
                 </div>
                 <div>
-                  <h3 className="font-display text-lg font-light text-on-surface tracking-tight uppercase">Step Sequencer</h3>
+                  <h3 className="font-display text-2xl font-light text-on-surface tracking-tight uppercase">Step Sequencer</h3>
                   <p className="font-mono text-[7px] uppercase tracking-widest text-on-surface-variant/30 font-bold">
                     Select step → press key to record · Shift+click filled step to cycle velocity
                   </p>
@@ -2395,7 +2395,7 @@ function StudioContent() {
                 {/* Desktop: full keyboard flanked by aroha/avaroha panels when raga selected */}
                 <div className={
                   selectedRaga?.aroha
-                    ? (isImmersive ? 'flex items-center gap-3' : 'hidden md:flex md:items-center md:gap-4')
+                    ? (isImmersive ? 'hidden md:flex items-center gap-3' : 'hidden md:flex md:items-center md:gap-4')
                     : 'hidden md:block'
                 }>
 
@@ -2550,7 +2550,7 @@ function StudioContent() {
                   <span className="material-symbols-outlined">menu_book</span>
                 </div>
                 <div>
-                  <h3 className="font-display text-2xl font-light text-on-surface tracking-tight uppercase">Melodic Guide</h3>
+                  <h3 className="font-display text-xl font-light text-on-surface tracking-tight uppercase">Melodic Guide</h3>
                   <p className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 font-bold">Characteristic Phrases (Pakads)</p>
                 </div>
               </div>
