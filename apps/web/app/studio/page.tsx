@@ -484,23 +484,41 @@ function StudioContent() {
               const firstSeq = (layers as any[]).find(
                 l => Array.isArray(l.events?.sequence) && l.events.sequence.length > 0
               )?.events?.sequence
-              if (firstSeq) {
-                const len = firstSeq.length
-                if (len === 8 || len === 16 || len === 32) setLoopLength(len as 8 | 16 | 32)
-              }
-              // Restore each track from its matching layer (old projects only have melody — others stay at default)
-              setTracks(prev => prev.map(t => {
-                const layer = (layers as any[]).find(l => l.type === t.type)
-                if (!layer?.events) return t
-                return {
-                  ...t,
-                  name: layer.name || t.name,
-                  sequence: Array.isArray(layer.events.sequence) ? layer.events.sequence : t.sequence,
-                  muted: layer.events.muted ?? t.muted,
-                  volume: typeof layer.events.volume === 'number' ? layer.events.volume : t.volume,
-                  colorIdx: typeof layer.events.colorIdx === 'number' ? layer.events.colorIdx : t.colorIdx,
+              const restoreLen: 8 | 16 | 32 =
+                firstSeq?.length === 8 || firstSeq?.length === 16 || firstSeq?.length === 32
+                  ? firstSeq.length : 16
+              if (firstSeq) setLoopLength(restoreLen)
+
+              // Restore tracks: update existing (melody/rhythm) + add any extra layers (vocal/bass/pad/etc.)
+              const dbByType = new Map(
+                (layers as any[]).filter(l => l.type).map(l => [l.type, l])
+              )
+              setTracks(prev => {
+                const existingTypes = new Set(prev.map(t => t.type))
+                const updated = prev.map(t => {
+                  const l = dbByType.get(t.type)
+                  if (!l?.events) return t
+                  return {
+                    ...t,
+                    name: l.name || t.name,
+                    sequence: Array.isArray(l.events.sequence) ? l.events.sequence : t.sequence,
+                    muted: l.events.muted ?? t.muted,
+                    volume: typeof l.events.volume === 'number' ? l.events.volume : t.volume,
+                    colorIdx: typeof l.events.colorIdx === 'number' ? l.events.colorIdx : t.colorIdx,
+                  }
+                })
+                for (const [type, l] of dbByType) {
+                  if (existingTypes.has(type)) continue
+                  updated.push(makeTrack(type as TrackType, restoreLen, {
+                    name: l.name || type,
+                    sequence: Array.isArray(l.events?.sequence) ? l.events.sequence : new Array(restoreLen).fill(null),
+                    muted: l.events?.muted ?? false,
+                    volume: typeof l.events?.volume === 'number' ? l.events.volume : 0,
+                    colorIdx: typeof l.events?.colorIdx === 'number' ? l.events.colorIdx : 0,
+                  }))
                 }
-              }))
+                return updated
+              })
             }
             // Mark as saved so beforeunload guard doesn't fire on fresh load
             setSaveStatus('saved')

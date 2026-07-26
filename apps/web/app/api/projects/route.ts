@@ -92,10 +92,14 @@ export async function POST(req: Request) {
     // Helper: upsert track layers for a project by type (update if exists, insert otherwise).
     // Non-fatal per track — a single track failure doesn't abort the whole save.
     const upsertTracks = async (pid: string, trackList: any[]) => {
-      const { data: existing } = await supabase
+      const { data: existing, error: existingErr } = await supabase
         .from('layers')
         .select('id, type')
         .eq('project_id', pid)
+      if (existingErr) {
+        console.error('layers SELECT error:', existingErr)
+        return
+      }
       const byType = new Map<string, string>((existing || []).map((l: any) => [l.type, l.id]))
 
       for (const t of trackList) {

@@ -107,8 +107,8 @@ export function ImmersiveHUD({ bpm, loopLength, beatFlash, onToggleTranscriber, 
       {/* Exit immersive */}
       <button
         onClick={exit}
-        title="Exit immersive [F or Esc]"
-        className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant/40 hover:text-on-surface hover:bg-white/5 transition-all"
+        title="Exit immersive [Esc]"
+        className="w-11 h-11 rounded-full flex items-center justify-center text-on-surface-variant/40 hover:text-on-surface hover:bg-white/5 transition-all"
       >
         <span className="material-symbols-outlined !text-lg leading-none">fullscreen_exit</span>
       </button>
