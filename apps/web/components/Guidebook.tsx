@@ -627,7 +627,7 @@ function SectionTools({ onOpenEarTraining, onOpenLearnGuide, onClose }: {
         {tools.map(t => (
           <div key={t.title} className={`rounded-2xl border p-5 ${t.bg} transition-all`}>
             <div className="flex items-start gap-4">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${t.bg}`}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-surface-container-high/60">
                 <span className={`material-symbols-outlined !text-xl ${t.color}`}>{t.icon}</span>
               </div>
               <div className="flex-1 min-w-0">

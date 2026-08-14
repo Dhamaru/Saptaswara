@@ -12,6 +12,7 @@ export interface SessionStats {
   wrongVariety: number
   varjya: number
   vadiHits: number
+  noteCounts: Record<string, number>
 }
 
 interface SwaraTranscriberProps {
@@ -52,7 +53,7 @@ export function SwaraTranscriber({ aroha, avaroha, vadi, samvadi, onInsert, onSe
   // BUG-024: guard against double-start (StrictMode double-invoke / rapid clicks)
   const startingRef  = useRef(false)
 
-  const sessionStatsRef = useRef<SessionStats>({ total: 0, correct: 0, wrongVariety: 0, varjya: 0, vadiHits: 0 })
+  const sessionStatsRef = useRef<SessionStats>({ total: 0, correct: 0, wrongVariety: 0, varjya: 0, vadiHits: 0, noteCounts: {} })
 
   const stopListening = useCallback(() => {
     listenerRef.current?.stop()
@@ -65,7 +66,7 @@ export function SwaraTranscriber({ aroha, avaroha, vadi, samvadi, onInsert, onSe
     if (onSessionEnd && sessionStatsRef.current.total > 0) {
       onSessionEnd({ ...sessionStatsRef.current })
     }
-    sessionStatsRef.current = { total: 0, correct: 0, wrongVariety: 0, varjya: 0, vadiHits: 0 }
+    sessionStatsRef.current = { total: 0, correct: 0, wrongVariety: 0, varjya: 0, vadiHits: 0, noteCounts: {} }
   }, [onSessionEnd])
 
   const startListening = useCallback(async () => {
@@ -107,6 +108,7 @@ export function SwaraTranscriber({ aroha, avaroha, vadi, samvadi, onInsert, onSe
             setHistory(h => [{ result: swara, varjya, ts: Date.now() }, ...h].slice(0, 8))
             // accumulate session stats
             sessionStatsRef.current.total++
+            sessionStatsRef.current.noteCounts[swara.note] = (sessionStatsRef.current.noteCounts[swara.note] ?? 0) + 1
             if (fb?.kind === 'vadi') { sessionStatsRef.current.correct++; sessionStatsRef.current.vadiHits++ }
             else if (fb?.kind === 'samvadi' || fb?.kind === 'correct') sessionStatsRef.current.correct++
             else if (fb?.kind === 'wrong-variety') sessionStatsRef.current.wrongVariety++

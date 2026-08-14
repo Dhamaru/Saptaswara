@@ -1043,8 +1043,8 @@ export default function RiyazPage() {
                   <div className="rounded-2xl bg-surface-container-low/40 border border-outline-variant/15 p-5 space-y-4 animate-fade-in">
                     {/* Primary metric */}
                     <div className="flex items-center gap-4">
-                      <div className={`w-16 h-16 rounded-2xl border flex items-center justify-center flex-shrink-0 ${scoreBg}`}>
-                        <span className={`font-display text-2xl font-light ${scoreColor}`}>{score}%</span>
+                      <div className={`w-20 h-20 rounded-2xl border flex items-center justify-center flex-shrink-0 ${scoreBg}`}>
+                        <span className={`font-display text-3xl font-light ${scoreColor}`}>{score}%</span>
                       </div>
                       <div>
                         <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 mb-0.5">Raga Conformance</div>
@@ -1076,6 +1076,35 @@ export default function RiyazPage() {
                         <div className="font-mono text-[7px] uppercase tracking-widest text-error/50 mt-0.5">Varjya</div>
                       </div>
                     </div>
+
+                    {/* Swara coverage */}
+                    {(() => {
+                      const ragaSet = new Set([...(selectedRaga.aroha as string[] ?? []), ...(selectedRaga.avaroha as string[] ?? [])])
+                      const hit = [...ragaSet].filter(s => sessionStats.noteCounts[s])
+                      const missed = [...ragaSet].filter(s => !sessionStats.noteCounts[s])
+                      if (!ragaSet.size) return null
+                      return (
+                        <div className="space-y-1.5">
+                          <div className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30">Swara Coverage</div>
+                          <div className="flex flex-wrap gap-1">
+                            {[...ragaSet].map(s => {
+                              const count = sessionStats.noteCounts[s] ?? 0
+                              return (
+                                <div key={s} title={count ? `${s}: ${count}×` : `${s}: not played`}
+                                  className={`px-2 py-0.5 rounded-lg border font-mono text-[8px] font-bold transition-all ${count ? 'bg-secondary/10 border-secondary/20 text-secondary' : 'bg-outline-variant/5 border-outline-variant/10 text-on-surface-variant/25'}`}>
+                                  {s}{count > 0 && <span className="ml-0.5 opacity-50 font-normal">{count}</span>}
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {missed.length > 0 && (
+                            <div className="font-mono text-[7px] text-on-surface-variant/30">
+                              {missed.length} swara{missed.length > 1 ? 's' : ''} not played: {missed.join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
 
                     {/* Journal save */}
                     {!journalSaved ? (
