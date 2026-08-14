@@ -78,7 +78,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Route Protection Logic
-  const protectedRoutes = ['/studio', '/dashboard', '/journal', '/workspace', '/projects', '/import', '/profile']
+  const protectedRoutes = ['/studio', '/dashboard', '/journal', '/workspace', '/projects', '/import', '/profile', '/riyaz']
   const pathname = request.nextUrl.pathname
   const isProtected = protectedRoutes.some(route => pathname.startsWith(route))
 

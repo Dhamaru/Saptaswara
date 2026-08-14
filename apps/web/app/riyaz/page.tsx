@@ -273,11 +273,12 @@ export default function RiyazPage() {
     const score = Math.round((sessionStats.correct / sessionStats.total) * 100)
     const notes = `90s riyaz · ${selectedRaga.name} · Conformance: ${score}% (${sessionStats.correct}/${sessionStats.total} correct). Vadi hits: ${sessionStats.vadiHits}.${sessionStats.varjya > 0 ? ` Varjya: ${sessionStats.varjya}.` : ''}`
     try {
-      await fetch('/api/journal', {
+      const res = await fetch('/api/journal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ raga: selectedRaga.name, notes, intensity: journalIntensity }),
       })
+      if (!res.ok) throw new Error(String(res.status))
       setJournalSaved(true)
     } catch {}
     setJournalSaving(false)
@@ -862,9 +863,9 @@ export default function RiyazPage() {
                   <span className="material-symbols-outlined !text-base text-primary/50 mt-0.5 shrink-0">auto_awesome</span>
                   {feedbackLoading ? (
                     <div className="flex items-center gap-2">
-                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-pulse" style={{ animationDelay: '0ms' }} />
+                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-pulse" style={{ animationDelay: '150ms' }} />
+                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-pulse" style={{ animationDelay: '300ms' }} />
                     </div>
                   ) : (
                     <p className="font-sans text-sm text-on-surface-variant/80 font-light leading-relaxed">{swaraFeedback}</p>
@@ -1019,6 +1020,16 @@ export default function RiyazPage() {
               )}
 
               {/* ── Results + Journal Save ── */}
+              {riyazPhase === 'results' && (!sessionStats || sessionStats.total === 0) && (
+                <div className="rounded-2xl bg-surface-container-low/40 border border-outline-variant/15 p-5 text-center space-y-3 animate-fade-in">
+                  <span className="material-symbols-outlined !text-3xl text-on-surface-variant/30">mic_off</span>
+                  <div className="font-sans text-sm text-on-surface-variant/50">No notes detected — try again closer to the mic.</div>
+                  <button onClick={() => { setRiyazPhase('idle'); setSessionStats(null); setSecondsLeft(90) }}
+                    className="px-4 py-2 rounded-xl border border-outline-variant/15 font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/50 hover:text-on-surface transition-all">
+                    New session
+                  </button>
+                </div>
+              )}
               {riyazPhase === 'results' && sessionStats && sessionStats.total > 0 && (() => {
                 const score = Math.round((sessionStats.correct / sessionStats.total) * 100)
                 const scoreColor = score >= 80 ? 'text-secondary' : score >= 60 ? 'text-amber-400' : 'text-primary'
@@ -1056,9 +1067,9 @@ export default function RiyazPage() {
                         <div className="font-display text-xl text-amber-400">{sessionStats.vadiHits}</div>
                         <div className="font-mono text-[7px] uppercase tracking-widest text-amber-400/50 mt-0.5">Vadi hits</div>
                       </div>
-                      <div className="rounded-xl bg-orange-500/8 border border-orange-400/15 p-2.5 text-center">
-                        <div className="font-display text-xl text-orange-400">{sessionStats.wrongVariety}</div>
-                        <div className="font-mono text-[7px] uppercase tracking-widest text-orange-400/50 mt-0.5">Wrong var.</div>
+                      <div className="rounded-xl bg-tertiary/8 border border-tertiary/15 p-2.5 text-center">
+                        <div className="font-display text-xl text-tertiary">{sessionStats.wrongVariety}</div>
+                        <div className="font-mono text-[7px] uppercase tracking-widest text-tertiary/50 mt-0.5">Wrong var.</div>
                       </div>
                       <div className="rounded-xl bg-error/8 border border-error/15 p-2.5 text-center">
                         <div className="font-display text-xl text-error">{sessionStats.varjya}</div>

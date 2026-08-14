@@ -509,6 +509,7 @@ function StudioContent() {
                 })
                 for (const [type, l] of dbByType) {
                   if (existingTypes.has(type)) continue
+                  if (!(type in TRACK_META)) continue
                   updated.push(makeTrack(type as TrackType, restoreLen, {
                     name: l.name || type,
                     sequence: Array.isArray(l.events?.sequence) ? l.events.sequence : new Array(restoreLen).fill(null),
