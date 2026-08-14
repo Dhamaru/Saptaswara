@@ -127,7 +127,7 @@ export function ConformanceScore({ isRecording, aroha, avaroha, ragaName }: Conf
       <div className="flex flex-wrap gap-1.5">
         {topNotes.map(([note, count]) => (
           <div key={note} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/8 border border-primary/15">
-            <span className="font-label text-xs text-on-surface font-medium">{note}</span>
+            <span className="font-mono text-xs text-on-surface font-medium">{note}</span>
             <span className="font-mono text-[8px] text-primary/50">{count}</span>
           </div>
         ))}

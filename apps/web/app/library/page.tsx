@@ -50,7 +50,7 @@ function SwaraPill({ swara }: { swara: string }) {
   return (
     <span
       title={full}
-      className={`inline-flex items-center gap-1 font-label text-sm px-3 py-1.5 rounded-xl border transition-all ${cls}`}
+      className={`inline-flex items-center gap-1 font-mono text-sm px-3 py-1.5 rounded-xl border transition-all ${cls}`}
     >
       {display}
       {accent && (
@@ -917,14 +917,14 @@ export default function LibraryPage() {
                       selectedRaga.raga_phrases.map((phrase: any, i: number) => (
                         <div key={i} className="p-4 rounded-2xl bg-surface-container-low/20 border border-outline-variant/10 hover:border-primary/20 transition-all">
                           <div className="font-mono text-[8px] uppercase tracking-widest text-primary/60 mb-1.5 font-bold">{phrase.label}</div>
-                          <p className="font-label text-base text-on-surface font-medium tracking-wide">
+                          <p className="font-mono text-base text-on-surface font-medium tracking-wide">
                             {phrase.sequence?.map(swaraDisplayName).join(' — ')}
                           </p>
                         </div>
                       ))
                     ) : (
                       <div className="p-4 rounded-2xl bg-surface-container-low/10 border border-dashed border-outline-variant/10">
-                        <p className="font-label text-base text-on-surface/50 font-medium leading-relaxed tracking-wide italic">
+                        <p className="font-mono text-base text-on-surface/50 font-medium leading-relaxed tracking-wide italic">
                           {selectedRaga.aroha?.slice(0, 4).map(swaraDisplayName).join(' — ')}
                           {selectedRaga.avaroha ? ` … ${selectedRaga.avaroha.slice(-3).map(swaraDisplayName).join(' — ')}` : ''}
                         </p>
@@ -1048,7 +1048,7 @@ export default function LibraryPage() {
                                 {raga.aroha?.map((s: string, i: number) => {
                                   const inOther = (ri === 0 ? compareRaga : selectedRaga)?.aroha?.includes(s)
                                   return (
-                                    <span key={i} className={`font-label text-xs px-2 py-0.5 rounded-lg border ${
+                                    <span key={i} className={`font-mono text-xs px-2 py-0.5 rounded-lg border ${
                                       inOther
                                         ? 'bg-emerald-500/10 border-emerald-400/20 text-emerald-400'
                                         : 'bg-surface-container-high/40 border-outline-variant/10 text-on-surface/60'
@@ -1074,7 +1074,7 @@ export default function LibraryPage() {
                               </p>
                               <div className="flex flex-wrap gap-1">
                                 {shared.map((s: string, i: number) => (
-                                  <span key={i} className="font-label text-xs px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-400/20 text-emerald-400">
+                                  <span key={i} className="font-mono text-xs px-2 py-0.5 rounded-lg bg-secondary/10 border border-secondary/20 text-secondary">
                                     {swaraDisplayName(s)}
                                   </span>
                                 ))}

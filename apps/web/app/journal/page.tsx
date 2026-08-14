@@ -419,7 +419,7 @@ export default function JournalPage() {
                          <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-3">Scale Geometry</span>
                          <div className="flex flex-wrap gap-2">
                             {recommendation.aroha?.slice(0, 5).map((s: string, i: number) => (
-                              <span key={i} className="font-label text-sm text-on-surface border border-outline-variant/10 px-3 py-1.5 rounded-lg bg-surface-lowest/50">
+                              <span key={i} className="font-mono text-sm text-on-surface border border-outline-variant/10 px-3 py-1.5 rounded-lg bg-surface-lowest/50">
                                  {s}
                               </span>
                             ))}

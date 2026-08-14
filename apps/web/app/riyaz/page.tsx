@@ -78,7 +78,7 @@ function SwaraCard({ swara, isActive, isVadi, isSamvadi, isVarjya, onClick }: Sw
           ? 'opacity-30 cursor-not-allowed border-outline-variant/10 bg-surface-container-low/20'
           : isActive
             ? 'scale-105 border-primary/60 bg-primary/20 shadow-[0_0_32px_rgba(var(--primary)/0.35)] cursor-pointer'
-            : 'border-white/10 bg-white/5 backdrop-blur-md hover:border-primary/30 hover:bg-primary/10 hover:scale-[1.03] cursor-pointer active:scale-95',
+            : 'border-outline-variant/10 bg-surface-container-high/30 backdrop-blur-md hover:border-primary/30 hover:bg-primary/10 hover:scale-[1.03] cursor-pointer active:scale-95',
       ].join(' ')}
       aria-label={`Play ${name}${varjya ? ' (varjya — avoid)' : ''}`}
       title={varjya ? `${name} — varjya (avoid in this raga)` : `Play ${name}`}
@@ -133,7 +133,7 @@ function GrammarPanel({ raga }: { raga: Raga }) {
   const timeIcon = timeEmoji[raga.time_of_day] ?? '🕐'
 
   return (
-    <div className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-5 space-y-4">
+    <div className="rounded-2xl bg-surface-container-high/30 backdrop-blur-md border border-outline-variant/10 p-5 space-y-4">
       <h3 className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/50 mb-3">
         Grammar
       </h3>
@@ -155,27 +155,27 @@ function GrammarPanel({ raga }: { raga: Raga }) {
       </div>
 
       {/* Time of day */}
-      <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex items-center gap-3">
+      <div className="rounded-xl bg-surface-container-high/30 border border-outline-variant/10 p-3 flex items-center gap-3">
         <span className="text-xl">{timeIcon}</span>
         <div>
           <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">Time</div>
-          <div className="font-label text-sm text-on-surface">{raga.time_of_day || '—'}</div>
+          <div className="font-mono text-sm text-on-surface">{raga.time_of_day || '—'}</div>
         </div>
       </div>
 
       {/* Mood */}
       {raga.mood && (
-        <div className="rounded-xl bg-white/5 border border-white/10 p-3">
+        <div className="rounded-xl bg-surface-container-high/30 border border-outline-variant/10 p-3">
           <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 mb-1">Mood</div>
-          <div className="font-label text-sm text-on-surface leading-snug">{raga.mood}</div>
+          <div className="font-mono text-sm text-on-surface leading-snug">{raga.mood}</div>
         </div>
       )}
 
       {/* Thaat */}
       {raga.thaat && (
-        <div className="rounded-xl bg-white/5 border border-white/10 p-3">
+        <div className="rounded-xl bg-surface-container-high/30 border border-outline-variant/10 p-3">
           <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 mb-1">Thaat</div>
-          <div className="font-label text-sm text-on-surface">{raga.thaat}</div>
+          <div className="font-mono text-sm text-on-surface">{raga.thaat}</div>
         </div>
       )}
     </div>
@@ -563,7 +563,7 @@ export default function RiyazPage() {
         {/* Top controls row */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
 
-          <div className="flex items-center rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-1.5 gap-1 shrink-0">
+          <div className="flex items-center rounded-2xl bg-surface-container-high/30 backdrop-blur-md border border-outline-variant/10 p-1.5 gap-1 shrink-0">
             {(['all', 'hindustani', 'carnatic'] as const).map(t => (
               <button
                 key={t}
@@ -586,17 +586,17 @@ export default function RiyazPage() {
               onClick={() => setDropdownOpen(v => !v)}
               className={[
                 'flex items-center gap-3 px-4 py-3 rounded-2xl border cursor-pointer transition-all',
-                'bg-white/5 backdrop-blur-md',
+                'bg-surface-container-high/30 backdrop-blur-md',
                 dropdownOpen
                   ? 'border-primary/40 bg-primary/5'
-                  : 'border-white/10 hover:border-white/20',
+                  : 'border-outline-variant/10 hover:border-outline-variant/20',
               ].join(' ')}
             >
               <span className="material-symbols-outlined !text-lg text-on-surface-variant/50">
                 music_note
               </span>
               <span className={[
-                'flex-1 font-label text-base',
+                'flex-1 font-mono text-base',
                 selectedRaga ? 'text-on-surface' : 'text-on-surface-variant/40',
               ].join(' ')}>
                 {selectedRaga ? selectedRaga.name : 'Select a raga…'}
@@ -611,16 +611,16 @@ export default function RiyazPage() {
 
             {/* Dropdown */}
             {dropdownOpen && (
-              <div className="absolute top-full mt-2 left-0 right-0 z-50 rounded-2xl border border-white/10 bg-surface-lowest/95 backdrop-blur-xl shadow-xl overflow-hidden">
+              <div className="absolute top-full mt-2 left-0 right-0 z-50 rounded-2xl border border-outline-variant/10 bg-surface-lowest/95 backdrop-blur-xl shadow-xl overflow-hidden">
                 {/* Search input */}
-                <div className="p-2 border-b border-white/5">
+                <div className="p-2 border-b border-outline-variant/5">
                   <input
                     autoFocus
                     type="text"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     placeholder="Search ragas…"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 font-label text-sm text-on-surface placeholder:text-on-surface-variant/30 outline-none focus:border-primary/30"
+                    className="w-full bg-surface-container-high/30 border border-outline-variant/10 rounded-xl px-3 py-2 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 outline-none focus:border-primary/30"
                   />
                 </div>
 
@@ -653,10 +653,10 @@ export default function RiyazPage() {
                         'w-full flex items-center gap-3 px-4 py-3 text-left transition-all',
                         selectedRaga?.id === raga.id
                           ? 'bg-primary/15 text-primary'
-                          : 'text-on-surface hover:bg-white/5',
+                          : 'text-on-surface hover:bg-surface-container-high/30',
                       ].join(' ')}
                     >
-                      <span className="font-label text-sm flex-1">{raga.name}</span>
+                      <span className="font-mono text-sm flex-1">{raga.name}</span>
                       {raga.thaat && (
                         <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/30">
                           {raga.thaat}
@@ -670,7 +670,7 @@ export default function RiyazPage() {
           </div>
 
           {/* Play mode toggle */}
-          <div className="flex items-center rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-1.5 gap-1 shrink-0">
+          <div className="flex items-center rounded-2xl bg-surface-container-high/30 backdrop-blur-md border border-outline-variant/10 p-1.5 gap-1 shrink-0">
             {(['aroha', 'avaroha', 'free'] as PlayMode[]).map(mode => (
               <button
                 key={mode}
@@ -697,7 +697,7 @@ export default function RiyazPage() {
                 'flex items-center gap-2 px-4 py-3 rounded-2xl border font-mono text-[10px] uppercase tracking-widest transition-all shrink-0',
                 autoAdvance
                   ? 'bg-primary/20 border-primary/40 text-primary'
-                  : 'bg-white/5 border-white/10 text-on-surface-variant/50 hover:border-white/20',
+                  : 'bg-surface-container-high/30 border-outline-variant/10 text-on-surface-variant/50 hover:border-outline-variant/20',
               ].join(' ')}
             >
               <span className="material-symbols-outlined !text-base leading-none">
@@ -714,7 +714,7 @@ export default function RiyazPage() {
               'flex items-center gap-2 px-4 py-3 rounded-2xl border font-mono text-[10px] uppercase tracking-widest transition-all shrink-0',
               ornamentMode
                 ? 'bg-violet-500/20 border-violet-400/40 text-violet-300'
-                : 'bg-white/5 border-white/10 text-on-surface-variant/50 hover:border-white/20',
+                : 'bg-surface-container-high/30 border-outline-variant/10 text-on-surface-variant/50 hover:border-outline-variant/20',
             ].join(' ')}
           >
             <span className="material-symbols-outlined !text-base leading-none">
@@ -730,7 +730,7 @@ export default function RiyazPage() {
               'flex items-center gap-2 px-4 py-3 rounded-2xl border font-mono text-[10px] uppercase tracking-widest transition-all shrink-0',
               showTranscriber
                 ? 'bg-rose-500/20 border-rose-400/40 text-rose-300'
-                : 'bg-white/5 border-white/10 text-on-surface-variant/50 hover:border-white/20',
+                : 'bg-surface-container-high/30 border-outline-variant/10 text-on-surface-variant/50 hover:border-outline-variant/20',
             ].join(' ')}
           >
             <span className="material-symbols-outlined !text-base leading-none">mic</span>
@@ -740,7 +740,7 @@ export default function RiyazPage() {
 
         {/* Meend speed + andolan sub-controls */}
         {ornamentMode && (
-          <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/5 border border-white/10">
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-surface-container-high/30 border border-outline-variant/10">
             <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 shrink-0">Speed</span>
             <input
               type="range"
@@ -758,7 +758,7 @@ export default function RiyazPage() {
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-mono text-[9px] uppercase tracking-widest transition-all shrink-0',
                 andolanMode
                   ? 'bg-amber-500/20 border-amber-400/40 text-amber-300'
-                  : 'bg-white/5 border-white/10 text-on-surface-variant/40 hover:border-white/20',
+                  : 'bg-surface-container-high/30 border-outline-variant/10 text-on-surface-variant/40 hover:border-outline-variant/20',
               ].join(' ')}
             >
               <span className="material-symbols-outlined !text-sm leading-none">waves</span>
@@ -771,7 +771,7 @@ export default function RiyazPage() {
         {!selectedRaga ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <div className="w-20 h-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center">
+            <div className="w-20 h-20 rounded-3xl bg-surface-container-high/30 border border-outline-variant/10 flex items-center justify-center">
               <span className="material-symbols-outlined !text-4xl text-on-surface-variant/20">
                 music_note
               </span>
@@ -800,7 +800,7 @@ export default function RiyazPage() {
               </div>
 
               {/* Swara scale strip (full aroha/avaroha reference) */}
-              <div className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 p-4">
+              <div className="rounded-2xl bg-surface-container-high/30 backdrop-blur-md border border-outline-variant/10 p-4">
                 <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 mb-3">
                   {playMode === 'avaroha' ? 'Avaroha' : 'Aroha'}
                 </div>
@@ -814,12 +814,12 @@ export default function RiyazPage() {
                         key={`strip-${i}`}
                         onClick={() => handleSwaraClick(i)}
                         className={[
-                          'flex items-center gap-1 px-3 py-1.5 rounded-xl font-label text-sm transition-all',
+                          'flex items-center gap-1 px-3 py-1.5 rounded-xl font-mono text-sm transition-all',
                           isVarjya(swara) && !isVadi(swara) && !isSamvadi(swara)
-                            ? 'opacity-25 cursor-not-allowed text-on-surface-variant/30 bg-white/3 border border-white/5'
+                            ? 'opacity-25 cursor-not-allowed text-on-surface-variant/30 bg-surface-container-high/20 border border-outline-variant/5'
                             : active
                               ? 'bg-primary/25 border border-primary/50 text-primary font-semibold'
-                              : 'bg-white/5 border border-white/10 text-on-surface hover:border-primary/30 hover:bg-primary/10 cursor-pointer',
+                              : 'bg-surface-container-high/30 border border-outline-variant/10 text-on-surface hover:border-primary/30 hover:bg-primary/10 cursor-pointer',
                         ].join(' ')}
                       >
                         {name}
@@ -881,7 +881,7 @@ export default function RiyazPage() {
                       handleSwaraClick(prev)
                     }}
                     disabled={activeIdx <= 0}
-                    className="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-on-surface-variant/50 hover:text-on-surface hover:border-white/20 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                    className="w-11 h-11 rounded-2xl bg-surface-container-high/30 border border-outline-variant/10 flex items-center justify-center text-on-surface-variant/50 hover:text-on-surface hover:border-outline-variant/20 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
                     title="Previous swara"
                   >
                     <span className="material-symbols-outlined !text-xl">skip_previous</span>
@@ -902,7 +902,7 @@ export default function RiyazPage() {
 
                   <button
                     onClick={() => { setActiveIdx(-1); if (autoTimer.current) clearTimeout(autoTimer.current) }}
-                    className="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-on-surface-variant/50 hover:text-on-surface hover:border-white/20 transition-all"
+                    className="w-11 h-11 rounded-2xl bg-surface-container-high/30 border border-outline-variant/10 flex items-center justify-center text-on-surface-variant/50 hover:text-on-surface hover:border-outline-variant/20 transition-all"
                     title="Reset"
                   >
                     <span className="material-symbols-outlined !text-xl">restart_alt</span>
@@ -920,7 +920,7 @@ export default function RiyazPage() {
                     'flex items-center gap-2 px-4 py-2.5 rounded-2xl border font-mono text-[10px] uppercase tracking-widest transition-all shrink-0 disabled:opacity-30',
                     isRecording
                       ? 'bg-red-500/20 border-red-400/40 text-red-300 animate-pulse'
-                      : 'bg-white/5 border-white/10 text-on-surface-variant/50 hover:border-white/20',
+                      : 'bg-surface-container-high/30 border-outline-variant/10 text-on-surface-variant/50 hover:border-outline-variant/20',
                   ].join(' ')}
                 >
                   <span className="material-symbols-outlined !text-base leading-none">
@@ -939,7 +939,7 @@ export default function RiyazPage() {
                         'flex items-center gap-2 px-4 py-2.5 rounded-2xl border font-mono text-[10px] uppercase tracking-widest transition-all shrink-0 disabled:opacity-50',
                         isPlayingBack
                           ? 'bg-primary/20 border-primary/40 text-primary'
-                          : 'bg-white/5 border-white/10 text-on-surface-variant/50 hover:border-primary/30 hover:text-primary/80',
+                          : 'bg-surface-container-high/30 border-outline-variant/10 text-on-surface-variant/50 hover:border-primary/30 hover:text-primary/80',
                       ].join(' ')}
                     >
                       <span className="material-symbols-outlined !text-base leading-none">
@@ -950,7 +950,7 @@ export default function RiyazPage() {
                     <button
                       onClick={() => setRecordedSeq([])}
                       title="Clear recording"
-                      className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/10 text-on-surface-variant/30 hover:text-red-400 hover:border-red-400/30 transition-all"
+                      className="w-9 h-9 rounded-xl flex items-center justify-center border border-outline-variant/10 text-on-surface-variant/30 hover:text-red-400 hover:border-red-400/30 transition-all"
                     >
                       <span className="material-symbols-outlined !text-base">delete</span>
                     </button>
@@ -1112,17 +1112,17 @@ export default function RiyazPage() {
               })()}
 
               {gamakaHistory.length > 0 && (
-                <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                <div className="rounded-2xl bg-surface-container-high/30 border border-outline-variant/10 p-4">
                   <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 mb-3">Recent</div>
                   <div className="flex flex-wrap gap-2">
                     {gamakaHistory.map((h, i) => (
                       <span
                         key={i}
                         className={[
-                          'flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-label text-xs',
+                          'flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono text-xs',
                           i === 0
                             ? 'border-primary/30 bg-primary/10 text-primary'
-                            : 'border-white/10 bg-white/5 text-on-surface-variant/50',
+                            : 'border-outline-variant/10 bg-surface-container-high/30 text-on-surface-variant/50',
                         ].join(' ')}
                       >
                         {h.swara}

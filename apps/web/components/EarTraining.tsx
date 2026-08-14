@@ -266,7 +266,7 @@ export function EarTraining({ raga, onClose }: EarTrainingProps) {
                     key={choice}
                     onClick={() => handleAnswer(choice)}
                     disabled={phase !== 'waiting'}
-                    className={`py-4 rounded-2xl border font-label text-lg font-bold transition-all active:scale-95 disabled:cursor-default flex items-center justify-center gap-2 ${cls}`}
+                    className={`py-4 rounded-2xl border font-mono text-lg font-bold transition-all active:scale-95 disabled:cursor-default flex items-center justify-center gap-2 ${cls}`}
                   >
                     {isAnswered && isCorrectAnswer && (
                       <span className="material-symbols-outlined !text-sm">check_circle</span>
