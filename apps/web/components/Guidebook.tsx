@@ -687,7 +687,7 @@ export function Guidebook({ open, onClose, onOpenEarTraining, onOpenLearnGuide }
       />
 
       {/* Panel */}
-      <div className="fixed right-0 top-16 md:top-20 bottom-0 z-[301] w-full max-w-2xl bg-[#0d0d18] border-l border-outline-variant/15 shadow-2xl flex flex-col animate-slide-in-right">
+      <div className="fixed right-0 top-16 md:top-20 bottom-0 z-[301] w-full max-w-2xl bg-surface-lowest border-l border-outline-variant/15 shadow-2xl flex flex-col animate-slide-in-right">
 
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-outline-variant/10 flex-shrink-0">
@@ -722,7 +722,7 @@ export function Guidebook({ open, onClose, onOpenEarTraining, onOpenLearnGuide }
                 className={`w-full flex items-center gap-2.5 px-5 py-2.5 text-left transition-all ${
                   active === s.id
                     ? 'text-primary bg-primary/8 border-r-2 border-primary'
-                    : 'text-on-surface-variant/50 hover:text-on-surface hover:bg-white/3'
+                    : 'text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-container-high/10'
                 }`}
               >
                 <span className={`material-symbols-outlined !text-sm ${active === s.id ? 'text-primary' : 'text-on-surface-variant/30'}`}>

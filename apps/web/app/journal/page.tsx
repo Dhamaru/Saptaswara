@@ -414,7 +414,7 @@ export default function JournalPage() {
                    </div>
 
                    {/* Raga DNA Panel */}
-                   <div className="hidden lg:flex flex-col gap-6 bg-surface-lowest/40 backdrop-blur-xl p-8 rounded-3xl border border-white/5 w-80 shadow-xl">
+                   <div className="hidden lg:flex flex-col gap-6 bg-surface-lowest/40 backdrop-blur-xl p-8 rounded-3xl border border-outline-variant/10 w-80 shadow-xl">
                       <div>
                          <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 block mb-3">Scale Geometry</span>
                          <div className="flex flex-wrap gap-2">
@@ -638,7 +638,7 @@ export default function JournalPage() {
                       </div>
                       <textarea required value={formNotes} onChange={e => setFormNotes(e.target.value)} rows={4} placeholder="Describe breath control, phrasing, or discoveries..." className="w-full bg-surface-lowest text-on-surface border border-outline-variant/10 rounded-xl px-4 py-3 text-sm focus:border-primary/50 focus:outline-none resize-none"></textarea>
                    </div>
-                   <button disabled={submitting} type="submit" className="w-full py-4 bg-primary text-white rounded-xl font-medium shadow-glow hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
+                   <button disabled={submitting} type="submit" className="w-full py-4 bg-primary text-on-primary rounded-xl font-medium shadow-glow hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
                       {submitting ? 'Authenticating & Saving...' : 'Save Log to Archive'}
                       {!submitting && <span className="material-symbols-outlined !text-lg">arrow_forward</span>}
                    </button>

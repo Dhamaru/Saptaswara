@@ -713,7 +713,7 @@ export default function RiyazPage() {
             className={[
               'flex items-center gap-2 px-4 py-3 rounded-2xl border font-mono text-[10px] uppercase tracking-widest transition-all shrink-0',
               ornamentMode
-                ? 'bg-violet-500/20 border-violet-400/40 text-violet-300'
+                ? 'bg-tertiary/20 border-tertiary/40 text-tertiary'
                 : 'bg-surface-container-high/30 border-outline-variant/10 text-on-surface-variant/50 hover:border-outline-variant/20',
             ].join(' ')}
           >

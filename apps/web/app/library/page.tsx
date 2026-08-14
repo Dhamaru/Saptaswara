@@ -62,10 +62,10 @@ function SwaraPill({ swara }: { swara: string }) {
 
 // ── Gamaka type badge ─────────────────────────────────────────────────────────
 const GAMAKA_COLORS: Record<GamakaType, string> = {
-  meend:     'bg-violet-500/15 border-violet-400/30 text-violet-600',
+  meend:     'bg-tertiary/15 border-tertiary/30 text-tertiary',
   andolan:   'bg-amber-500/15 border-amber-400/30 text-amber-700',
   gamak:     'bg-rose-500/15 border-rose-400/30 text-rose-600',
-  kan:       'bg-emerald-500/15 border-emerald-400/30 text-emerald-700',
+  kan:       'bg-secondary/15 border-secondary/30 text-secondary',
   murki:     'bg-sky-500/15 border-sky-400/30 text-sky-600',
   khatka:    'bg-orange-500/15 border-orange-400/30 text-orange-700',
   sparsh:    'bg-cyan-500/15 border-cyan-400/30 text-cyan-700',
@@ -1050,7 +1050,7 @@ export default function LibraryPage() {
                                   return (
                                     <span key={i} className={`font-mono text-xs px-2 py-0.5 rounded-lg border ${
                                       inOther
-                                        ? 'bg-emerald-500/10 border-emerald-400/20 text-emerald-400'
+                                        ? 'bg-secondary/10 border-secondary/20 text-secondary'
                                         : 'bg-surface-container-high/40 border-outline-variant/10 text-on-surface/60'
                                     }`}>
                                       {swaraDisplayName(s)}

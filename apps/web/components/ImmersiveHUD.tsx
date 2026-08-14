@@ -63,7 +63,7 @@ export function ImmersiveHUD({ bpm, loopLength, beatFlash, onToggleTranscriber, 
         className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
           isPlaying
             ? 'bg-primary text-on-primary shadow-glow scale-105'
-            : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-white/5'
+            : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high/20'
         }`}
       >
         <span className="material-symbols-outlined !text-lg leading-none">
@@ -96,7 +96,7 @@ export function ImmersiveHUD({ bpm, loopLength, beatFlash, onToggleTranscriber, 
         className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
           transcriberActive
             ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-            : 'text-on-surface-variant/40 hover:text-on-surface hover:bg-white/5'
+            : 'text-on-surface-variant/40 hover:text-on-surface hover:bg-surface-container-high/20'
         }`}
       >
         <span className="material-symbols-outlined !text-lg leading-none">mic</span>
@@ -108,7 +108,7 @@ export function ImmersiveHUD({ bpm, loopLength, beatFlash, onToggleTranscriber, 
       <button
         onClick={exit}
         title="Exit immersive [Esc]"
-        className="w-11 h-11 rounded-full flex items-center justify-center text-on-surface-variant/40 hover:text-on-surface hover:bg-white/5 transition-all"
+        className="w-11 h-11 rounded-full flex items-center justify-center text-on-surface-variant/40 hover:text-on-surface hover:bg-surface-container-high/20 transition-all"
       >
         <span className="material-symbols-outlined !text-lg leading-none">fullscreen_exit</span>
       </button>
