@@ -104,7 +104,7 @@ export function ConformanceScore({ isRecording, aroha, avaroha, ragaName }: Conf
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-display text-lg font-light border ${
-            score >= 80 ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-400'
+            score >= 80 ? 'bg-secondary/15 border-secondary/30 text-secondary'
             : score >= 60 ? 'bg-amber-500/15 border-amber-400/30 text-amber-400'
             : 'bg-primary/10 border-primary/20 text-primary'
           }`}>
