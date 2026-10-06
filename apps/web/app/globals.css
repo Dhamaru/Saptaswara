@@ -72,6 +72,14 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Studio uses a compact 90% canvas so the keyboard, sequencer and guide fit
+     together without asking users to change their browser zoom. */
+  .studio-density {
+    zoom: 0.9;
+    width: 111.111111%;
+    height: 111.111111%;
+  }
+
   ::selection {
     background-color: var(--primary);
     color: var(--on-primary);

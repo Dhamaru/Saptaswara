@@ -1223,7 +1223,7 @@ function StudioContent() {
   }
 
   return (
-    <div className={`flex overflow-hidden bg-background transition-all duration-300 ${isImmersive ? 'fixed inset-0 z-[100]' : 'h-[calc(100vh-64px)] md:h-[calc(100vh-80px)]'}`}>
+    <div className={`flex overflow-hidden bg-background transition-all duration-300 ${isImmersive ? 'fixed inset-0 z-[100]' : 'studio-density h-[calc(100vh-64px)] md:h-[calc(100vh-80px)]'}`}>
 
       {/* Save project modal */}
       {showSaveModal && (
