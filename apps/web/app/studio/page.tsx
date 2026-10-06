@@ -238,6 +238,7 @@ function StudioContent() {
   const [isStarted, setIsStarted] = useState(false)
   const [activeStep, setActiveStep] = useState(-1)
   const [recordingTime, setRecordingTime] = useState(0)
+  const [audioDeviceId, setAudioDeviceId] = useState('')
   const recordingStartedAtRef = useRef<number | null>(null)
 
   const [keyboardLayout, setKeyboardLayout] = useState<KeyboardLayout>('Piano')
@@ -884,7 +885,7 @@ function StudioContent() {
     }
     if (!isRecording) {
       try {
-        await audioEngine.startRecording(activeTrack.inputMode)
+        await audioEngine.startRecording(activeTrack.inputMode, audioDeviceId || undefined)
         recordingStartedAtRef.current = Date.now()
         setIsRecording(true)
       } catch (err) {
@@ -1881,6 +1882,8 @@ function StudioContent() {
               onSelectTrack={setActiveTrackId}
               onMoveTrack={moveTrack}
               onUpdateTrack={(id, patch) => updateTrack(id, patch as Partial<Track>)}
+              audioDeviceId={audioDeviceId}
+              onAudioDeviceChange={setAudioDeviceId}
             />
           )}
 

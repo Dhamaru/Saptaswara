@@ -860,7 +860,7 @@ export class AudioEngine {
   }
 
   // ── Recording ─────────────────────────────────────────────────────────────
-  async startRecording(mode: RecordingMode = 'mix') {
+  async startRecording(mode: RecordingMode = 'mix', deviceId?: string) {
     if (!this.isStarted || this.recorder.state === 'started') return
     try {
       if (!Tone.UserMedia.supported) {
@@ -877,7 +877,7 @@ export class AudioEngine {
         this.externalInput.connect(this.recorder)
         this.externalInput.connect(this.meter)
       }
-      await this.externalInput.open()
+      await this.externalInput.open(deviceId)
       await this.recorder.start()
     } catch (e) {
       console.error('Failed to start recording:', e)

@@ -1,5 +1,7 @@
 'use client'
 
+import { AudioInputSelector } from '@/components/AudioInputSelector'
+
 export type StudioTrackType = 'vocal' | 'melody' | 'rhythm'
 export type TrackInputMode = 'mix' | 'external'
 
@@ -24,6 +26,8 @@ interface TrackInsertPanelProps {
   onSelectTrack: (id: string) => void
   onMoveTrack: (id: string, direction: -1 | 1) => void
   onUpdateTrack: (id: string, patch: Partial<TrackSummary>) => void
+  audioDeviceId: string
+  onAudioDeviceChange: (deviceId: string) => void
 }
 
 const OPTIONS: Array<{ type: StudioTrackType; label: string; icon: string; description: string }> = [
@@ -32,7 +36,7 @@ const OPTIONS: Array<{ type: StudioTrackType; label: string; icon: string; descr
   { type: 'rhythm', label: 'Tabla', icon: 'music_note', description: 'Build or play a rhythm layer' },
 ]
 
-export function TrackInsertPanel({ tracks, activeTrackId, onAddTrack, onSelectTrack, onMoveTrack, onUpdateTrack }: TrackInsertPanelProps) {
+export function TrackInsertPanel({ tracks, activeTrackId, onAddTrack, onSelectTrack, onMoveTrack, onUpdateTrack, audioDeviceId, onAudioDeviceChange }: TrackInsertPanelProps) {
   const activeTrack = tracks.find(track => track.id === activeTrackId) ?? tracks[0]
 
   return (
@@ -100,6 +104,7 @@ export function TrackInsertPanel({ tracks, activeTrackId, onAddTrack, onSelectTr
             <button onClick={() => onUpdateTrack(activeTrack.id, { inputMode: 'external' })} className={`rounded-md px-2 py-1.5 font-mono text-[8px] uppercase tracking-wider ${activeTrack.inputMode === 'external' ? 'bg-primary/15 text-primary' : 'text-on-surface-variant/40'}`}>External only</button>
             <button onClick={() => onUpdateTrack(activeTrack.id, { inputMode: 'mix' })} className={`rounded-md px-2 py-1.5 font-mono text-[8px] uppercase tracking-wider ${activeTrack.inputMode === 'mix' ? 'bg-primary/15 text-primary' : 'text-on-surface-variant/40'}`}>Full mix</button>
           </div>
+          <AudioInputSelector value={audioDeviceId} onChange={onAudioDeviceChange} />
         </div>
       )}
     </section>
