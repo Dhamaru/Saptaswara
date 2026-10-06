@@ -1835,7 +1835,7 @@ function StudioContent() {
         </div>
 
         {/* Scrollable content */}
-        <div className={`flex-1 scroll-thin ${isImmersive ? 'overflow-y-auto p-4 md:p-6 pb-28 pt-2 space-y-4' : 'overflow-auto p-4 md:p-10 space-y-8 md:space-y-14'}`}>
+        <div className={`min-w-0 flex-1 scroll-thin ${isImmersive ? 'overflow-y-auto p-4 md:p-6 pb-28 pt-2 space-y-4' : 'overflow-auto p-4 md:p-10 space-y-8 md:space-y-14'}`}>
 
           {/* ── Immersive raga reference strip (DAW-style compact header) ── */}
           {isImmersive && selectedRaga && (

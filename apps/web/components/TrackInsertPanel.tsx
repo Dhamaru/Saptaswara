@@ -40,7 +40,7 @@ export function TrackInsertPanel({ tracks, activeTrackId, onAddTrack, onSelectTr
   const activeTrack = tracks.find(track => track.id === activeTrackId) ?? tracks[0]
 
   return (
-    <section data-testid="track-insert-panel" className="mb-4 rounded-2xl bg-surface-container-low/35 border border-outline-variant/10 p-3 md:p-4">
+    <section data-testid="track-insert-panel" className="mb-4 min-w-0 overflow-hidden rounded-2xl bg-surface-container-low/35 border border-outline-variant/10 p-3 md:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div>
           <div className="font-mono text-[8px] uppercase tracking-[0.2em] text-on-surface-variant/45 font-bold">Add a track</div>
@@ -51,7 +51,7 @@ export function TrackInsertPanel({ tracks, activeTrackId, onAddTrack, onSelectTr
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="grid min-w-0 grid-cols-1 sm:grid-cols-3 gap-2">
         {OPTIONS.map(option => {
           const existing = tracks.find(track => track.type === option.type)
           const selected = existing?.id === activeTrackId
@@ -60,7 +60,7 @@ export function TrackInsertPanel({ tracks, activeTrackId, onAddTrack, onSelectTr
               key={option.type}
               data-testid={`add-track-${option.type}`}
               onClick={() => existing ? onSelectTrack(existing.id) : onAddTrack(option.type)}
-              className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${selected ? 'bg-primary/12 border-primary/35' : 'border-outline-variant/10 hover:border-primary/25 hover:bg-primary/5'}`}
+              className={`flex min-w-0 overflow-hidden items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${selected ? 'bg-primary/12 border-primary/35' : 'border-outline-variant/10 hover:border-primary/25 hover:bg-primary/5'}`}
             >
               <span className={`material-symbols-outlined !text-lg ${selected ? 'text-primary' : 'text-on-surface-variant/45'}`}>{option.icon}</span>
               <span className="min-w-0">

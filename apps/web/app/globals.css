@@ -84,10 +84,10 @@
      together without asking users to change their browser zoom. */
   .studio-density {
     zoom: 0.9;
-    width: 111.111111%;
+    width: 100%;
     height: 111.111111%;
     min-height: 111.111111%;
-    max-width: none;
+    max-width: 100%;
     transform-origin: top left;
   }
 

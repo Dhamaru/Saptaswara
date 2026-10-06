@@ -13,6 +13,8 @@ const checks = [
   ['mobile and desktop layout branches exist', globals.includes('@media (max-width: 767px)') && globals.includes('@media (min-width: 768px)')],
   ['root app shell uses the responsive wrapper', layout.includes('app-page-shell')],
   ['studio uses the viewport wrapper', studio.includes('studio-viewport')],
+  ['studio cannot widen beyond the viewport', globals.includes('max-width: 100%') && globals.includes('width: 100%')],
+  ['track cards can shrink inside the grid', fs.readFileSync(path.join(root, 'apps/web/components/TrackInsertPanel.tsx'), 'utf8').includes('min-w-0 overflow-hidden')],
 ]
 const failed = checks.filter(([, ok]) => !ok)
 for (const [label, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`)
