@@ -80,7 +80,7 @@ export default function RootLayout({
           </div>
 
           <Navbar />
-          <main className="relative z-10 pt-16 md:pt-20">
+          <main className="app-page-shell relative z-10 pt-16 md:pt-20">
             {children}
           </main>
           <GlobalAssistant />

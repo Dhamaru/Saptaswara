@@ -1243,7 +1243,7 @@ function StudioContent() {
   }
 
   return (
-    <div className={`flex overflow-hidden bg-background transition-all duration-300 ${isImmersive ? 'fixed inset-0 z-[100]' : 'studio-density h-[calc(100vh-64px)] md:h-[calc(100vh-80px)]'}`}>
+    <div className={`studio-viewport flex min-w-0 overflow-hidden bg-background transition-all duration-300 ${isImmersive ? 'fixed inset-0 z-[100]' : 'studio-density'}`}>
 
       {/* Save project modal */}
       {showSaveModal && (
