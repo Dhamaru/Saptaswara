@@ -14,6 +14,7 @@ import {
 } from '@/lib/ragCache'
 
 const geminiApiKey = process.env.GEMINI_API_KEY?.trim()
+const geminiChatModel = process.env.GEMINI_CHAT_MODEL?.trim() || 'gemini-2.5-flash'
 // Keep the client constructible for tests and fallback routing; an empty key
 // will fail at the Gemini call and be handled by the provider fallback below.
 const genAI = new GoogleGenerativeAI(geminiApiKey ?? '')
@@ -398,7 +399,7 @@ export async function POST(req: Request) {
         parts: [{ text: m.content }],
       }))
       const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash',
+        model: geminiChatModel,
         systemInstruction: { role: 'system', parts: [{ text: systemContext }] },
         tools: [RAGA_WIKI_TOOL],
         toolConfig: { functionCallingConfig: { mode: FunctionCallingMode.AUTO } },

@@ -91,7 +91,7 @@ export async function POST(req: Request) {
       If suggesting swara patterns, use standard notation (S, r, R, g, G, m, M, P, d, D, n, N).
     `
 
-        const chatModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+        const chatModel = genAI.getGenerativeModel({ model: process.env.GEMINI_CHAT_MODEL?.trim() || 'gemini-2.5-flash' })
         const result = await chatModel.generateContent(prompt)
         const response = result.response
         const text = response.text()

@@ -110,7 +110,7 @@ export async function POST(req: Request) {
   // Gemini first
   if (process.env.GEMINI_API_KEY) {
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: GENERATE_SYSTEM })
+      const model = genAI.getGenerativeModel({ model: process.env.GEMINI_CHAT_MODEL?.trim() || 'gemini-2.5-flash', systemInstruction: GENERATE_SYSTEM })
       const result = await model.generateContent(prompt)
       return NextResponse.json({ steps: parseSteps(result.response.text(), body) })
     } catch (err: any) {

@@ -52,7 +52,7 @@ Saptaswara is a full-stack Indian classical music studio built on **Next.js 16.2
 | Backend | Next.js API routes (route.ts) + Proxy (proxy.ts) |
 | Auth | Supabase Auth + Proxy Session Handling |
 | Database | Supabase (PostgreSQL) + pgvector |
-| AI generation | Google Generative AI — gemini-2.0-flash (primary) → Groq llama-3.3-70b (fallback) → NVIDIA NIM llama-3.3-70b (final fallback) |
+| AI generation | Google Generative AI — gemini-2.5-flash (primary) → Groq llama-3.3-70b (fallback) → NVIDIA NIM llama-3.3-70b (final fallback) |
 | AI embeddings | Google Generative AI — gemini-embedding-001 (768-dim) |
 | Input validation | Zod on all POST endpoints |
 | Rate limiting | Upstash Redis sliding window (ai: 20/60s, write: 60/60s, read: 200/60s); in-memory fallback in local dev |
