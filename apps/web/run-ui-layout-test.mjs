@@ -13,6 +13,7 @@ const checks = [
   ['content spacing is responsive', studio.includes('studio-content') && css.includes('.studio-content > * + *')],
   ['transport rail is part of the redesign', transport.includes('studio-transport')],
   ['viewport fit remains enabled', css.includes('100dvh') && css.includes('overflow-x: hidden')],
+  ['empty melodic guide uses compact status', studio.includes('data-testid="melodic-guide-empty"') && studio.includes('px-4 py-3')],
 ]
 const failed = checks.filter(([, ok]) => !ok)
 for (const [label, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`)

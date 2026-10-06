@@ -2731,8 +2731,9 @@ function StudioContent() {
                   </div>
                 ))
               ) : (
-                <div className="col-span-2 p-12 rounded-[32px] border border-dashed border-outline-variant/10 text-center opacity-40">
-                  <p className="font-sans text-sm font-light italic">No signature phrases archived for this foundation yet.</p>
+                <div data-testid="melodic-guide-empty" className="col-span-2 flex items-center gap-3 rounded-2xl border border-dashed border-outline-variant/10 px-4 py-3 text-on-surface-variant/40">
+                  <span className="material-symbols-outlined !text-base">info</span>
+                  <p className="font-sans text-xs font-light italic">No signature phrases archived for this raga yet.</p>
                 </div>
               )}
             </div>
