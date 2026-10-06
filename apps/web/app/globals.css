@@ -134,6 +134,50 @@
     }
   }
 
+  /* Studio command-center layout: one stable sidebar, one focused workspace,
+     and a compact transport rail. This keeps the hierarchy visible without
+     forcing users through a long stack of unrelated panels. */
+  @media (min-width: 768px) {
+    .studio-viewport {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: stretch;
+    }
+
+    .studio-sidebar {
+      grid-column: 1;
+      grid-row: 1;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .studio-main {
+      grid-column: 2;
+      grid-row: 1;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .studio-hud {
+      min-height: 3.75rem !important;
+      height: 3.75rem !important;
+      padding-inline: clamp(0.75rem, 1.6vw, 2rem) !important;
+    }
+
+    .studio-content {
+      padding: clamp(0.75rem, 1.6vw, 1.75rem) !important;
+    }
+
+    .studio-content > * + * {
+      margin-top: clamp(0.75rem, 1.6vw, 1.5rem) !important;
+    }
+
+    .studio-transport {
+      margin-inline: clamp(0.5rem, 1.2vw, 1.5rem) !important;
+      margin-bottom: clamp(0.5rem, 1.2vw, 1.25rem) !important;
+    }
+  }
+
   ::selection {
     background-color: var(--primary);
     color: var(--on-primary);

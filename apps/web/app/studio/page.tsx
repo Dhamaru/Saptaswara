@@ -1324,7 +1324,7 @@ function StudioContent() {
       )}
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
-      <aside className={`
+      <aside className={`studio-sidebar
         fixed md:relative z-50 md:z-auto top-16 md:top-0 bottom-0 left-0
         flex-shrink-0 bg-surface-lowest border-r border-outline-variant/10 flex flex-col overflow-hidden
         transition-all duration-300 ease-in-out
@@ -1686,10 +1686,10 @@ function StudioContent() {
       </aside>
 
       {/* ── Main Workspace ────────────────────────────────────────────────────── */}
-      <main className="flex-1 relative flex flex-col bg-surface overflow-hidden min-w-0">
+      <main className="studio-main flex-1 relative flex flex-col bg-surface overflow-hidden min-w-0">
 
         {/* HUD */}
-        <div className={`px-3 md:px-10 flex flex-nowrap justify-between items-center border-b border-outline-variant/5 backdrop-blur-md flex-shrink-0 gap-2 transition-all duration-300 ${isImmersive ? 'h-12 bg-surface-lowest/60 border-outline-variant/10' : 'min-h-14 md:h-20 bg-surface/40 py-2 md:py-0'}`}>
+        <div className={`studio-hud px-3 md:px-10 flex flex-nowrap justify-between items-center border-b border-outline-variant/5 backdrop-blur-md flex-shrink-0 gap-2 transition-all duration-300 ${isImmersive ? 'h-12 bg-surface-lowest/60 border-outline-variant/10' : 'min-h-14 md:h-20 bg-surface/40 py-2 md:py-0'}`}>
           <div className="flex items-center gap-2 min-w-0 overflow-hidden flex-1">
             {/* Mobile sidebar open button */}
             <button
@@ -1835,7 +1835,7 @@ function StudioContent() {
         </div>
 
         {/* Scrollable content */}
-        <div className={`min-w-0 flex-1 scroll-thin ${isImmersive ? 'overflow-y-auto p-4 md:p-6 pb-28 pt-2 space-y-4' : 'overflow-auto p-4 md:p-10 space-y-8 md:space-y-14'}`}>
+        <div className={`studio-content min-w-0 flex-1 scroll-thin ${isImmersive ? 'overflow-y-auto p-4 md:p-6 pb-28 pt-2 space-y-4' : 'overflow-auto p-4 md:p-10 space-y-8 md:space-y-14'}`}>
 
           {/* ── Immersive raga reference strip (DAW-style compact header) ── */}
           {isImmersive && selectedRaga && (

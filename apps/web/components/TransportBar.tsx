@@ -89,7 +89,7 @@ export default function TransportBar({
   }
 
   return (
-    <div className="mx-4 md:mx-8 mb-4 md:mb-8 flex flex-col gap-2">
+    <div className="studio-transport mx-4 md:mx-8 mb-4 md:mb-8 flex flex-col gap-2">
     {/* Tala visualizer strip */}
     <div className="flex items-center gap-1.5 px-4 overflow-x-auto">
       {matraTypes.map((type, i) => (
