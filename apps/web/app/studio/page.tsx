@@ -1862,8 +1862,7 @@ function StudioContent() {
           )}
 
           {/* ── Track-first workspace ── */}
-          {!isImmersive && (
-            <TrackInsertPanel
+          <TrackInsertPanel
               tracks={tracks.filter(track => track.type === 'vocal' || track.type === 'melody' || track.type === 'rhythm').map(track => ({
                 id: track.id,
                 type: track.type as StudioTrackType,
@@ -1884,8 +1883,7 @@ function StudioContent() {
               onUpdateTrack={(id, patch) => updateTrack(id, patch as Partial<Track>)}
               audioDeviceId={audioDeviceId}
               onAudioDeviceChange={setAudioDeviceId}
-            />
-          )}
+          />
 
           {!isImmersive && tracks.length > 0 && (
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(260px,0.35fr)] gap-3">
