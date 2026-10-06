@@ -80,13 +80,13 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Studio uses a compact 90% canvas without extending its layout box past the
-     viewport. Keeping the box at 100% prevents a dead band below transport. */
+  /* Studio uses a compact 90% canvas. The layout box is enlarged by the
+     reciprocal amount so its visually scaled height still fills the window. */
   .studio-density {
     zoom: 0.9;
     width: 100%;
-    height: 100%;
-    min-height: 100%;
+    height: 111.111111%;
+    min-height: 111.111111%;
     max-width: 100%;
     transform-origin: top left;
   }
