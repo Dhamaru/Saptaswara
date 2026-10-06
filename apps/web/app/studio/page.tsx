@@ -51,13 +51,14 @@ import { CompositionScore } from '@/components/CompositionScore'
 import { MobileSwaraStrip } from '@/components/MobileSwaraStrip'
 import { BeginnerLesson } from '@/components/BeginnerLesson'
 import { StudioDiagnostics } from '@/components/StudioDiagnostics'
+import { TrackInsertPanel, type StudioTrackType, type TrackInputMode, type TrackSummary } from '@/components/TrackInsertPanel'
 
 // ── Track system ──────────────────────────────────────────────────────────────
 type TrackType = 'melody' | 'rhythm' | 'vocal' | 'bass' | 'drone' | 'pad'
 type KeyboardLayout = 'Piano' | 'Harmonium' | 'Swara' | 'SwaPad'
 
 const TRACK_META: Record<TrackType, { icon: string; defaultName: string; colorIdx: number }> = {
-  melody: { icon: 'music_note',  defaultName: 'Melody', colorIdx: 0 },
+  melody: { icon: 'piano',       defaultName: 'Piano',  colorIdx: 0 },
   rhythm: { icon: 'equalizer',   defaultName: 'Tabla',  colorIdx: 1 },
   vocal:  { icon: 'mic',         defaultName: 'Vocal',  colorIdx: 2 },
   bass:   { icon: 'piano',       defaultName: 'Bass',   colorIdx: 3 },
@@ -101,13 +102,14 @@ interface Track {
   soloed: boolean
   volume: number    // -40 to 0 dB
   colorIdx: number
+  armed: boolean
+  startTime: number
+  endTime: number | null
+  inputMode: TrackInputMode
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // Static IDs for base layers to ensure consistency across SSR and client hydration
-const INITIAL_ID_MELODY = 'layer-melody-1'
-const INITIAL_ID_RHYTHM = 'layer-rhythm-1'
-
 function makeTrack(type: TrackType, loopLen: number, overrides: Partial<Track> = {}): Track {
   const meta = TRACK_META[type]
   return {
@@ -119,6 +121,10 @@ function makeTrack(type: TrackType, loopLen: number, overrides: Partial<Track> =
     soloed: false,
     volume: 0,
     colorIdx: meta.colorIdx,
+    armed: false,
+    startTime: 0,
+    endTime: null,
+    inputMode: type === 'vocal' ? 'external' : 'mix',
     ...overrides,
   }
 }
@@ -209,11 +215,8 @@ function StudioContent() {
   const [user, setUser] = useState<any>(null)
   
   // Track state initialized with static IDs for hydration safety
-  const [tracks, setTracks] = useState<Track[]>([
-    makeTrack('melody', 16, { id: INITIAL_ID_MELODY, name: 'Melody', colorIdx: 0 }),
-    makeTrack('rhythm', 16, { id: INITIAL_ID_RHYTHM, name: 'Tabla',  colorIdx: 1 }),
-  ])
-  const [activeTrackId, setActiveTrackId] = useState(INITIAL_ID_MELODY)
+  const [tracks, setTracks] = useState<Track[]>([])
+  const [activeTrackId, setActiveTrackId] = useState('')
   const [showAddTrack, setShowAddTrack] = useState(false)
   const [renamingId, setRenamingId] = useState<string | null>(null)
 
@@ -615,6 +618,18 @@ function StudioContent() {
     setTracks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t))
   }
 
+  const moveTrack = (id: string, direction: -1 | 1) => {
+    setTracks(prev => {
+      const index = prev.findIndex(track => track.id === id)
+      const target = index + direction
+      if (index < 0 || target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      const [moved] = next.splice(index, 1)
+      next.splice(target, 0, moved)
+      return next
+    })
+  }
+
   const toggleMute = (id: string) => {
     updateTrack(id, { muted: !tracks.find(t => t.id === id)?.muted })
   }
@@ -855,9 +870,14 @@ function StudioContent() {
 
   const handleToggleRecording = async () => {
     if (!audioEngine) return
+    const activeTrack = tracks.find(track => track.id === activeTrackId)
+    if (!activeTrack) {
+      alert('Add and select a track before recording.')
+      return
+    }
     if (!isRecording) {
       try {
-        await audioEngine.startRecording()
+        await audioEngine.startRecording(activeTrack.inputMode)
         setIsRecording(true)
       } catch (err) {
         console.error('Failed to start recording:', err)
@@ -1822,6 +1842,28 @@ function StudioContent() {
             </div>
           )}
 
+          {/* ── Track-first workspace ── */}
+          {!isImmersive && (
+            <TrackInsertPanel
+              tracks={tracks.filter(track => track.type === 'vocal' || track.type === 'melody' || track.type === 'rhythm').map(track => ({
+                id: track.id,
+                type: track.type as StudioTrackType,
+                name: track.name,
+                muted: track.muted,
+                soloed: track.soloed,
+                armed: track.armed,
+                startTime: track.startTime,
+                endTime: track.endTime,
+                inputMode: track.inputMode,
+              } satisfies TrackSummary))}
+              activeTrackId={activeTrackId}
+              onAddTrack={(type) => addTrack(type as TrackType)}
+              onSelectTrack={setActiveTrackId}
+              onMoveTrack={moveTrack}
+              onUpdateTrack={(id, patch) => updateTrack(id, patch as Partial<Track>)}
+            />
+          )}
+
           {/* ── Step Sequencer ── */}
           {!isImmersive && <section className="animate-slide-up">
             <div className="flex items-center justify-between mb-5">
@@ -2146,6 +2188,38 @@ function StudioContent() {
           {(() => {
             const activeTrack = tracks.find(t => t.id === activeTrackId)
             const isRhythmTrack = activeTrack?.type === 'rhythm'
+
+            if (!activeTrack) {
+              return (
+                <section data-testid="empty-track-workspace" className="animate-slide-up max-w-4xl mx-auto min-h-[260px] flex items-center justify-center rounded-3xl border border-dashed border-outline-variant/15 bg-surface-container-low/20 p-8 text-center">
+                  <div>
+                    <span className="material-symbols-outlined !text-4xl text-primary/40">tune</span>
+                    <h3 className="mt-3 font-display text-xl font-light text-on-surface">Choose a track to begin</h3>
+                    <p className="mt-2 max-w-md text-sm text-on-surface-variant/55">The Studio starts empty. Add Vocals, Piano, or Tabla above; the matching workspace will appear only when you choose it.</p>
+                  </div>
+                </section>
+              )
+            }
+
+            if (activeTrack.type === 'vocal') {
+              return (
+                <section data-testid="vocal-track-workspace" className="animate-slide-up max-w-4xl mx-auto rounded-3xl border border-rose-400/15 bg-rose-500/[.03] p-6 md:p-8">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="font-mono text-[8px] uppercase tracking-[0.2em] text-rose-300/70 font-bold">Vocal track · external input</div>
+                      <h3 className="mt-2 font-display text-2xl font-light text-on-surface">Record vocals only</h3>
+                      <p className="mt-2 max-w-xl text-sm leading-relaxed text-on-surface-variant/60">Choose <span className="text-primary">External only</span> in the track controls, then use the transport Record button. Your microphone or audio interface is captured without the laptop instrument being written into this take.</p>
+                    </div>
+                    <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 font-mono text-[8px] uppercase tracking-wider text-rose-200/80">{activeTrack.inputMode === 'external' ? 'external only' : 'full mix'}</div>
+                  </div>
+                  <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px] text-on-surface-variant/55">
+                    <div className="rounded-xl bg-on-surface/[.04] p-3"><span className="block font-mono text-[8px] uppercase text-on-surface-variant/35">Input</span><span className="mt-1 block">Microphone / interface</span></div>
+                    <div className="rounded-xl bg-on-surface/[.04] p-3"><span className="block font-mono text-[8px] uppercase text-on-surface-variant/35">Monitor</span><span className="mt-1 block">Use headphones to avoid feedback</span></div>
+                    <div className="rounded-xl bg-on-surface/[.04] p-3"><span className="block font-mono text-[8px] uppercase text-on-surface-variant/35">Export</span><span className="mt-1 block">WebM or WAV from transport</span></div>
+                  </div>
+                </section>
+              )
+            }
 
             if (isRhythmTrack) {
               return (

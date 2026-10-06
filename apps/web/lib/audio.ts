@@ -28,6 +28,7 @@ function encodeWav(buffer: AudioBuffer): ArrayBuffer {
 // ── Public types ─────────────────────────────────────────────────────────────
 export type TraditionType = 'carnatic' | 'hindustani'
 export type MasteringPreset = 'neutral' | 'clear' | 'warm' | 'punchy' | 'raga' | 'concert' | 'vocal' | 'deep' | 'bright'
+export type RecordingMode = 'mix' | 'external'
 export type InstrumentName =
   | 'piano'                                          // Western
   | 'veena' | 'bansuri' | 'mridangam' | 'tambura'  // Carnatic
@@ -859,12 +860,17 @@ export class AudioEngine {
   }
 
   // ── Recording ─────────────────────────────────────────────────────────────
-  async startRecording() {
+  async startRecording(mode: RecordingMode = 'mix') {
     if (!this.isStarted || this.recorder.state === 'started') return
     try {
       if (!Tone.UserMedia.supported) {
         throw new Error('External audio input is not supported by this browser')
       }
+
+      // In external mode, keep the instrument audible for the performer but
+      // remove the synth bus from the recorder so a vocal/interface take is
+      // isolated. The external stream is connected below after permission.
+      if (mode === 'external') this.masterOutput.disconnect(this.recorder)
 
       if (!this.externalInput) {
         this.externalInput = new Tone.UserMedia()
@@ -896,6 +902,7 @@ export class AudioEngine {
       throw e
     } finally {
       this.externalInput?.close()
+      this.masterOutput.connect(this.recorder)
     }
   }
 
@@ -927,6 +934,7 @@ export class AudioEngine {
       throw e
     } finally {
       this.externalInput?.close()
+      this.masterOutput.connect(this.recorder)
     }
   }
 
