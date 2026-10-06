@@ -14,6 +14,7 @@ const checks = [
   ['transport rail is part of the redesign', transport.includes('studio-transport')],
   ['viewport fit remains enabled', css.includes('100dvh') && css.includes('overflow-x: hidden')],
   ['empty melodic guide uses compact status', studio.includes('data-testid="melodic-guide-empty"') && studio.includes('px-4 py-3')],
+  ['empty track workspace does not reserve a large blank region', studio.includes('data-testid="empty-track-workspace"') && studio.includes('min-h-0') && studio.includes('px-5 py-6') && !studio.includes('min-h-[260px]')],
 ]
 const failed = checks.filter(([, ok]) => !ok)
 for (const [label, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`)

@@ -2231,7 +2231,7 @@ function StudioContent() {
 
             if (!activeTrack) {
               return (
-                <section data-testid="empty-track-workspace" className="animate-slide-up max-w-4xl mx-auto min-h-[260px] flex items-center justify-center rounded-3xl border border-dashed border-outline-variant/15 bg-surface-container-low/20 p-8 text-center">
+                <section data-testid="empty-track-workspace" className="animate-slide-up max-w-4xl mx-auto min-h-0 flex items-center justify-center rounded-3xl border border-dashed border-outline-variant/15 bg-surface-container-low/20 px-5 py-6 text-center">
                   <div>
                     <span className="material-symbols-outlined !text-4xl text-primary/40">tune</span>
                     <h3 className="mt-3 font-display text-xl font-light text-on-surface">Choose a track to begin</h3>

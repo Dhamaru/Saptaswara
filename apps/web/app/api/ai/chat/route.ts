@@ -96,10 +96,12 @@ TIME & RASA:
 - Never use bullet points for melodic patterns — write them as flowing sequences
 - End teaching responses with a concrete "Try this:" suggestion when possible`
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+  )
+}
 
 // ── Wikipedia raga tool ───────────────────────────────────────────────────────
 async function fetchRagaWiki(ragaName: string): Promise<string> {
@@ -184,7 +186,7 @@ async function getRagaContext(
   if (!embedding) return ''
 
   try {
-    const { data: matches, error } = await supabaseAdmin.rpc('match_ragas', {
+    const { data: matches, error } = await getSupabaseAdmin().rpc('match_ragas', {
       query_embedding: embedding,
       match_threshold: 0.42,
       match_count: 4,

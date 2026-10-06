@@ -4,17 +4,18 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
 import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Need service role for RPC access if restricted
-)
-
 export async function POST(req: Request) {
   return Sentry.startSpan(
     { name: 'ai.suggest', op: 'ai.request' },
     async () => {
       try {
+        // Initialise provider clients per request so the route can be collected
+        // during CI/builds without requiring production secrets at module load.
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '')
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+          process.env.SUPABASE_SERVICE_ROLE_KEY ?? '' // Need service role for RPC access if restricted
+        )
         const authHeader = req.headers.get('Authorization')
         const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
         if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
