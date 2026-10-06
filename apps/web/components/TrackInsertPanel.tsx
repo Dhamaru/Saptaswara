@@ -13,6 +13,8 @@ export interface TrackSummary {
   startTime: number
   endTime: number | null
   inputMode: TrackInputMode
+  volume: number
+  pan: number
 }
 
 interface TrackInsertPanelProps {
@@ -88,6 +90,12 @@ export function TrackInsertPanel({ tracks, activeTrackId, onAddTrack, onSelectTr
           <button onClick={() => onUpdateTrack(activeTrack.id, { armed: !activeTrack.armed })} className={`rounded-lg border px-3 py-2 font-mono text-[8px] uppercase tracking-wider ${activeTrack.armed ? 'border-red-400/40 bg-red-500/15 text-red-300' : 'border-outline-variant/15 text-on-surface-variant/50'}`}>{activeTrack.armed ? 'Record armed' : 'Arm record'}</button>
           <button onClick={() => onUpdateTrack(activeTrack.id, { muted: !activeTrack.muted })} className={`rounded-lg border px-3 py-2 font-mono text-[8px] uppercase tracking-wider ${activeTrack.muted ? 'border-amber-400/35 text-amber-300' : 'border-outline-variant/15 text-on-surface-variant/50'}`}>{activeTrack.muted ? 'Muted' : 'Mute'}</button>
           <button onClick={() => onUpdateTrack(activeTrack.id, { soloed: !activeTrack.soloed })} className={`rounded-lg border px-3 py-2 font-mono text-[8px] uppercase tracking-wider ${activeTrack.soloed ? 'border-secondary/35 text-secondary' : 'border-outline-variant/15 text-on-surface-variant/50'}`}>{activeTrack.soloed ? 'Soloed' : 'Solo'}</button>
+          <label className="flex items-center gap-2 font-mono text-[8px] uppercase tracking-wider text-on-surface-variant/45">Vol
+            <input aria-label="Track volume" type="range" min="-40" max="0" value={activeTrack.volume} onChange={e => onUpdateTrack(activeTrack.id, { volume: Number(e.target.value) })} className="w-20 accent-primary" />
+          </label>
+          <label className="flex items-center gap-2 font-mono text-[8px] uppercase tracking-wider text-on-surface-variant/45">Pan
+            <input aria-label="Track pan" type="range" min="-1" max="1" step="0.1" value={activeTrack.pan} onChange={e => onUpdateTrack(activeTrack.id, { pan: Number(e.target.value) })} className="w-16 accent-primary" />
+          </label>
           <div className="ml-auto flex items-center gap-1 rounded-lg border border-outline-variant/10 p-1">
             <button onClick={() => onUpdateTrack(activeTrack.id, { inputMode: 'external' })} className={`rounded-md px-2 py-1.5 font-mono text-[8px] uppercase tracking-wider ${activeTrack.inputMode === 'external' ? 'bg-primary/15 text-primary' : 'text-on-surface-variant/40'}`}>External only</button>
             <button onClick={() => onUpdateTrack(activeTrack.id, { inputMode: 'mix' })} className={`rounded-md px-2 py-1.5 font-mono text-[8px] uppercase tracking-wider ${activeTrack.inputMode === 'mix' ? 'bg-primary/15 text-primary' : 'text-on-surface-variant/40'}`}>Full mix</button>

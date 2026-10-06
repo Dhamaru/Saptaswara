@@ -52,6 +52,8 @@ import { MobileSwaraStrip } from '@/components/MobileSwaraStrip'
 import { BeginnerLesson } from '@/components/BeginnerLesson'
 import { StudioDiagnostics } from '@/components/StudioDiagnostics'
 import { TrackInsertPanel, type StudioTrackType, type TrackInputMode, type TrackSummary } from '@/components/TrackInsertPanel'
+import { ArrangementTimeline } from '@/components/ArrangementTimeline'
+import { TakeManager, type TakeSummary } from '@/components/TakeManager'
 
 // ── Track system ──────────────────────────────────────────────────────────────
 type TrackType = 'melody' | 'rhythm' | 'vocal' | 'bass' | 'drone' | 'pad'
@@ -106,6 +108,8 @@ interface Track {
   startTime: number
   endTime: number | null
   inputMode: TrackInputMode
+  pan: number
+  takes: TakeSummary[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -125,6 +129,8 @@ function makeTrack(type: TrackType, loopLen: number, overrides: Partial<Track> =
     startTime: 0,
     endTime: null,
     inputMode: type === 'vocal' ? 'external' : 'mix',
+    pan: 0,
+    takes: [],
     ...overrides,
   }
 }
@@ -232,6 +238,7 @@ function StudioContent() {
   const [isStarted, setIsStarted] = useState(false)
   const [activeStep, setActiveStep] = useState(-1)
   const [recordingTime, setRecordingTime] = useState(0)
+  const recordingStartedAtRef = useRef<number | null>(null)
 
   const [keyboardLayout, setKeyboardLayout] = useState<KeyboardLayout>('Piano')
   const [masteringPreset, setMasteringPreset] = useState<MasteringPreset>('neutral')
@@ -878,6 +885,7 @@ function StudioContent() {
     if (!isRecording) {
       try {
         await audioEngine.startRecording(activeTrack.inputMode)
+        recordingStartedAtRef.current = Date.now()
         setIsRecording(true)
       } catch (err) {
         console.error('Failed to start recording:', err)
@@ -893,6 +901,16 @@ function StudioContent() {
       } catch (err) {
         console.error('Failed to stop recording:', err)
       } finally {
+        const duration = Math.max(1, Math.round((Date.now() - (recordingStartedAtRef.current ?? Date.now())) / 1000))
+        const take: TakeSummary = {
+          id: `take-${Date.now()}`,
+          name: `${activeTrack.name} Take ${(activeTrack.takes?.length ?? 0) + 1}`,
+          source: activeTrack.inputMode === 'external' ? 'external' : 'mix',
+          duration,
+          createdAt: new Date().toISOString(),
+        }
+        updateTrack(activeTrack.id, { takes: [...(activeTrack.takes ?? []), take], endTime: Math.max(activeTrack.endTime ?? 0, activeTrack.startTime + duration) })
+        recordingStartedAtRef.current = null
         setIsRecording(false)
       }
     }
@@ -1855,6 +1873,8 @@ function StudioContent() {
                 startTime: track.startTime,
                 endTime: track.endTime,
                 inputMode: track.inputMode,
+                volume: track.volume,
+                pan: track.pan,
               } satisfies TrackSummary))}
               activeTrackId={activeTrackId}
               onAddTrack={(type) => addTrack(type as TrackType)}
@@ -1862,6 +1882,23 @@ function StudioContent() {
               onMoveTrack={moveTrack}
               onUpdateTrack={(id, patch) => updateTrack(id, patch as Partial<Track>)}
             />
+          )}
+
+          {!isImmersive && tracks.length > 0 && (
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(260px,0.35fr)] gap-3">
+              <ArrangementTimeline
+                tracks={tracks.map(track => ({ id: track.id, name: track.name, color: TRACK_COLORS[track.colorIdx % TRACK_COLORS.length].dot, startTime: track.startTime, endTime: track.endTime, active: track.id === activeTrackId }))}
+                playheadSeconds={isRecording ? recordingTime : Math.max(0, activeStep) * ((60 / bpm) / 4)}
+                durationSeconds={Math.max(4, loopLength * ((60 / bpm) / 4))}
+                onSelectTrack={setActiveTrackId}
+                onMoveTrack={moveTrack}
+              />
+              <TakeManager
+                takes={tracks.find(track => track.id === activeTrackId)?.takes ?? []}
+                onRename={(takeId, name) => updateTrack(activeTrackId, { takes: (tracks.find(track => track.id === activeTrackId)?.takes ?? []).map(take => take.id === takeId ? { ...take, name } : take) })}
+                onDelete={(takeId) => updateTrack(activeTrackId, { takes: (tracks.find(track => track.id === activeTrackId)?.takes ?? []).filter(take => take.id !== takeId) })}
+              />
+            </div>
           )}
 
           {/* ── Step Sequencer ── */}
