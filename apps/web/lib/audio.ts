@@ -75,6 +75,9 @@ export class AudioEngine {
   private isLoading = true
   private recorder = new Tone.Recorder()
   private meter = new Tone.Meter()
+  // External microphone/instrument input is mixed into the recorder only.
+  // It is deliberately not routed to the speakers to prevent feedback.
+  private externalInput: Tone.UserMedia | null = null
   
   // ── Metronome state ───────────────────────────────────────────────────────
   private clickSynth: Tone.MembraneSynth | null = null
@@ -859,9 +862,21 @@ export class AudioEngine {
   async startRecording() {
     if (!this.isStarted || this.recorder.state === 'started') return
     try {
-      this.recorder.start()
+      if (!Tone.UserMedia.supported) {
+        throw new Error('External audio input is not supported by this browser')
+      }
+
+      if (!this.externalInput) {
+        this.externalInput = new Tone.UserMedia()
+        this.externalInput.connect(this.recorder)
+        this.externalInput.connect(this.meter)
+      }
+      await this.externalInput.open()
+      await this.recorder.start()
     } catch (e) {
       console.error('Failed to start recording:', e)
+      this.externalInput?.close()
+      throw e
     }
   }
 
@@ -869,6 +884,7 @@ export class AudioEngine {
     if (this.recorder.state !== 'started') return
     try {
       const recording = await this.recorder.stop()
+      if (!recording || recording.size === 0) throw new Error('Recording contained no audio')
       const url    = URL.createObjectURL(recording)
       const anchor = document.createElement('a')
       anchor.download = `Saptaswara_Composition_${Date.now()}.webm`
@@ -877,6 +893,9 @@ export class AudioEngine {
       setTimeout(() => URL.revokeObjectURL(url), 10000)
     } catch (e) {
       console.error('Failed to stop recording:', e)
+      throw e
+    } finally {
+      this.externalInput?.close()
     }
   }
 
@@ -884,6 +903,7 @@ export class AudioEngine {
     if (this.recorder.state !== 'started') return
     try {
       const recording = await this.recorder.stop()
+      if (!recording || recording.size === 0) throw new Error('Recording contained no audio')
       const arrayBuffer = await recording.arrayBuffer()
       const audioCtx = new AudioContext()
       let decoded: AudioBuffer
@@ -903,7 +923,10 @@ export class AudioEngine {
       setTimeout(() => URL.revokeObjectURL(url), 10000)
     } catch (e) {
       console.error('Failed to export WAV, falling back to webm:', e)
-      await this.stopRecording()
+      this.externalInput?.close()
+      throw e
+    } finally {
+      this.externalInput?.close()
     }
   }
 
@@ -948,6 +971,9 @@ export class AudioEngine {
 
   dispose() {
     this.stopAll()
+    try { this.externalInput?.close() } catch { /* ignore */ }
+    try { this.externalInput?.dispose() } catch { /* ignore */ }
+    this.externalInput = null
     this._meendDispose?.(); this._meendDispose = null
     this._andolanDispose?.(); this._andolanDispose = null
     try { this._sympNode?.synth.dispose() } catch { /* ignore */ }

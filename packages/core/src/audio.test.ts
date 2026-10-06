@@ -210,6 +210,14 @@ vi.mock('tone', () => ({
       stop: vi.fn().mockResolvedValue(new Blob()),
     }
   }),
+  UserMedia: Object.assign(vi.fn().mockImplementation(function () {
+    return {
+      connect: vi.fn().mockReturnThis(),
+      open: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockReturnThis(),
+      dispose: vi.fn().mockReturnThis(),
+    }
+  }), { supported: true }),
   Destination: mockDestination,
   getTransport: vi.fn().mockReturnValue(mockTransport),
   getDestination: vi.fn().mockReturnValue({ connect: vi.fn() }),

@@ -13,7 +13,10 @@ import {
   RAGA_TTL_MS,
 } from '@/lib/ragCache'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const geminiApiKey = process.env.GEMINI_API_KEY?.trim()
+// Keep the client constructible for tests and fallback routing; an empty key
+// will fail at the Gemini call and be handled by the provider fallback below.
+const genAI = new GoogleGenerativeAI(geminiApiKey ?? '')
 
 const groqClient = process.env.GROQ_API_KEY
   ? new OpenAI({
@@ -143,6 +146,8 @@ const RAGA_WIKI_TOOL = {
 
 // ── Embedding with in-process cache ──────────────────────────────────────────
 async function getEmbedding(text: string): Promise<number[] | null> {
+  if (!geminiApiKey) return null
+
   const cached = embedCache.get(text)
   if (cached) return cached
 
@@ -203,6 +208,46 @@ async function getRagaContext(
 // + the most recent N turns. This prevents token bloat while retaining coherence.
 const MAX_HISTORY_TURNS = 12  // messages (not pairs)
 const KEEP_RECENT = 8
+
+function isMeaningfulText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+async function validatedSseStream<T>(
+  source: AsyncIterable<T>,
+  getText: (chunk: T) => string | null | undefined,
+): Promise<ReadableStream<Uint8Array>> {
+  const iterator = source[Symbol.asyncIterator]()
+  const encoder = new TextEncoder()
+  let firstText: string | undefined
+
+  // Do not treat an empty provider response as success. Reading the first
+  // meaningful chunk lets the caller fall through to the next provider.
+  while (!firstText) {
+    const next = await iterator.next()
+    if (next.done) throw new Error('Provider returned an empty response')
+    const text = getText(next.value)
+    if (isMeaningfulText(text)) firstText = text
+  }
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        controller.enqueue(encoder.encode(`data: ${firstText}\n\n`))
+        while (true) {
+          const next = await iterator.next()
+          if (next.done) break
+          const text = getText(next.value)
+          if (isMeaningfulText(text)) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
+        }
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        controller.close()
+      } catch (error) {
+        controller.error(error)
+      }
+    },
+  })
+}
 
 function compactHistory(
   messages: Array<{ role: string; content: string }>,
@@ -376,26 +421,16 @@ export async function POST(req: Request) {
 
         // Phase 2: stream the final answer with wiki context now in chat history
         const phase2 = await chat.sendMessageStream(toolResults as any)
-        const stream = new ReadableStream({
-          async start(controller) {
-            try {
-              for await (const chunk of phase2.stream) {
-                const text = chunk.text()
-                if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
-              }
-              controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-              controller.close()
-            } catch (err) {
-              controller.error(err)
-            }
-          },
-        })
+        const stream = await validatedSseStream(phase2.stream, (chunk) => chunk.text())
         return new Response(stream, { headers: SSE_HEADERS })
       }
 
       // No tool call — emit the phase1 text response as SSE.
       // Encode \n as \\n so the client's line-split parser preserves newlines.
       const directText = phase1.response.text()
+      if (!isMeaningfulText(directText)) {
+        throw new Error('Gemini returned an empty response')
+      }
       const stream = new ReadableStream({
         start(controller) {
           if (directText) {
@@ -408,16 +443,13 @@ export async function POST(req: Request) {
       })
       return new Response(stream, { headers: SSE_HEADERS })
     } catch (geminiError: any) {
-      const isQuota =
-        geminiError?.status === 429 ||
-        geminiError?.response?.status === 429 ||
-        geminiError?.message?.includes('429') ||
-        geminiError?.message?.includes('Quota') ||
-        geminiError?.message?.includes('Too Many Requests')
-
-      if (!isQuota || (!groqClient && !nvidiaClient)) {
+      // Use a configured fallback for any Gemini failure, not only 429 quota
+      // errors. Invalid keys, retired models, network failures, and 5xx
+      // responses should not make the assistant unavailable when another
+      // provider is ready.
+      if (!groqClient && !nvidiaClient) {
         Sentry.captureException(geminiError, { tags: { route: 'ai/chat', provider: 'gemini' } })
-        const isKeyMissing = !process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your-gemini-api-key'
+        const isKeyMissing = !geminiApiKey || geminiApiKey.toLowerCase() === 'your-gemini-api-key'
         const msg = isKeyMissing
           ? 'AI key not configured. Add GEMINI_API_KEY to environment variables.'
           : `Gemini error: ${geminiError?.message ?? 'unknown'}`
@@ -438,25 +470,8 @@ export async function POST(req: Request) {
         { role: 'user', content: lastUserMessage },
       ]
 
-      // Try Groq first, then NVIDIA as second fallback
-      const makeStream = (client: typeof groqClient, model: string) => {
-        const encoder = new TextEncoder()
-        return (completionsStream: AsyncIterable<any>) => new ReadableStream({
-          async start(controller) {
-            try {
-              for await (const chunk of completionsStream) {
-                const text = chunk.choices[0]?.delta?.content
-                if (text) controller.enqueue(encoder.encode(`data: ${text}\n\n`))
-              }
-              controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-              controller.close()
-            } catch (err) {
-              controller.error(err)
-            }
-          },
-        })
-      }
-
+      // Try Groq first, then NVIDIA as second fallback. A provider only
+      // counts as successful after producing at least one text chunk.
       if (groqClient) {
         try {
           const groqStream = await groqClient.chat.completions.create({
@@ -466,7 +481,11 @@ export async function POST(req: Request) {
             max_tokens: 1024,
             temperature: 0.7,
           })
-          return new Response(makeStream(groqClient, 'llama-3.3-70b-versatile')(groqStream), { headers: SSE_HEADERS })
+          const stream = await validatedSseStream(
+            groqStream,
+            (chunk) => chunk.choices[0]?.delta?.content,
+          )
+          return new Response(stream, { headers: SSE_HEADERS })
         } catch {
           // Groq failed — fall through to NVIDIA
         }
@@ -482,7 +501,11 @@ export async function POST(req: Request) {
         max_tokens: 1024,
         temperature: 0.7,
       })
-      return new Response(makeStream(nvidiaClient, 'meta/llama-3.3-70b-instruct')(nvidiaStream), { headers: SSE_HEADERS })
+      const stream = await validatedSseStream(
+        nvidiaStream,
+        (chunk) => chunk.choices[0]?.delta?.content,
+      )
+      return new Response(stream, { headers: SSE_HEADERS })
     }
   } catch (error: any) {
     Sentry.captureException(error, { tags: { route: 'ai/chat' } })

@@ -347,11 +347,13 @@ export function Assistant({ ragaContext, studioContext }: AssistantProps) {
       })
 
       if (!res.ok) {
+        const errorBody = await res.json().catch(() => null) as { error?: unknown } | null
+        const providerMessage = typeof errorBody?.error === 'string' ? errorBody.error : null
         const fallback = res.status === 401
           ? 'Session expired. Please sign in again.'
           : res.status === 429
           ? 'Too many requests — please wait a moment.'
-          : 'Assistant unavailable. Please try again.'
+          : providerMessage ?? 'Assistant unavailable. Please try again.'
         setMessages(prev => [...prev, { role: 'assistant', content: fallback }])
         return
       }

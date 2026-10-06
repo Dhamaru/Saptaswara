@@ -43,7 +43,9 @@ export function ConformanceScore({ isRecording, aroha, avaroha, ragaName }: Conf
       await listener.start((result) => {
         if (!result) return
         const swara = hzToSwara(result.hz)
-        if (swara && (result as any).clarity > 0.85) {
+        // PitchListener exposes confidence (not the old `clarity` field).
+        // The previous property name made every valid pitch sample fail this check.
+        if (swara && result.confidence > 0.85) {
           samplesRef.current.push(normalizeNote(swara.note))
         }
       })

@@ -49,6 +49,8 @@ import { ImmersiveHUD } from '@/components/ImmersiveHUD'
 import { ConformanceScore } from '@/components/ConformanceScore'
 import { CompositionScore } from '@/components/CompositionScore'
 import { MobileSwaraStrip } from '@/components/MobileSwaraStrip'
+import { BeginnerLesson } from '@/components/BeginnerLesson'
+import { StudioDiagnostics } from '@/components/StudioDiagnostics'
 
 // ── Track system ──────────────────────────────────────────────────────────────
 type TrackType = 'melody' | 'rhythm' | 'vocal' | 'bass' | 'drone' | 'pad'
@@ -222,6 +224,7 @@ function StudioContent() {
   const [ragas, setRagas] = useState<Raga[]>([])
   const [selectedRaga, setSelectedRaga] = useState<Raga | null>(null)
   const [activeSwara, setActiveSwara] = useState<string | null>(null)
+  const [playedNoteEvent, setPlayedNoteEvent] = useState<{ note: string; id: number } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isStarted, setIsStarted] = useState(false)
   const [activeStep, setActiveStep] = useState(-1)
@@ -816,6 +819,20 @@ function StudioContent() {
       setActiveSwara(note)
       if (!note) setIsBlueprintPlaying(false)
     })
+  }
+
+  const handleInsertBlueprint = () => {
+    if (!selectedRaga?.aroha?.length || !selectedRaga?.avaroha?.length) return
+    const peak = selectedRaga.aroha[selectedRaga.aroha.length - 1]
+    const descent = selectedRaga.avaroha[0] === peak ? selectedRaga.avaroha.slice(1) : selectedRaga.avaroha
+    const notes = [...selectedRaga.aroha, ...descent]
+    const sequence: (StepEvent | null)[] = new Array(loopLength).fill(null)
+    notes.slice(0, loopLength).forEach((note, index) => {
+      sequence[index] = { label: note, frequency: swaraToFrequency(note), velocity: 0.8 }
+    })
+    pushHistory(tracks)
+    setTracks(prev => prev.map(track => track.id === activeTrackId ? { ...track, sequence } : track))
+    setSaveStatus(s => s === 'saved' ? 'idle' : s)
   }
 
   // ── Recording ─────────────────────────────────────────────────────────────────
@@ -2225,6 +2242,7 @@ function StudioContent() {
             const allRagaNotes = [...ragaAroha, ...ragaAvaroha]
 
             const onNoteRecord = (note: string, freq: number) => {
+              setPlayedNoteEvent({ note, id: Date.now() + Math.random() })
               if (activeStep === -1) return
               if (ragaValidNotes && !(ragaValidNotes as string[]).includes(note)) return
               handleToggleStep(activeStep, { label: note, frequency: freq, velocity: 0.8 })
@@ -2543,6 +2561,13 @@ function StudioContent() {
             </section>
           )}
 
+          {!isImmersive && (
+            <section className="animate-slide-up max-w-4xl mx-auto border-t border-outline-variant/5 pt-10 space-y-4">
+              <BeginnerLesson playedNote={playedNoteEvent} isStarted={isStarted} />
+              <StudioDiagnostics isStarted={isStarted} isRecording={isRecording} recordingTime={recordingTime} />
+            </section>
+          )}
+
           {/* ── Melodic Guide (hidden in immersive) ── */}
           {!isImmersive && <section className="animate-slide-up max-w-4xl mx-auto border-t border-outline-variant/5 pt-14">
             <div className="flex items-center justify-between mb-8">
@@ -2556,16 +2581,22 @@ function StudioContent() {
                 </div>
               </div>
               {selectedRaga?.aroha && selectedRaga?.avaroha && (
-                <button
-                  onClick={handlePlayBlueprint}
-                  disabled={!isStarted}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-mono text-[10px] uppercase tracking-widest font-bold transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
-                    isBlueprintPlaying ? 'bg-secondary text-on-secondary animate-pulse shadow-glow' : 'bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20'
-                  }`}
-                >
-                  <span className="material-symbols-outlined !text-base">{isBlueprintPlaying ? 'stop' : 'play_arrow'}</span>
-                  {isBlueprintPlaying ? 'Stop' : 'Play Blueprint'}
-                </button>
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <button onClick={handleInsertBlueprint} disabled={!isStarted} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-secondary/30 text-secondary font-mono text-[10px] uppercase tracking-widest font-bold transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed">
+                    <span className="material-symbols-outlined !text-base">playlist_add</span>
+                    Insert Demo
+                  </button>
+                  <button
+                    onClick={handlePlayBlueprint}
+                    disabled={!isStarted}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-mono text-[10px] uppercase tracking-widest font-bold transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
+                      isBlueprintPlaying ? 'bg-secondary text-on-secondary animate-pulse shadow-glow' : 'bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined !text-base">{isBlueprintPlaying ? 'stop' : 'play_arrow'}</span>
+                    {isBlueprintPlaying ? 'Stop' : 'Play Blueprint'}
+                  </button>
+                </div>
               )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
