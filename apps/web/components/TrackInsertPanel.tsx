@@ -38,13 +38,14 @@ const OPTIONS: Array<{ type: StudioTrackType; label: string; icon: string; descr
 
 export function TrackInsertPanel({ tracks, activeTrackId, onAddTrack, onSelectTrack, onMoveTrack, onUpdateTrack, audioDeviceId, onAudioDeviceChange }: TrackInsertPanelProps) {
   const activeTrack = tracks.find(track => track.id === activeTrackId) ?? tracks[0]
+  const isEmpty = tracks.length === 0
 
   return (
-    <section data-testid="track-insert-panel" className="mb-4 min-w-0 overflow-hidden rounded-2xl bg-surface-container-low/35 border border-outline-variant/10 p-3 md:p-4">
+    <section data-testid="track-insert-panel" className={`mb-4 min-w-0 overflow-hidden rounded-2xl p-3 md:p-4 transition-all ${isEmpty ? 'border border-primary/35 bg-primary/[.06] shadow-[0_0_28px_rgba(var(--primary-rgb),.08)] ring-1 ring-primary/15' : 'border border-outline-variant/10 bg-surface-container-low/35'}`}>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div>
-          <div className="font-mono text-[8px] uppercase tracking-[0.2em] text-on-surface-variant/45 font-bold">Add a track</div>
-          <p className="mt-1 text-xs text-on-surface-variant/55">Choose one or more layers for this composition.</p>
+          <div className={`font-mono text-[9px] uppercase tracking-[0.2em] font-bold ${isEmpty ? 'text-primary' : 'text-on-surface-variant/60'}`}>{isEmpty ? 'Start here · add a track' : 'Add another track'}</div>
+          <p className={`mt-1 text-xs ${isEmpty ? 'text-on-surface/75' : 'text-on-surface-variant/55'}`}>{isEmpty ? 'Choose what you want to record or play first.' : 'Choose one or more layers for this composition.'}</p>
         </div>
         {activeTrack && (
           <div className="font-mono text-[8px] uppercase tracking-wider text-primary/60">Editing: {activeTrack.name}</div>
@@ -60,12 +61,12 @@ export function TrackInsertPanel({ tracks, activeTrackId, onAddTrack, onSelectTr
               key={option.type}
               data-testid={`add-track-${option.type}`}
               onClick={() => existing ? onSelectTrack(existing.id) : onAddTrack(option.type)}
-              className={`flex min-w-0 overflow-hidden items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${selected ? 'bg-primary/12 border-primary/35' : 'border-outline-variant/10 hover:border-primary/25 hover:bg-primary/5'}`}
+              className={`group flex min-w-0 overflow-hidden items-center gap-3 rounded-xl border px-3 ${isEmpty ? 'py-4' : 'py-3'} text-left transition-all active:scale-[.99] ${selected ? 'bg-primary/15 border-primary/50 shadow-[0_0_18px_rgba(var(--primary-rgb),.1)]' : isEmpty ? 'border-primary/20 bg-surface/45 hover:border-primary/60 hover:bg-primary/10' : 'border-outline-variant/10 hover:border-primary/25 hover:bg-primary/5'}`}
             >
-              <span className={`material-symbols-outlined !text-lg ${selected ? 'text-primary' : 'text-on-surface-variant/45'}`}>{option.icon}</span>
+              <span className={`material-symbols-outlined !text-xl ${selected || isEmpty ? 'text-primary' : 'text-on-surface-variant/45'} transition-transform group-hover:scale-110`}>{option.icon}</span>
               <span className="min-w-0">
-                <span className="block font-mono text-[9px] uppercase tracking-wider font-bold text-on-surface">{option.label}</span>
-                <span className="block mt-0.5 text-[10px] text-on-surface-variant/45 truncate">{existing ? 'Select this track' : option.description}</span>
+                <span className="block font-mono text-[10px] uppercase tracking-wider font-bold text-on-surface">{option.label}</span>
+                <span className={`block mt-0.5 text-[10px] ${isEmpty ? 'text-on-surface-variant/65' : 'text-on-surface-variant/45'} truncate`}>{existing ? 'Select this track' : option.description}</span>
               </span>
               {existing && <span className="ml-auto text-[9px] text-secondary">✓</span>}
             </button>

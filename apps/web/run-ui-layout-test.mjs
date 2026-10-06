@@ -15,6 +15,7 @@ const checks = [
   ['viewport fit remains enabled', css.includes('100dvh') && css.includes('overflow-x: hidden') && css.includes('zoom: 0.9') && css.includes('calc((100dvh - 5rem - var(--app-safe-top)) / 0.9)') && css.includes('max-height: none;')],
   ['empty melodic guide uses compact status', studio.includes('data-testid="melodic-guide-empty"') && studio.includes('px-4 py-3')],
   ['empty track workspace does not reserve a large blank region', studio.includes('data-testid="empty-track-workspace"') && studio.includes('min-h-0') && studio.includes('px-5 py-6') && !studio.includes('min-h-[260px]')],
+  ['track choices are the primary empty-state focus', fs.readFileSync(path.join(root, 'apps/web/components/TrackInsertPanel.tsx'), 'utf8').includes("Start here · add a track") && fs.readFileSync(path.join(root, 'apps/web/components/TrackInsertPanel.tsx'), 'utf8').includes('ring-1 ring-primary/15')],
 ]
 const failed = checks.filter(([, ok]) => !ok)
 for (const [label, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`)
