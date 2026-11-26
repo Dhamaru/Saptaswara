@@ -167,9 +167,11 @@ export class AudioEngine {
   }
 
   private initPercussion() {
+    // The old `handclap/drum.mp3` path no longer exists in Tone.js's sample
+    // repo (404). Djembe is a real one-shot sample at the parent directory.
     this.percussion = new Tone.Sampler({
-      urls: { C4: 'drum.mp3' },
-      baseUrl: 'https://tonejs.github.io/audio/drum-samples/handclap/',
+      urls: { C4: 'Djembe.mp3' },
+      baseUrl: 'https://tonejs.github.io/audio/drum-samples/',
     }).connect(this.masterOutput)
   }
 
