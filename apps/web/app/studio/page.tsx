@@ -1686,7 +1686,7 @@ function StudioContent() {
       </aside>
 
       {/* ── Main Workspace ────────────────────────────────────────────────────── */}
-      <main className="studio-main flex-1 relative flex flex-col bg-surface overflow-hidden min-w-0">
+      <div className="studio-main flex-1 relative flex flex-col bg-surface overflow-hidden min-w-0">
 
         {/* HUD */}
         <div className={`studio-hud px-3 md:px-10 flex flex-nowrap justify-between items-center border-b border-outline-variant/5 backdrop-blur-md flex-shrink-0 gap-2 transition-all duration-300 ${isImmersive ? 'h-12 bg-surface-lowest/60 border-outline-variant/10' : 'min-h-14 md:h-20 bg-surface/40 py-2 md:py-0'}`}>
@@ -2827,7 +2827,7 @@ function StudioContent() {
             onToggleTranscriber={() => setImmersiveTranscriber(v => !v)}
           />
         )}
-      </main>
+      </div>
 
       <Guidebook
         open={showGuide}
