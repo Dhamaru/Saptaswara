@@ -43,10 +43,12 @@ Production: https://saptaswara-web.vercel.app | DB: fkyclveotjjvbaisfvjt.supabas
 - BPM IS persisted on save (fixed 2026-07-13) — sent in POST body, written to `projects.bpm`
 - Only melody track saved to DB — rhythm/vocal/bass/pad tracks are ephemeral by design
 - `GET /api/projects?id=UUID` returns `{ project, layers }` — used by studio restore on load
+- Anonymous DB reads are scoped to `ragas` / `raga_phrases` / `raga_embeddings`; no blanket anon default grants (2026-11-26 migration)
 - `CompositionContext` async getUser uses cancelled flag to avoid unmounted-state update
 
 ## AI Routes
 - `suggest`: Gemini only (no fallback) — uses `SUPABASE_SERVICE_ROLE_KEY` for vector search
+- `detect-raga`: Gemini only (no fallback) — model from `GEMINI_CHAT_MODEL`, defaults to `gemini-2.5-flash`
 - `chat`, `mood`, `generate`, `beat-suggest`: Gemini → Groq → NVIDIA fallback chain
 - NVIDIA model: `meta/llama-3.3-70b-instruct` via `https://integrate.api.nvidia.com/v1`
 - All routes require `Authorization: Bearer <token>` — cookie auth not accepted

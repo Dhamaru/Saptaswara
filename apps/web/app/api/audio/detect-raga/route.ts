@@ -51,7 +51,10 @@ export async function POST(req: Request) {
     const base64 = Buffer.from(bytes).toString('base64')
 
     const genai = new GoogleGenerativeAI(apiKey)
-    const model = genai.getGenerativeModel({ model: 'gemini-1.5-pro' })
+    // gemini-1.5-pro is retired. Use the same configurable model as the other
+    // AI routes so a model change only needs an env var, not a deploy.
+    const detectModel = process.env.GEMINI_CHAT_MODEL?.trim() || 'gemini-2.5-flash'
+    const model = genai.getGenerativeModel({ model: detectModel })
 
     const prompt = `You are an expert in Indian classical music. Analyze this audio and identify which raga is being performed.
 
