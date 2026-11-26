@@ -65,13 +65,34 @@ function Piano({ raga, beat }: { raga: Raga; beat: number }) {
     <div className="flex flex-col gap-3 w-full">
       <svg viewBox={`0 0 ${WW * 14} ${WH}`} className="w-full" style={{ display: 'block' }}
         preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="sp-white-key" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fffdf7" />
+            <stop offset="68%" stopColor="#f4efe3" />
+            <stop offset="100%" stopColor="#e5ddcd" />
+          </linearGradient>
+          <linearGradient id="sp-white-key-pressed" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#e7dfd0" />
+            <stop offset="100%" stopColor="#d6ccb8" />
+          </linearGradient>
+          <linearGradient id="sp-black-key" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3d3d40" />
+            <stop offset="22%" stopColor="#1a1a1c" />
+            <stop offset="100%" stopColor="#0f0f10" />
+          </linearGradient>
+          <linearGradient id="sp-black-key-pressed" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2a211a" />
+            <stop offset="100%" stopColor="#080807" />
+          </linearGradient>
+        </defs>
         {Array.from({ length: 14 }, (_, i) => {
           const isActive = raga.whiteActive.includes(i % 7)
           return (
             <g key={`w${i}`}>
               <rect x={i * WW + 1} y={0} width={WW - 2} height={WH} rx={4}
-                fill={isActive ? '#DBEAFE' : '#F5F0E4'} stroke="#DDD8CE" strokeWidth={1} />
-              {isActive && <circle cx={i * WW + WW / 2} cy={WH - 10} r={4} fill="var(--primary)" opacity={0.9} />}
+                fill={isActive ? 'url(#sp-white-key-pressed)' : 'url(#sp-white-key)'}
+                stroke="#d8d0c1" strokeWidth={1} />
+              {isActive && <circle cx={i * WW + WW / 2} cy={WH - 10} r={4} fill="#b4603a" opacity={0.9} />}
             </g>
           )
         })}
@@ -81,7 +102,8 @@ function Piano({ raga, beat }: { raga: Raga; beat: number }) {
             return (
               <rect key={`b${oct}${slot}`} x={oct * 7 * WW + xOff} y={0}
                 width={BW} height={BH} rx={3}
-                fill={isActive ? 'var(--primary)' : '#1C1A17'} />
+                fill={isActive ? 'url(#sp-black-key-pressed)' : 'url(#sp-black-key)'}
+                stroke="#000000" strokeWidth={0.5} />
             )
           })
         )}
@@ -93,7 +115,7 @@ function Piano({ raga, beat }: { raga: Raga; beat: number }) {
           return (
             <span key={i} style={{
               fontSize: active ? 13 : 10, fontWeight: active ? 700 : 400,
-              color: active ? 'var(--primary)' : 'var(--on-surface-variant)',
+              color: active ? '#b4603a' : 'var(--on-surface-variant)',
               transition: 'all 0.15s',
             }}>{s}</span>
           )
