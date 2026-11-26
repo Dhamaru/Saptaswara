@@ -376,14 +376,14 @@ export default function Piano({
               }
               className={`flex-1 min-w-[140px] rounded-[32px] border transition-all flex flex-col items-center justify-center gap-6 ${
                 isNotePlaying
-                  ? 'bg-primary border-primary shadow-glow scale-95 brightness-125'
-                  : 'bg-surface-container-high border-outline-variant/20 hover:border-primary/40'
+                  ? 'bg-[#8a5a2b] border-[#c9922f] scale-95 shadow-[0_0_24px_rgba(185,134,11,0.35)]'
+                  : 'bg-surface-container-high border-outline-variant/20 hover:border-[#c9922f]/50'
               }`}
             >
-              <span className={`font-display text-5xl font-light ${isNotePlaying ? 'text-white' : 'text-on-surface'}`}>
+              <span className={`font-display text-5xl font-light ${isNotePlaying ? 'text-[#fff3df]' : 'text-on-surface'}`}>
                 {note}
               </span>
-              <div className={`w-2 h-2 rounded-full ${isNotePlaying ? 'bg-white animate-pulse' : 'bg-primary/60'}`} />
+              <div className={`w-2 h-2 rounded-full ${isNotePlaying ? 'bg-[#fff3df] animate-pulse' : 'bg-[#b4603a]/70'}`} />
             </button>
           )
         })}
@@ -398,7 +398,7 @@ export default function Piano({
       {/* ── DAW HUD ── */}
       <div className="flex flex-wrap justify-center items-center gap-3 md:gap-6 px-4 md:px-10 py-2.5 md:py-3 rounded-full bg-surface-container-high/40 border border-outline-variant/10 backdrop-blur-2xl shadow-xl z-50">
         <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${normalizedActiveNotes.length > 0 ? 'bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.8)] animate-pulse' : 'bg-outline-variant/20'}`} />
+          <div className={`w-2 h-2 rounded-full ${normalizedActiveNotes.length > 0 ? 'bg-[#c9922f] shadow-[0_0_10px_rgba(201,146,47,0.8)] animate-pulse' : 'bg-outline-variant/20'}`} />
           <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-on-surface-variant/40 font-bold">
             {layout} Engine
           </span>
@@ -410,7 +410,7 @@ export default function Piano({
         <div ref={dropdownRef} className="relative">
           <button
             onClick={() => setIsDropdownOpen(o => !o)}
-            className="flex items-center gap-2 bg-surface-container-high/20 border border-outline-variant/10 text-on-surface-variant/60 font-mono text-[9px] uppercase tracking-widest rounded-full px-4 py-1.5 outline-none hover:border-primary/40 transition-all cursor-pointer"
+            className="flex items-center gap-2 bg-surface-container-high/20 border border-outline-variant/10 text-on-surface-variant/60 font-mono text-[9px] uppercase tracking-widest rounded-full px-4 py-1.5 outline-none hover:border-[#c9922f]/50 transition-all cursor-pointer"
           >
             {INSTRUMENT_GROUPS.flatMap(g => g.instruments).find(i => i.value === activeInstrument)?.label ?? activeInstrument}
             <svg className="w-2.5 h-2.5 opacity-50" fill="none" viewBox="0 0 10 6">
@@ -433,7 +433,7 @@ export default function Piano({
                         key={inst.value}
                         onClick={() => { handleInstrumentChange(val); setIsDropdownOpen(false) }}
                         className={`w-full text-left px-3 py-2 font-mono text-[9px] uppercase tracking-widest transition-colors ${
-                          isActive ? 'text-primary bg-primary/10' : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high/40'
+                          isActive ? 'text-[#b4603a] bg-[#b4603a]/10' : 'text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-container-high/40'
                         }`}
                       >
                         {inst.label}
@@ -454,7 +454,7 @@ export default function Piano({
           disabled={normalizedActiveNotes.length === 0}
           className={`flex items-center gap-2 font-mono text-[8px] uppercase tracking-[0.15em] px-5 py-2 rounded-full transition-all border ${
             isScaleLocked && normalizedActiveNotes.length > 0
-              ? 'bg-primary/20 text-primary border-primary/30 shadow-glow'
+              ? 'bg-[#c9922f]/20 text-[#c9922f] border-[#c9922f]/30 shadow-[0_0_18px_rgba(201,146,47,0.25)]'
               : 'bg-surface-container-high/20 text-on-surface-variant/30 border-outline-variant/10 hover:text-on-surface-variant/60'
           }`}
         >
@@ -466,9 +466,11 @@ export default function Piano({
       {/* ── Keyboard — scrollable on narrow screens ── */}
       <div className="w-full overflow-x-auto pb-4 pt-2 scroll-thin">
         <div
-          className="relative flex p-2 bg-[#050505] rounded-[32px] border border-white/5 shadow-2xl mx-auto flex-shrink-0"
+          className="relative flex p-2 bg-[#090807] rounded-[32px] border border-[#6b4d2f]/40 shadow-[0_24px_60px_rgba(0,0,0,0.6)] mx-auto flex-shrink-0"
           style={{ width: '912px', minWidth: '912px', touchAction: 'none' }}
         >
+          {/* Felt strip above the keys — warm, like an acoustic piano */}
+          <div className="pointer-events-none absolute inset-x-2 top-2 h-2 rounded-sm bg-[#5a2b24] z-10" />
           {/* KR-10: Ripple canvas overlay */}
           <canvas
             ref={canvasRef}
@@ -541,54 +543,54 @@ export default function Piano({
                       }}
                       onTouchEnd={() => handleRelease(noteId, freq)}
                       disabled={isLockedOut}
-                      className={`group relative flex-1 h-80 border-r border-black/10 transition-all duration-150 origin-top
+                      className={`group relative flex-1 h-80 border-r border-black/10 transition-all duration-150 origin-top piano-white-key
                         ${isAbsoluteFirst ? 'rounded-l-2xl' : ''}
                         ${isAbsoluteLast  ? 'rounded-r-2xl'  : ''}
                         ${isNotePlaying
-                          ? 'bg-primary brightness-125 translate-y-3 z-30 shadow-[0_20px_40px_rgba(var(--primary-rgb),0.5)]'
+                          ? 'piano-white-key--pressed translate-y-2 z-30'
                           : isLockedOut
-                            ? 'bg-[#f5f0e4] cursor-not-allowed opacity-90'
+                            ? 'cursor-not-allowed opacity-90'
                             : isVarjya
-                              ? 'bg-[#ede8dc] opacity-50 cursor-not-allowed'
+                              ? 'opacity-50 cursor-not-allowed'
                               : isVadi
-                                ? 'bg-[#fff3e0] hover:bg-[#ffe8c8] active:translate-y-2'
+                                ? 'piano-white-key--vadi'
                                 : isSamvadi
-                                  ? 'bg-[#eef4ff] hover:bg-[#d8e8ff] active:translate-y-2'
-                                  : 'bg-[#f5f0e4] hover:bg-[#ede8dc] active:translate-y-2 active:bg-[#e4ddd0]'
+                                  ? 'piano-white-key--samvadi'
+                                  : ''
                         }`}
                     >
-                      {/* Vadi glow bar */}
+                      {/* Vadi glow bar — warm gold */}
                       {isVadi && !isNotePlaying && (
                         <div className="absolute top-0 inset-x-0 h-1.5 rounded-t-sm bg-gradient-to-r from-amber-400 to-orange-400 opacity-80" />
                       )}
-                      {/* Samvadi bar */}
+                      {/* Samvadi bar — warm copper (never blue) */}
                       {isSamvadi && !isNotePlaying && (
-                        <div className="absolute top-0 inset-x-0 h-1.5 rounded-t-sm bg-gradient-to-r from-sky-400 to-blue-400 opacity-60" />
+                        <div className="absolute top-0 inset-x-0 h-1.5 rounded-t-sm bg-gradient-to-r from-[#c2703f] to-[#a6522f] opacity-70" />
                       )}
                       {/* Raga dot */}
                       <div className={`absolute top-4 left-1/2 -translate-x-1/2 rounded-full transition-all
                         ${isVadi    ? 'w-2 h-2 bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
-                        : isSamvadi ? 'w-1.5 h-1.5 bg-sky-400 opacity-80'
-                        : isNyasa   ? 'w-1 h-1 bg-primary/40'
-                        : isInRaga && !isLockedOut ? 'w-1 h-1 bg-primary/20'
+                        : isSamvadi ? 'w-1.5 h-1.5 bg-[#b4603a] opacity-80'
+                        : isNyasa   ? 'w-1 h-1 bg-[#8a6a3b]/50'
+                        : isInRaga && !isLockedOut ? 'w-1 h-1 bg-[#8a6a3b]/25'
                         : 'w-0 h-0 opacity-0'}`}
                       />
                       <span className={`absolute bottom-6 left-1/2 -translate-x-1/2 font-display text-[9px] tracking-[0.2em] font-bold transition-all ${
-                        isNotePlaying ? 'text-white scale-110'
-                        : isVadi    ? 'text-amber-600'
-                        : isSamvadi ? 'text-sky-600'
-                        : 'text-black/20'
+                        isNotePlaying ? 'text-[#5a4632] scale-110'
+                        : isVadi    ? 'text-amber-700'
+                        : isSamvadi ? 'text-[#a6522f]'
+                        : 'text-black/25'
                       }`}>
                         {note.name}
                       </span>
                       {NOTE_TO_KEY[`${note.offset}-${octave}`] && (
                         <span className={`absolute bottom-2 left-1/2 -translate-x-1/2 font-mono text-[8px] font-bold transition-all ${
-                          isNotePlaying ? 'text-white/80' : 'text-black/25'
+                          isNotePlaying ? 'text-[#6b563e]/80' : 'text-black/30'
                         }`}>
                           {NOTE_TO_KEY[`${note.offset}-${octave}`]}
                         </span>
                       )}
-                      <div className="absolute inset-x-0 top-0 h-1 bg-white/40 opacity-0 group-hover:opacity-10" />
+                      <div className="absolute inset-x-0 top-0 h-1 bg-[#fff8e8]/40 opacity-0 group-hover:opacity-10" />
                     </button>
                   )
                 })}
@@ -638,16 +640,16 @@ export default function Piano({
                         addRipple(pos.x, pos.y)
                       }}
                       onTouchEnd={() => handleRelease(noteId, freq)}
-                      className={`absolute top-0 w-[42px] h-48 -translate-x-1/2 rounded-b-xl border-x border-b transition-all duration-150 pointer-events-auto ${
+                      className={`absolute top-0 w-[42px] h-48 -translate-x-1/2 rounded-b-xl border-x border-b border-white/5 transition-all duration-150 pointer-events-auto piano-black-key ${
                         isNotePlaying
-                          ? 'bg-primary border-primary/50 translate-y-2 brightness-150 z-50 shadow-[0_15px_30px_rgba(var(--primary-rgb),0.5)]'
+                          ? 'piano-black-key--pressed translate-y-2 z-50'
                           : isLockedOut || isVarjya
-                            ? 'bg-[#111] border-white/5 cursor-not-allowed opacity-40'
+                            ? 'cursor-not-allowed opacity-40'
                             : isVadi
-                              ? 'bg-[#3d2800] border-amber-800/40 hover:bg-[#4d3400] shadow-2xl'
+                              ? 'piano-black-key--vadi shadow-2xl'
                               : isSamvadi
-                                ? 'bg-[#001828] border-sky-800/40 hover:bg-[#002236] shadow-2xl'
-                                : 'bg-[#1a1a1c] border-white/5 hover:bg-[#252528] active:translate-y-1 active:bg-[#111] shadow-2xl'
+                                ? 'piano-black-key--samvadi shadow-2xl'
+                                : 'shadow-2xl'
                       }`}
                       style={{ left: `${whiteKeysBefore * 64}px` }}
                     >
@@ -655,11 +657,11 @@ export default function Piano({
                         <div className="absolute top-0 inset-x-0 h-1 rounded-t bg-amber-400 opacity-70" />
                       )}
                       {isSamvadi && !isNotePlaying && (
-                        <div className="absolute top-0 inset-x-0 h-1 rounded-t bg-sky-400 opacity-50" />
+                        <div className="absolute top-0 inset-x-0 h-1 rounded-t bg-[#b4603a] opacity-60" />
                       )}
                       {isInRaga && normalizedActiveNotes.length > 0 && (
                         <span className={`absolute bottom-8 left-1/2 -translate-x-1/2 font-mono text-[7px] font-bold tracking-tighter text-center leading-tight ${
-                          isNotePlaying ? 'text-white' : isVadi ? 'text-amber-400' : isSamvadi ? 'text-sky-400' : getSwaraType(note.name) === 'tivra' ? 'text-amber-300' : 'text-blue-300'
+                          isNotePlaying ? 'text-[#e8d9c4]' : isVadi ? 'text-amber-400' : isSamvadi ? 'text-[#d29a72]' : getSwaraType(note.name) === 'tivra' ? 'text-amber-300' : 'text-[#c9a57c]'
                         }`}>
                           <span>{note.label}</span>
                           <span className="block text-[6px] opacity-70">{swaraAccent(note.name)}</span>
