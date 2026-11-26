@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import Navbar from '@/components/Navbar'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Assistant } from '@/components/Assistant'
@@ -299,9 +298,7 @@ export default function JournalPage() {
 
   return (
     <div className="min-h-screen bg-surface-lowest flex flex-col overflow-x-hidden">
-      <Navbar />
-      
-      <main className="flex-1 max-w-6xl mx-auto w-full p-6 md:p-12 space-y-16">
+      <div className="flex-1 max-w-6xl mx-auto w-full p-6 md:p-12 space-y-16">
         <header className="space-y-4 animate-fade-in text-center md:text-left">
           <div className="flex items-center justify-center md:justify-start gap-4">
              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -651,7 +648,7 @@ export default function JournalPage() {
               )}
            </div>
         </section>
-      </main>
+      </div>
 
       {/* Raga Assistant — context-aware coaching based on today's recommendation */}
       <Assistant

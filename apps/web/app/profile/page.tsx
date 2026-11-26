@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import Navbar from '@/components/Navbar'
 import {
   Music,
   BookOpen,
@@ -262,8 +261,6 @@ export default function ProfilePage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-surface-lowest overflow-x-hidden">
-      <Navbar />
-
       {/* Background decoration */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute inset-0 dot-pattern opacity-[0.12]" />
@@ -271,7 +268,7 @@ export default function ProfilePage() {
         <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-accent/4 rounded-full blur-[100px]" />
       </div>
 
-      <main className="relative z-10 max-w-3xl mx-auto px-6 pt-28 pb-20 space-y-8 animate-fade-in">
+      <div className="relative z-10 max-w-3xl mx-auto px-6 pt-28 pb-20 space-y-8 animate-fade-in">
 
         {/* ── Page label ──────────────────────────────────────────────────── */}
         <div className="flex items-center gap-3">
@@ -611,7 +608,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-      </main>
+      </div>
     </div>
   )
 }

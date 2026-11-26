@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import Navbar from '@/components/Navbar'
 import { SwaraTranscriber, type SessionStats } from '@/components/SwaraTranscriber'
 import { NotationEditor } from '@/components/NotationEditor'
 import { RagaDetector } from '@/components/RagaDetector'
@@ -532,15 +531,13 @@ export default function RiyazPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background text-on-surface flex flex-col">
-      <Navbar />
-
       {/* Background ambient gradient */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(var(--primary)/0.08),transparent)]" />
         <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-background to-transparent" />
       </div>
 
-      <main className="flex-1 pt-20 md:pt-24 pb-16 px-4 md:px-8 max-w-7xl mx-auto w-full">
+      <div className="flex-1 pt-20 md:pt-24 pb-16 px-4 md:px-8 max-w-7xl mx-auto w-full">
 
         {/* Page header */}
         <div className="mb-8 md:mb-10 flex items-start justify-between gap-4">
@@ -1194,7 +1191,7 @@ export default function RiyazPage() {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   )
 }

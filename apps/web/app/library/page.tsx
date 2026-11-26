@@ -352,7 +352,7 @@ export default function LibraryPage() {
     <div className="flex h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] overflow-hidden bg-background">
 
       {/* ── Main library area ─────────────────────────────────────────────── */}
-      <main className="flex-1 min-w-0 overflow-y-auto scroll-thin">
+      <div className="flex-1 min-w-0 overflow-y-auto scroll-thin">
         <div className="px-4 md:px-12 py-8 md:py-16">
 
           {/* Header */}
@@ -757,7 +757,7 @@ export default function LibraryPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
 
       {/* ── Detail panel — full-screen overlay on mobile, side panel on desktop ── */}
       {selectedRaga && (
