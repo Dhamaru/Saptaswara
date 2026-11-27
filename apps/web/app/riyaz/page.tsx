@@ -11,6 +11,14 @@ import { getAudioEngine } from '@/lib/audio'
 import { swaraToFrequency } from '@/lib/musicalMath'
 import { RagaEngine } from '@saptaswara/core'
 import type { Raga } from '@saptaswara/core'
+import {
+  DEFAULT_LEARNING_PREFERENCES,
+  STARTER_RAGA_NAMES,
+  fetchLearningPreferences,
+  prioritiseRagas,
+  skillLevelHint,
+  type LearningPreferences,
+} from '@/lib/learningPreferences'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -190,6 +198,7 @@ export default function RiyazPage() {
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [ragas, setRagas]           = useState<Raga[]>([])
+  const [learningPreferences, setLearningPreferences] = useState<LearningPreferences>(DEFAULT_LEARNING_PREFERENCES)
   const [loading, setLoading]       = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [search, setSearch]         = useState('')
@@ -333,6 +342,15 @@ export default function RiyazPage() {
       setLoading(false)
     }
     fetchRagas()
+  }, [])
+
+  // Personalise the shortlist without blocking practice if the API is degraded.
+  useEffect(() => {
+    let active = true
+    fetchLearningPreferences().then(({ preferences }) => {
+      if (active) setLearningPreferences(preferences)
+    })
+    return () => { active = false }
   }, [])
 
   // Auto-select raga from URL param — re-runs when searchParams change
@@ -518,11 +536,19 @@ export default function RiyazPage() {
   }
 
   // ── Filtered ragas for dropdown ────────────────────────────────────────────
-  const filteredRagas = ragas.filter(r => {
-    const matchSearch = r.name.toLowerCase().includes(search.toLowerCase())
-    const matchTrad = traditionFilter === 'all' || (r.tradition || '').toLowerCase().includes(traditionFilter)
-    return matchSearch && matchTrad
-  })
+  const filteredRagas = prioritiseRagas(
+    ragas.filter(r => {
+      const matchSearch = r.name.toLowerCase().includes(search.toLowerCase())
+      const matchTrad = traditionFilter === 'all' || (r.tradition || '').toLowerCase().includes(traditionFilter)
+      return matchSearch && matchTrad
+    }),
+    learningPreferences.preferred_ragas,
+  )
+
+  const starterRagas = prioritiseRagas(
+    ragas.filter(r => (STARTER_RAGA_NAMES as readonly string[]).includes(r.name)),
+    learningPreferences.preferred_ragas,
+  )
 
   // ── Free-mode unique swaras (union of aroha + avaroha, deduplicated) ───────
   // We show them in a grid for free mode, in a horizontal row for aroha/avaroha
@@ -545,8 +571,8 @@ export default function RiyazPage() {
             <h1 className="font-display text-4xl md:text-5xl font-light tracking-tight text-on-surface">
               Saadhana
             </h1>
-            <p className="mt-2 font-mono text-[11px] uppercase tracking-widest text-on-surface-variant/40">
-              Focused practice · One raga at a time
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-widest text-on-surface-variant/50">
+              {skillLevelHint(learningPreferences.skill_level)}
             </p>
           </div>
           <Link
@@ -557,6 +583,34 @@ export default function RiyazPage() {
             <span className="font-mono text-[9px] uppercase tracking-widest">Journal</span>
           </Link>
         </div>
+
+        {/* Curated starter path */}
+        {!loading && starterRagas.length > 0 && (
+          <div className="mb-8 rounded-2xl border border-outline-variant/10 bg-surface-lowest/40 p-4 md:p-5">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="material-symbols-outlined !text-base text-primary/60">auto_awesome</span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/60">
+                {learningPreferences.preferred_ragas.length > 0 ? 'Recommended for you' : 'Start with these five'}
+              </span>
+              <span className="font-sans text-xs text-on-surface-variant/40">Build a foundation before exploring all ragas.</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {starterRagas.map(raga => (
+                <button
+                  key={raga.id}
+                  onClick={() => setSelectedRaga(raga)}
+                  className={`px-4 py-2.5 rounded-xl border font-mono text-xs uppercase tracking-widest transition-all ${
+                    selectedRaga?.id === raga.id
+                      ? 'bg-primary/20 border-primary/40 text-primary'
+                      : 'bg-surface-container-high/30 border-outline-variant/10 text-on-surface-variant/60 hover:border-primary/30 hover:text-primary'
+                  }`}
+                >
+                  {raga.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Top controls row */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">

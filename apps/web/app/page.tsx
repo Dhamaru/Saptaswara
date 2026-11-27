@@ -31,16 +31,16 @@ export default function LandingPage() {
           <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg overflow-hidden border border-primary/20">
             <img src="/logo.png" alt="Saptaswara Logo" className="w-full h-full object-cover scale-150" />
           </div>
-          <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-primary/80 font-bold">Studio Engine v1.0</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 font-bold">Guided Raga Learning</span>
         </div>
 
         <h1 className="font-display text-5xl sm:text-7xl md:text-9xl font-light text-on-surface tracking-tighter leading-[0.9] mb-8 md:mb-10 text-glow">
-          Create music <br />
+          Learn music <br />
           <span className="italic font-light text-primary opacity-70">guided by ragas.</span>
         </h1>
 
         <p className="font-sans text-base md:text-lg lg:text-xl text-on-surface-variant/70 max-w-2xl mx-auto font-light leading-relaxed mb-10 md:mb-16 text-balance">
-          Master the art of Indian Classical Music. A high-fidelity studio where traditional Ragas and Talas meet modern digital synthesis.
+          Follow a guided path through Indian Classical Music. Listen, practise with instant feedback, and see your command of each raga grow.
         </p>
 
         {/* Swara Constellation */}
@@ -57,13 +57,13 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6">
           <Link
-            href="/studio"
+            href="/signup"
             className="group relative w-full sm:w-auto px-8 md:px-12 py-4 md:py-5 rounded-2xl font-medium shadow-glow hover:scale-105 active:scale-95 transition-all overflow-hidden"
             style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent))', color: 'var(--on-primary)' }}
           >
             <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
             <span className="relative flex items-center justify-center gap-3">
-              Start Creating
+              Create free account
               <span className="material-symbols-outlined !text-xl md:!text-2xl">arrow_forward</span>
             </span>
           </Link>
@@ -71,7 +71,7 @@ export default function LandingPage() {
             href="/library"
             className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-5 bg-surface-container-high/40 border border-outline-variant/20 rounded-2xl font-medium text-on-surface hover:bg-surface-container-high transition-all text-center"
           >
-            Explore Raags
+            Explore ragas
           </Link>
         </div>
       </section>
@@ -87,7 +87,7 @@ export default function LandingPage() {
             <div className="relative z-20 h-full flex flex-col justify-between">
               <div>
                 <span className="font-mono text-[10px] uppercase tracking-widest text-primary mb-4 md:mb-6 block font-semibold opacity-60">Raga Intelligence</span>
-                <h3 className="font-display text-3xl md:text-5xl font-light text-on-surface mb-2 leading-tight">Melodic <br/> DNA.</h3>
+                <h3 className="font-display text-3xl md:text-5xl font-light text-on-surface mb-2 leading-tight">Know the <br/> raga.</h3>
               </div>
               <div className="flex items-center gap-3 md:gap-4 py-3 md:py-4 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
                  {['सा', 'रे', 'ग', 'म', 'प', 'ध', 'नी'].map((s, j) => (
@@ -98,7 +98,7 @@ export default function LandingPage() {
                  ))}
               </div>
               <p className="text-on-surface-variant font-light max-w-sm text-sm md:text-lg leading-relaxed opacity-80">
-                Explore a library of 120+ traditional Ragas. Every note you play is dynamically mapped to verify musical authenticity.
+                Start with five foundational ragas, then explore the full library. Every note you play is checked against raga grammar.
               </p>
             </div>
         </div>
@@ -110,11 +110,11 @@ export default function LandingPage() {
            
            <div className="relative z-20">
              <div className="flex items-center gap-3 mb-4 md:mb-6">
-               <span className="material-symbols-outlined text-primary !text-3xl md:!text-4xl opacity-80">shaman</span>
-               <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary/60 font-bold">SHA</span>
+               <span className="material-symbols-outlined text-primary !text-3xl md:!text-4xl opacity-80">auto_awesome</span>
+               <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary/60 font-bold">PRACTICE PATH</span>
              </div>
-             <h3 className="font-display text-2xl md:text-3xl font-light text-on-surface mb-1">Tala Engine.</h3>
-             <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/40">Saptaswara Hybrid Architecture</p>
+             <h3 className="font-display text-2xl md:text-3xl font-light text-on-surface mb-1">Step by step.</h3>
+             <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/40">Scale → phrase → improvisation</p>
            </div>
 
            <div className="relative z-20 flex flex-col items-end mt-auto">
@@ -131,20 +131,18 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Performance Statistics Row */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-3 gap-2 md:gap-8 mb-16 md:mb-32 opacity-80 px-4">
-         <div className="flex flex-col gap-1 p-3 md:p-8 rounded-xl md:rounded-3xl bg-surface-container-lowest/20 border border-outline-variant/5">
-            <span className="font-mono text-[7px] md:text-[9px] uppercase tracking-widest text-on-surface-variant/60 truncate">Sample Rate</span>
-            <span className="font-display text-sm sm:text-xl md:text-3xl font-light text-on-surface">96 khz</span>
-         </div>
-         <div className="flex flex-col gap-1 p-3 md:p-8 rounded-xl md:rounded-3xl bg-surface-container-lowest/20 border border-outline-variant/5">
-            <span className="font-mono text-[7px] md:text-[9px] uppercase tracking-widest text-on-surface-variant/60 truncate">Engine</span>
-            <span className="font-display text-sm sm:text-xl md:text-3xl font-light text-on-surface">L-S1.0</span>
-         </div>
-         <div className="flex flex-col gap-1 p-3 md:p-8 rounded-xl md:rounded-3xl bg-surface-container-lowest/20 border border-outline-variant/5">
-            <span className="font-mono text-[7px] md:text-[9px] uppercase tracking-widest text-on-surface-variant/60 truncate">Latency</span>
-            <span className="font-display text-sm sm:text-xl md:text-3xl font-light text-on-surface">24 ms</span>
-         </div>
+      {/* Learning pillars */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-8 mb-16 md:mb-32 px-4">
+         {[
+           { label: 'Guided path', value: 'Start with five ragas' },
+           { label: 'Active practice', value: 'Listen, sing, repeat' },
+           { label: 'Visible progress', value: 'See what improved' },
+         ].map(pillar => (
+           <div key={pillar.label} className="flex flex-col gap-1 p-4 md:p-8 rounded-xl md:rounded-3xl bg-surface-container-lowest/20 border border-outline-variant/5">
+             <span className="font-mono text-[9px] md:text-[10px] uppercase tracking-widest text-on-surface-variant/60">{pillar.label}</span>
+             <span className="font-display text-base sm:text-lg md:text-2xl font-light text-on-surface">{pillar.value}</span>
+           </div>
+         ))}
       </div>
     </div>
   )

@@ -12,6 +12,13 @@ import { MoodPicker } from '@/components/MoodPicker'
 import dynamic from 'next/dynamic'
 import { getCachedRagas, cacheRagas } from '@/lib/ragaCache'
 import RagaGraph from '@/components/RagaGraph'
+import {
+  DEFAULT_LEARNING_PREFERENCES,
+  fetchLearningPreferences,
+  prioritiseRagas,
+  skillLevelHint,
+  type LearningPreferences,
+} from '@/lib/learningPreferences'
 
 const PakadQuiz = dynamic(() => import('@/components/PakadQuiz').then(m => ({ default: m.PakadQuiz })), { ssr: false })
 
@@ -111,6 +118,7 @@ export default function LibraryPage() {
       return stored ? new Set(JSON.parse(stored)) : new Set()
     } catch { return new Set() }
   })
+  const [learningPreferences, setLearningPreferences] = useState<LearningPreferences>(DEFAULT_LEARNING_PREFERENCES)
   // BUG-007: refs so the keyboard handler always reads current values without
   // being in the effect's dependency array — prevents listener re-registration on
   // every Arrow key press (focusedIdx) and every filter change (filteredRagas).
@@ -127,6 +135,15 @@ export default function LibraryPage() {
     setShowCompare(false)
     setCompareRaga(null)
   }, [selectedRaga, setRagaContext])
+
+  // Personalise the starter shelf when preferences are available.
+  useEffect(() => {
+    let active = true
+    fetchLearningPreferences().then(({ preferences }) => {
+      if (active) setLearningPreferences(preferences)
+    })
+    return () => { active = false }
+  }, [])
 
   const fetchRagaDescription = async () => {
     if (!selectedRaga || descLoading) return
@@ -370,7 +387,7 @@ export default function LibraryPage() {
               <div className="max-w-xl">
                 <h1 className="font-display text-5xl md:text-7xl font-light text-on-surface tracking-tight mb-4 md:mb-6">Explore.</h1>
                 <p className="font-sans text-sm md:text-lg text-on-surface-variant font-light leading-relaxed opacity-70">
-                  Navigate the geometric structures of melodic time. Select a raga to explore its intervals, moods, and fundamental swaras.
+                  {skillLevelHint(learningPreferences.skill_level)} Select a raga to explore its scale, phrases, and characteristic movements.
                 </p>
               </div>
 
@@ -557,7 +574,10 @@ export default function LibraryPage() {
 
           {/* Starter raga shelf — shown when no filters active */}
           {!loading && !searchQuery && activeFilter === 'ALL' && activeTradition === 'ALL' && (() => {
-            const starters = ragas.filter(r => STARTER_RAGA_NAMES.includes(r.name))
+            const starters = prioritiseRagas(
+              ragas.filter(r => STARTER_RAGA_NAMES.includes(r.name)),
+              learningPreferences.preferred_ragas,
+            )
             if (!starters.length) return null
             return (
               <div className="mb-10">
@@ -565,7 +585,7 @@ export default function LibraryPage() {
                   <div className="h-px flex-1 bg-outline-variant/5" />
                   <span className="font-mono text-[9px] uppercase tracking-widest text-primary/50 font-bold flex items-center gap-1.5">
                     <span className="material-symbols-outlined !text-[11px]">auto_awesome</span>
-                    Good ragas to start with
+                    {learningPreferences.preferred_ragas.length > 0 ? 'Picked for you' : 'Good ragas to start with'}
                   </span>
                   <div className="h-px flex-1 bg-outline-variant/5" />
                 </div>
