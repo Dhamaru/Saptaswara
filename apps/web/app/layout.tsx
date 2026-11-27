@@ -6,7 +6,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Manrope, DM_Sans, DM_Mono, Space_Grotesk } from 'next/font/google'
 import Navbar from '@/components/Navbar'
 import AuthListener from '@/components/AuthListener'
-import SupabaseWarmup from '@/components/SupabaseWarmup'
+import OnboardingModal from '@/components/OnboardingModal'
 import { PlaybackProvider } from '@/context/PlaybackContext'
 import { ToastProvider } from '@/components/Toast'
 import { GlobalAssistantProvider } from '@/context/GlobalAssistantContext'
@@ -36,8 +36,8 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: 'Saptaswara | Raga-Guided Music Creation',
-  description: 'Create and explore Indian Classical Music with AI-assisted Raga guidance.',
+  title: 'Saptaswara | Learn Indian Classical Music',
+  description: 'Learn, practise, and create with ragas through guided exercises, audio, and progress tracking.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -69,7 +69,6 @@ export default function RootLayout({
         <PlaybackProvider>
           <GlobalAssistantProvider>
           <AuthListener />
-          <SupabaseWarmup />
           <ToastProvider>
           {/* Ambient Background Elements */}
           <div className="fixed inset-0 z-0 pointer-events-none">
@@ -84,6 +83,7 @@ export default function RootLayout({
             {children}
           </main>
           <GlobalAssistant />
+          <OnboardingModal />
           <Analytics />
           <SpeedInsights />
           </ToastProvider>

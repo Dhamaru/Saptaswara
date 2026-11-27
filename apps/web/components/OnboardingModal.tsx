@@ -1,21 +1,20 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import {
+  fetchLearningPreferences,
+  getMoodRaga,
+  type MoodRagaSuggestion,
+  type SkillLevel,
+} from '@/lib/learningPreferences'
 
 const STORAGE_KEY = 'saptaswara-onboarding-done'
+const DEGRADED_KEY = 'saptaswara-onboarding-degraded'
+export const OPEN_ONBOARDING_EVENT = 'saptaswara:open-onboarding'
 
-type SkillLevel = 'Beginner' | 'Student' | 'Musician'
 type Mood = 'Calm' | 'Romantic' | 'Devotional' | 'Melancholic' | 'Joyful'
-
-interface RagaSuggestion {
-  name: string
-  tradition: string
-  rasa: string
-  time: string
-  reason: string
-}
 
 const SKILL_OPTIONS: { value: SkillLevel; label: string; sub: string; icon: string }[] = [
   { value: 'Beginner',  label: 'Beginner',  sub: 'Just starting out',         icon: 'school' },
@@ -31,75 +30,138 @@ const MOOD_OPTIONS: { value: Mood; label: string; icon: string; color: string }[
   { value: 'Joyful',      label: 'Joyful',     icon: '☀️', color: 'bg-yellow-500/15 border-yellow-400/30 text-yellow-300' },
 ]
 
+const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/auth/callback']
+
 export default function OnboardingModal() {
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
+  const [checking, setChecking] = useState(true)
   const [show, setShow] = useState(false)
+  const [forceOpen, setForceOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [skill, setSkill] = useState<SkillLevel | null>(null)
   const [mood, setMood] = useState<Mood | null>(null)
-  const [raga, setRaga] = useState<RagaSuggestion | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [raga, setRaga] = useState<MoodRagaSuggestion | null>(null)
+  const [saving, setSaving] = useState(false)
 
+  // Profile can re-open the flow without adding a dedicated route.
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const done = localStorage.getItem(STORAGE_KEY)
-    if (!done) setShow(true)
+    const open = () => setForceOpen(true)
+    window.addEventListener(OPEN_ONBOARDING_EVENT, open)
+    return () => window.removeEventListener(OPEN_ONBOARDING_EVENT, open)
   }, [])
 
-  const persist = async (skillLevel: SkillLevel, onboardingMood: Mood, ragaName: string) => {
-    localStorage.setItem(STORAGE_KEY, '1')
+  useEffect(() => {
+    let active = true
+    const isPublic = PUBLIC_ROUTES.includes(pathname ?? '') || (pathname ?? '').startsWith('/preview')
+
+    if (isPublic && !forceOpen) {
+      setChecking(false)
+      setShow(false)
+      return () => { active = false }
+    }
+
+    ;(async () => {
+      setChecking(true)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          if (active) setShow(false)
+          return
+        }
+
+        const { preferences, degraded } = await fetchLearningPreferences()
+        if (!active) return
+
+        if (degraded) {
+          // Cache is authoritative only while the database is unavailable.
+          const cachedDone = localStorage.getItem(STORAGE_KEY) === '1'
+          setShow(forceOpen || !cachedDone)
+        } else {
+          if (preferences.onboarding_done) {
+            localStorage.setItem(STORAGE_KEY, '1')
+            localStorage.removeItem(DEGRADED_KEY)
+          }
+          setShow(forceOpen || !preferences.onboarding_done)
+        }
+      } catch {
+        if (active) setShow(localStorage.getItem(STORAGE_KEY) !== '1')
+      } finally {
+        if (active) setChecking(false)
+      }
+    })()
+
+    return () => { active = false }
+  }, [pathname, forceOpen, supabase])
+
+  const persistPreferences = async (body: Record<string, unknown>) => {
+    setSaving(true)
+    let persisted = false
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      await fetch('/api/users/preferences', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          skill_level: skillLevel,
-          onboarding_mood: onboardingMood,
-          preferred_ragas: [ragaName],
-          onboarding_done: true,
-        }),
-      })
-    } catch {}
+      if (session) {
+        const res = await fetch('/api/users/preferences', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(body),
+        })
+        persisted = res.ok
+      }
+    } catch {
+      persisted = false
+    }
+
+    // Local cache keeps the flow usable while a migration is pending. The
+    // degraded marker prevents this cache from overriding a healthy DB later.
+    if (persisted) {
+      localStorage.setItem(STORAGE_KEY, '1')
+      localStorage.removeItem(DEGRADED_KEY)
+    } else {
+      localStorage.setItem(STORAGE_KEY, '1')
+      localStorage.setItem(DEGRADED_KEY, '1')
+    }
+
+    setSaving(false)
+    return persisted
   }
 
-  const handleMoodSelect = async (m: Mood) => {
+  const handleMoodSelect = (m: Mood) => {
     setMood(m)
-    setLoading(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/ai/mood', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ mood: m }),
-      })
-      const json = await res.json()
-      if (json.ragas?.[0]) setRaga(json.ragas[0])
-    } catch {}
-    setLoading(false)
+    setRaga(getMoodRaga(m))
     setStep(3)
   }
 
   const handleOpenStudio = async () => {
-    if (skill && mood && raga) await persist(skill, mood, raga.name)
-    router.push(raga ? `/studio?raga_name=${encodeURIComponent(raga.name)}` : '/studio')
+    const suggestion = raga ?? getMoodRaga(mood)
+    await persistPreferences({
+      ...(skill ? { skill_level: skill } : {}),
+      ...(mood ? { onboarding_mood: mood } : {}),
+      preferred_ragas: [suggestion.name],
+      onboarding_done: true,
+    })
+
+    setForceOpen(false)
+    setShow(false)
+    router.push(`/riyaz?raga_name=${encodeURIComponent(suggestion.name)}`)
+  }
+
+  const handleSkip = async () => {
+    await persistPreferences({
+      ...(skill ? { skill_level: skill } : {}),
+      ...(mood ? { onboarding_mood: mood } : {}),
+      ...(raga ? { preferred_ragas: [raga.name] } : {}),
+      onboarding_done: true,
+    })
+    setForceOpen(false)
     setShow(false)
   }
 
-  const handleSkip = () => {
-    localStorage.setItem(STORAGE_KEY, '1')
-    setShow(false)
-  }
-
-  if (!show) return null
+  if (checking || !show) return null
 
   return (
     <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-background/80 backdrop-blur-xl animate-fade-in">
@@ -126,7 +188,8 @@ export default function OnboardingModal() {
             ))}
             <button
               onClick={handleSkip}
-              className="ml-auto font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/30 hover:text-on-surface-variant transition-colors"
+              disabled={saving}
+              className="ml-auto font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/50 hover:text-on-surface transition-colors disabled:opacity-50"
             >
               Skip
             </button>
@@ -138,13 +201,13 @@ export default function OnboardingModal() {
               <div className="mb-8">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-4">
                   <span className="material-symbols-outlined !text-sm text-primary/70">waving_hand</span>
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-primary/70">Welcome</span>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-primary/70">Welcome</span>
                 </div>
                 <h2 className="font-display text-3xl font-light text-on-surface tracking-tight mb-2">
                   What brings you here?
                 </h2>
-                <p className="font-sans text-sm text-on-surface-variant/50">
-                  This helps tailor your experience.
+                <p className="font-sans text-sm text-on-surface-variant/60">
+                  This helps tailor your practice path.
                 </p>
               </div>
               <div className="space-y-3">
@@ -159,9 +222,9 @@ export default function OnboardingModal() {
                     </div>
                     <div>
                       <div className="font-display text-lg font-light text-on-surface group-hover:text-primary transition-colors">{opt.label}</div>
-                      <div className="font-sans text-xs text-on-surface-variant/40">{opt.sub}</div>
+                      <div className="font-sans text-xs text-on-surface-variant/50">{opt.sub}</div>
                     </div>
-                    <span className="material-symbols-outlined !text-base text-on-surface-variant/20 ml-auto group-hover:text-primary/40 transition-colors">arrow_forward</span>
+                    <span className="material-symbols-outlined !text-base text-on-surface-variant/30 ml-auto group-hover:text-primary/50 transition-colors">arrow_forward</span>
                   </button>
                 ))}
               </div>
@@ -174,7 +237,7 @@ export default function OnboardingModal() {
               <div className="mb-8">
                 <button
                   onClick={() => setStep(1)}
-                  className="flex items-center gap-1.5 text-on-surface-variant/40 hover:text-on-surface transition-colors mb-4 font-mono text-[9px] uppercase tracking-widest"
+                  className="flex items-center gap-1.5 text-on-surface-variant/50 hover:text-on-surface transition-colors mb-4 font-mono text-[10px] uppercase tracking-widest"
                 >
                   <span className="material-symbols-outlined !text-sm">arrow_back</span>
                   Back
@@ -182,8 +245,8 @@ export default function OnboardingModal() {
                 <h2 className="font-display text-3xl font-light text-on-surface tracking-tight mb-2">
                   What mood are you in?
                 </h2>
-                <p className="font-sans text-sm text-on-surface-variant/50">
-                  We'll find a raga that matches.
+                <p className="font-sans text-sm text-on-surface-variant/60">
+                  We'll suggest a raga to begin with — no AI call needed.
                 </p>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -191,11 +254,10 @@ export default function OnboardingModal() {
                   <button
                     key={opt.value}
                     onClick={() => handleMoodSelect(opt.value)}
-                    disabled={loading}
-                    className={`flex flex-col items-center gap-2 px-4 py-5 rounded-2xl border transition-all disabled:opacity-50 ${opt.color} hover:scale-[1.03] active:scale-[0.98]`}
+                    className={`flex flex-col items-center gap-2 px-4 py-5 rounded-2xl border transition-all hover:scale-[1.03] active:scale-[0.98] ${opt.color}`}
                   >
                     <span className="text-2xl">{opt.icon}</span>
-                    <span className="font-mono text-[9px] uppercase tracking-widest font-bold">{opt.label}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-widest font-bold">{opt.label}</span>
                   </button>
                 ))}
               </div>
@@ -209,51 +271,43 @@ export default function OnboardingModal() {
                 <h2 className="font-display text-3xl font-light text-on-surface tracking-tight mb-2">
                   Your first raga
                 </h2>
-                <p className="font-sans text-sm text-on-surface-variant/50">
+                <p className="font-sans text-sm text-on-surface-variant/60">
                   Based on your {mood?.toLowerCase()} mood.
                 </p>
               </div>
 
-              {loading ? (
-                <div className="flex items-center gap-3 py-12 justify-center">
-                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">Finding your raga…</span>
-                </div>
-              ) : raga ? (
-                <div className="p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/5 border border-primary/20 mb-6">
-                  <div className="flex items-start justify-between gap-4 mb-4">
-                    <div>
-                      <div className="font-mono text-[9px] uppercase tracking-widest text-primary/60 mb-1">{raga.tradition} · {raga.rasa}</div>
-                      <div className="font-display text-4xl font-light text-on-surface">{raga.name}</div>
-                      <div className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40 mt-1">{raga.time}</div>
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/5 border border-primary/20 mb-6">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div>
+                    <div className="font-mono text-[10px] uppercase tracking-widest text-primary/70 mb-1">
+                      {raga?.tradition} · {raga?.rasa}
                     </div>
-                    <div className="w-14 h-14 rounded-2xl bg-primary/15 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                      <span className="material-symbols-outlined !text-2xl text-primary/60">music_note</span>
-                    </div>
+                    <div className="font-display text-4xl font-light text-on-surface">{raga?.name}</div>
+                    <div className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/50 mt-1">{raga?.time}</div>
                   </div>
-                  <p className="font-sans text-sm text-on-surface-variant/60 leading-relaxed italic">
-                    {raga.reason}
-                  </p>
+                  <div className="w-14 h-14 rounded-2xl bg-primary/15 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                    <span className="material-symbols-outlined !text-2xl text-primary/60">music_note</span>
+                  </div>
                 </div>
-              ) : (
-                <div className="p-6 rounded-2xl bg-surface-container-low/30 border border-outline-variant/10 mb-6">
-                  <div className="font-display text-4xl font-light text-on-surface mb-2">Yaman</div>
-                  <p className="font-sans text-sm text-on-surface-variant/50">An evening raga with a romantic, expansive character — perfect to start with.</p>
-                </div>
-              )}
+                <p className="font-sans text-sm text-on-surface-variant/70 leading-relaxed italic">
+                  {raga?.reason}
+                </p>
+              </div>
 
               <button
                 onClick={handleOpenStudio}
-                className="w-full py-4 rounded-2xl font-medium text-white flex items-center justify-center gap-3 shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all"
+                disabled={saving}
+                className="w-full py-4 rounded-2xl font-medium text-white flex items-center justify-center gap-3 shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:hover:scale-100"
                 style={{ background: 'linear-gradient(to right, var(--primary), var(--accent))' }}
               >
                 <span className="material-symbols-outlined !text-xl">piano</span>
-                Open {raga?.name ?? 'Studio'} in Studio
+                {saving ? 'Saving your path…' : `Start practising ${raga?.name}`}
               </button>
 
               <button
                 onClick={handleSkip}
-                className="w-full mt-3 py-3 font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/30 hover:text-on-surface-variant transition-colors"
+                disabled={saving}
+                className="w-full mt-3 py-3 font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/50 hover:text-on-surface transition-colors disabled:opacity-50"
               >
                 Skip for now
               </button>

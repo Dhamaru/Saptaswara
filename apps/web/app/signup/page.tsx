@@ -27,7 +27,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${siteOrigin}/auth/callback?next=/dashboard`,
+        emailRedirectTo: `${siteOrigin}/auth/callback?next=/riyaz`,
       },
     })
 
@@ -167,7 +167,7 @@ export default function SignupPage() {
                 const origin = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
                 supabase.auth.signInWithOAuth({
                   provider: 'google',
-                  options: { redirectTo: `${origin}/auth/callback?next=/dashboard` },
+                  options: { redirectTo: `${origin}/auth/callback?next=/riyaz` },
                 })
               }}
               className="w-full py-3.5 rounded-2xl border border-outline-variant/20 bg-surface-container-low flex items-center justify-center gap-3 font-sans text-sm text-on-surface hover:border-primary/30 hover:bg-surface-container-high transition-all"

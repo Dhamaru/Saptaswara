@@ -62,7 +62,7 @@ export default function LoginPage() {
     }
 
     const params = new URLSearchParams(window.location.search)
-    const nextPath = params.get('next') || '/dashboard'
+    const nextPath = params.get('next') || '/riyaz'
     window.location.href = nextPath
   }
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
     await supabase.auth.resend({
       type: 'signup',
       email: unconfirmedEmail,
-      options: { emailRedirectTo: `${siteOrigin}/auth/callback?next=/dashboard` },
+      options: { emailRedirectTo: `${siteOrigin}/auth/callback?next=/riyaz` },
     })
     setResending(false)
     setSuccess('Confirmation email resent — check your inbox.')
@@ -99,10 +99,10 @@ export default function LoginPage() {
             <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-primary/80 font-bold">Resonance Archive</span>
           </div>
           <h1 className="font-display text-5xl font-light text-on-surface tracking-tighter mb-4">
-            Welcome back.
+            Continue your journey.
           </h1>
           <p className="font-sans text-on-surface-variant/60 font-light">
-            Sign in to resume your raga session.
+            Sign in to resume your practice, ragas, and progress.
           </p>
         </div>
 
@@ -208,7 +208,7 @@ export default function LoginPage() {
                 </>
               ) : (
                 <>
-                  <span>Enter Studio</span>
+                  <span>Continue learning</span>
                   <span className="material-symbols-outlined !text-xl">arrow_forward</span>
                 </>
               )}
@@ -228,7 +228,7 @@ export default function LoginPage() {
                 const origin = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
                 const { error: oauthError } = await supabase.auth.signInWithOAuth({
                   provider: 'google',
-                  options: { redirectTo: `${origin}/auth/callback?next=/dashboard` },
+                  options: { redirectTo: `${origin}/auth/callback?next=/riyaz` },
                 })
                 if (oauthError) setError('Google sign-in is not available right now. Use email and password instead.')
               }}
@@ -274,7 +274,7 @@ export default function LoginPage() {
                     const origin = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
                     await supabase.auth.signInWithOtp({
                       email: magicEmail,
-                      options: { emailRedirectTo: `${origin}/auth/callback?next=/dashboard` },
+                      options: { emailRedirectTo: `${origin}/auth/callback?next=/riyaz` },
                     })
                     setMagicLoading(false)
                     setMagicSent(true)
@@ -292,12 +292,15 @@ export default function LoginPage() {
         </div>
 
         {/* Footer link */}
-        <p className="text-center mt-8 font-sans text-sm text-on-surface-variant/40">
-          No account?{' '}
-          <Link href="/signup" className="text-primary/80 hover:text-primary transition-colors">
-            Create one
-          </Link>
-        </p>
+        <div className="mt-8 rounded-2xl border border-primary/15 bg-primary/5 px-5 py-4 text-center">
+          <p className="font-sans text-sm text-on-surface-variant/60">
+            New to Saptaswara?{' '}
+            <Link href="/signup" className="font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-4">
+              Create a free account
+            </Link>
+            {' '}and start with a guided raga path.
+          </p>
+        </div>
       </div>
     </div>
   )

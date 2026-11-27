@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Music, Calendar, ChevronRight, Trash2, FolderOpen, Plus, Sparkles, Clock, Sunrise } from 'lucide-react'
 import Link from 'next/link'
-import OnboardingModal from '@/components/OnboardingModal'
 
 interface RagaOfDay {
   id: string
@@ -72,7 +71,6 @@ export default function Dashboard() {
 
   return (
     <div className="relative min-h-screen">
-      <OnboardingModal />
       {/* Background */}
       <div className="absolute inset-0 dot-pattern opacity-20" />
       <div className="absolute top-20 left-1/3 w-[400px] h-[400px] bg-accent/5 rounded-full blur-[100px]" />

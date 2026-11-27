@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { OPEN_ONBOARDING_EVENT } from '@/components/OnboardingModal'
 import {
   Music,
   BookOpen,
@@ -103,6 +104,7 @@ export default function ProfilePage() {
   // Skill-level dropdown state
   const [skillDropdownOpen, setSkillDropdownOpen] = useState(false)
   const [skillSaving, setSkillSaving] = useState(false)
+  const [prefsDegraded, setPrefsDegraded] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown on outside click
@@ -151,6 +153,7 @@ export default function ProfilePage() {
         const projectsJson = projectsRes.ok ? await projectsRes.json() : []
 
         const prefs      = prefsJson.preferences ?? {}
+        setPrefsDegraded(Boolean(prefsJson.degraded))
         const projectCount = Array.isArray(projectsJson) ? projectsJson.length : 0
 
         // 3. Practice logs: dates for streak + total count.
@@ -467,18 +470,21 @@ export default function ProfilePage() {
                 {data.onboarding_mood}
               </span>
             ) : (
-              <span className="font-sans text-sm text-on-surface-variant/40 italic">
-                Not set — complete onboarding to personalise your experience.
+              <span className="font-sans text-sm text-on-surface-variant/50 italic">
+                {prefsDegraded
+                  ? 'Not saved yet — we’ll keep your choices on this device until sync is restored.'
+                  : 'Not set — complete onboarding to personalise your experience.'}
               </span>
             )}
           </div>
-          {!loading && !data?.onboarding_done && (
-            <Link
-              href="/dashboard"
-              className="shrink-0 font-mono text-[9px] uppercase tracking-widest text-primary/60 hover:text-primary transition-colors"
+          {!loading && (!data?.onboarding_done || prefsDegraded) && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent(OPEN_ONBOARDING_EVENT))}
+              className="shrink-0 font-mono text-[10px] uppercase tracking-widest text-primary/70 hover:text-primary transition-colors"
             >
               Complete setup →
-            </Link>
+            </button>
           )}
         </div>
 

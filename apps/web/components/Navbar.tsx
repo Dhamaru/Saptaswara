@@ -18,10 +18,11 @@ export default function Navbar() {
   const { theme, toggle: toggleTheme } = useTheme()
 
   const navLinks = [
-    { name: 'Naad', href: '/studio' },
-    { name: 'Ragam', href: '/library' },
-    { name: 'Saadhana', href: '/riyaz' },
-    { name: 'Profile', href: '/profile' },
+    { name: 'Naad', href: '/studio', title: 'Naad — sound studio' },
+    { name: 'Ragam', href: '/library', title: 'Ragam — raga library' },
+    { name: 'Saadhana', href: '/riyaz', title: 'Saadhana — daily practice' },
+    { name: 'Journal', href: '/journal', title: 'Journal — practice history' },
+    { name: 'Profile', href: '/profile', title: 'Profile — progress and settings' },
   ]
 
   const [user, setUser] = React.useState<any>(null)
@@ -73,7 +74,8 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 relative pb-1
+              title={link.title}
+              className={`font-mono text-[11px] uppercase tracking-widest transition-colors duration-200 relative pb-1
                 after:absolute after:bottom-0 after:left-0 after:h-[1.5px] after:bg-primary after:transition-all after:duration-300 after:content-['']
                 ${pathname === link.href
                   ? 'text-primary after:w-full'
@@ -184,6 +186,7 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
+              title={link.title}
               onClick={() => setMobileMenuOpen(false)}
               className={`px-5 py-4 rounded-2xl font-mono text-sm uppercase tracking-widest transition-all ${
                 pathname === link.href

@@ -3,6 +3,10 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAnonClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { checkRateLimit, rateLimitedResponse } from '@/lib/rateLimit'
+import {
+  DEFAULT_LEARNING_PREFERENCES,
+  type LearningPreferences,
+} from '@/lib/learningPreferences'
 
 async function resolveUser(req: Request) {
   try {
@@ -25,7 +29,7 @@ async function resolveUser(req: Request) {
   return { user, supabase: client }
 }
 
-// Fix 8-9: Strict schema validation for all preference fields.
+// Strict schema validation for all preference fields.
 const PreferencesSchema = z.object({
   skill_level:           z.enum(['Beginner', 'Student', 'Musician']).optional(),
   onboarding_mood:       z.string().max(100).optional(),
@@ -33,6 +37,17 @@ const PreferencesSchema = z.object({
   preferred_ragas:       z.array(z.string().max(100)).max(50).optional(),
   preferred_instruments: z.array(z.string().max(100)).max(20).optional(),
 }).strict()
+
+function withDefaults(row: Partial<LearningPreferences> | null): LearningPreferences {
+  return { ...DEFAULT_LEARNING_PREFERENCES, ...(row ?? {}) }
+}
+
+function isMissingTableError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code = (error as { code?: string }).code
+  const message = (error as { message?: string }).message ?? ''
+  return code === 'PGRST205' || code === '42P01' || /schema cache|does not exist/i.test(message)
+}
 
 export async function GET(req: Request) {
   try {
@@ -48,11 +63,24 @@ export async function GET(req: Request) {
       .eq('user_id', user.id)
       .maybeSingle()
 
-    if (error) throw error
-    return NextResponse.json({ preferences: data })
-  } catch (err: any) {
+    if (error) {
+      // Activation must never be blocked by a missing/degraded preferences
+      // table. Return the safe default shape and let the client fall back to
+      // its local cache while still allowing practice to start.
+      console.error('[preferences GET]', error)
+      return NextResponse.json({
+        preferences: DEFAULT_LEARNING_PREFERENCES,
+        degraded: true,
+      })
+    }
+
+    return NextResponse.json({ preferences: withDefaults(data as any), degraded: false })
+  } catch (err) {
     console.error('[preferences GET]', err)
-    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
+    return NextResponse.json({
+      preferences: DEFAULT_LEARNING_PREFERENCES,
+      degraded: true,
+    })
   }
 }
 
@@ -71,16 +99,11 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
 
-    // Fix 9: Validate all preference fields with Zod — prevents arbitrary data storage
-    // and ensures type safety (e.g. preferred_ragas must be string[], not a string).
     const parsed = PreferencesSchema.safeParse(rawBody)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid preferences' }, { status: 400 })
     }
 
-    // Fix 8: Short-circuit if the body contains no recognized preference fields —
-    // previously an empty body still triggered an upsert that created a row with
-    // only user_id + updated_at.
     if (Object.keys(parsed.data).length === 0) {
       return NextResponse.json({ error: 'No preference fields provided' }, { status: 400 })
     }
@@ -97,10 +120,20 @@ export async function PATCH(req: Request) {
       .select()
       .single()
 
-    if (error) throw error
-    return NextResponse.json({ preferences: data })
-  } catch (err: any) {
+    if (error) {
+      console.error('[preferences PATCH]', error)
+      return NextResponse.json(
+        {
+          error: isMissingTableError(error) ? 'preferences_unavailable' : 'Something went wrong',
+          degraded: true,
+        },
+        { status: 503 }
+      )
+    }
+
+    return NextResponse.json({ preferences: withDefaults(data as any), degraded: false })
+  } catch (err) {
     console.error('[preferences PATCH]', err)
-    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
+    return NextResponse.json({ error: 'Something went wrong', degraded: true }, { status: 503 })
   }
 }
