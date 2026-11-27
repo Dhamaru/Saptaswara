@@ -14,7 +14,8 @@ function isMissingTableError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const code = (error as { code?: string }).code
   const message = (error as { message?: string }).message ?? ''
-  return code === 'PGRST205' || code === '42P01' || /schema cache|does not exist/i.test(message)
+  return code === 'PGRST205' || code === '42P01'
+    || /relation .* does not exist|could not find the table .* in the schema cache/i.test(message)
 }
 
 /** Extract and validate Bearer token; returns null if missing or malformed. */
@@ -134,7 +135,7 @@ export async function PATCH(req: Request) {
           lesson_id: lessonId,
           completed: completed ?? Boolean(existing?.completed),
           best_score: Math.max(existing?.best_score ?? 0, score ?? 0),
-          completed_at: completed === true ? now : existing?.completed_at ?? null,
+          completed_at: completed === undefined ? existing?.completed_at ?? null : completed ? now : null,
           updated_at: now,
         },
         { onConflict: 'user_id,lesson_id' }

@@ -106,7 +106,7 @@ export default function Navbar() {
         <button
           onClick={() => isOpen ? closeAssistant() : openAssistant()}
           title="Saptaswara AI Assistant"
-          className={`hidden md:flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+          className={`hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
             isOpen
               ? 'bg-primary/20 border-primary/40 text-primary'
               : 'bg-surface-container-high/60 border-outline-variant/10 text-on-surface-variant/50 hover:border-primary/30 hover:text-primary/80'

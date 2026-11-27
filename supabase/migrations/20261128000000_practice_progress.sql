@@ -111,15 +111,5 @@ create index if not exists user_raga_progress_user_id_last_practiced_at_idx
   on public.user_raga_progress (user_id, last_practiced_at desc);
 
 -- The unique (user_id, lesson_id) constraint already provides this index.
-do $$
-begin
-  if not exists (
-    select 1 from pg_indexes
-    where schemaname = 'public'
-      and tablename = 'user_lesson_progress'
-      and indexdef like '%(user_id, lesson_id)%'
-  ) then
-    create index user_lesson_progress_user_id_lesson_id_idx
-      on public.user_lesson_progress (user_id, lesson_id);
-  end if;
-end $$;
+create index if not exists user_lesson_progress_user_id_lesson_id_idx
+  on public.user_lesson_progress (user_id, lesson_id);

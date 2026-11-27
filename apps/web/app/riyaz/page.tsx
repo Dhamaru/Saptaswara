@@ -8,7 +8,7 @@ import { NotationEditor } from '@/components/NotationEditor'
 import { RagaDetector } from '@/components/RagaDetector'
 import { createClient } from '@/lib/supabase/client'
 import { getAudioEngine } from '@/lib/audio'
-import { swaraToFrequency } from '@/lib/musicalMath'
+import { swaraToFrequency, normalizeSwara } from '@/lib/musicalMath'
 import { RagaEngine, diagnosePracticeSession } from '@saptaswara/core'
 import type { Raga, PracticeDiagnosis, PracticeSessionStats } from '@saptaswara/core'
 import {
@@ -250,9 +250,11 @@ export default function RiyazPage() {
   const [riyazPhase, setRiyazPhase] = useState<'idle' | 'running' | 'results'>('idle')
   const [secondsLeft, setSecondsLeft] = useState(90)
   const riyazTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const riyazStartRef = useRef<number | null>(null)
   const [journalIntensity, setJournalIntensity] = useState<'Deep' | 'Meditative' | 'Focused' | 'Light' | 'Creative'>('Focused')
   const [journalSaving, setJournalSaving] = useState(false)
   const [journalSaved, setJournalSaved] = useState(false)
+  const [structuredSaveDegraded, setStructuredSaveDegraded] = useState(false)
 
   // ── Record / Playback ──────────────────────────────────────────────────────
   type RecordedNote = { swara: string; freq: number; delayMs: number }
@@ -274,12 +276,16 @@ export default function RiyazPage() {
     setIsRecording(false)
   }, [])
 
+  const handleSessionEnd = useCallback((stats: SessionStats) => setSessionStats(stats), [])
+
   const startRiyaz = useCallback(() => {
     setRiyazPhase('running')
     setSecondsLeft(90)
     setSessionStats(null)
     setSessionDiagnosis(null)
     setJournalSaved(false)
+    setStructuredSaveDegraded(false)
+    riyazStartRef.current = Date.now()
     setShowTranscriber(true)
     riyazTimerRef.current = setInterval(() => {
       setSecondsLeft(s => {
@@ -306,7 +312,10 @@ export default function RiyazPage() {
     if (!selectedRaga || !sessionStats || sessionStats.total === 0) return
     setJournalSaving(true)
     const score = Math.round((sessionStats.correct / sessionStats.total) * 100)
-    const notes = `90s riyaz · ${selectedRaga.name} · Conformance: ${score}% (${sessionStats.correct}/${sessionStats.total} correct). Vadi hits: ${sessionStats.vadiHits}.${sessionStats.varjya > 0 ? ` Varjya: ${sessionStats.varjya}.` : ''}`
+    const elapsedSeconds = riyazStartRef.current
+      ? Math.min(90, Math.max(1, Math.round((Date.now() - riyazStartRef.current) / 1000)))
+      : 90
+    const notes = `${elapsedSeconds}s riyaz · ${selectedRaga.name} · Conformance: ${score}% (${sessionStats.correct}/${sessionStats.total} correct). Vadi hits: ${sessionStats.vadiHits}.${sessionStats.varjya > 0 ? ` Varjya: ${sessionStats.varjya}.` : ''}`
     try {
       const res = await fetch('/api/journal', {
         method: 'POST',
@@ -319,7 +328,10 @@ export default function RiyazPage() {
       // Structured side-car write — never blocks or undoes the journal save.
       const stats = sessionStats as PracticeSessionStats
       const grammar = practiceGrammar(selectedRaga)
-      const fallback = () => setSessionDiagnosis(diagnosePracticeSession(stats, grammar))
+      const fallback = () => {
+        setSessionDiagnosis(diagnosePracticeSession(stats, grammar))
+        setStructuredSaveDegraded(true)
+      }
       try {
         const sessionRes = await fetch('/api/practice/sessions', {
           method: 'POST',
@@ -327,7 +339,7 @@ export default function RiyazPage() {
           body: JSON.stringify({
             ragaId: selectedRaga.id ?? null,
             ragaName: selectedRaga.name,
-            durationSeconds: 90,
+            durationSeconds: elapsedSeconds,
             stats,
             grammar,
             score,
@@ -339,6 +351,7 @@ export default function RiyazPage() {
           const json = await sessionRes.json()
           if (json?.diagnosis) setSessionDiagnosis(json.diagnosis as PracticeDiagnosis)
           else fallback()
+          if (json?.degraded === true) setStructuredSaveDegraded(true)
         }
       } catch {
         fallback()
@@ -1121,7 +1134,7 @@ export default function RiyazPage() {
                   avaroha={selectedRaga.avaroha as string[] | undefined}
                   vadi={selectedRaga.vadi}
                   samvadi={selectedRaga.samvadi}
-                  onSessionEnd={(stats) => setSessionStats(stats)}
+                  onSessionEnd={handleSessionEnd}
                 />
               )}
 
@@ -1130,7 +1143,7 @@ export default function RiyazPage() {
                 <div className="rounded-2xl bg-surface-container-low/40 border border-outline-variant/15 p-5 text-center space-y-3 animate-fade-in">
                   <span className="material-symbols-outlined !text-3xl text-on-surface-variant/30">mic_off</span>
                   <div className="font-sans text-sm text-on-surface-variant/50">No notes detected — try again closer to the mic.</div>
-                  <button onClick={() => { setRiyazPhase('idle'); setSessionStats(null); setSessionDiagnosis(null); setSecondsLeft(90) }}
+                  <button onClick={() => { setRiyazPhase('idle'); setSessionStats(null); setSessionDiagnosis(null); setJournalSaved(false); setStructuredSaveDegraded(false); setSecondsLeft(90) }}
                     className="px-4 py-2 rounded-xl border border-outline-variant/15 font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/50 hover:text-on-surface transition-all">
                     New session
                   </button>
@@ -1185,8 +1198,12 @@ export default function RiyazPage() {
 
                     {/* Swara coverage */}
                     {(() => {
-                      const ragaSet = new Set([...(selectedRaga.aroha as string[] ?? []), ...(selectedRaga.avaroha as string[] ?? [])])
-                      const hit = [...ragaSet].filter(s => sessionStats.noteCounts[s])
+                      const canonical = (s: string) => normalizeSwara(s.replace(/[\^'.,]/g, '').trim())
+                      const ragaSet = new Set(
+                        [...(selectedRaga.aroha as string[] ?? []), ...(selectedRaga.avaroha as string[] ?? [])]
+                          .map(canonical)
+                          .filter(Boolean)
+                      )
                       const missed = [...ragaSet].filter(s => !sessionStats.noteCounts[s])
                       if (!ragaSet.size) return null
                       return (
@@ -1275,15 +1292,22 @@ export default function RiyazPage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 py-2 border-t border-outline-variant/10 text-secondary">
-                        <span className="material-symbols-outlined !text-sm">check_circle</span>
-                        <span className="font-mono text-[8px] uppercase tracking-widest">Saved to Journal</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 py-2 border-t border-outline-variant/10 text-secondary">
+                          <span className="material-symbols-outlined !text-sm">check_circle</span>
+                          <span className="font-mono text-[8px] uppercase tracking-widest">Saved to Journal</span>
+                        </div>
+                        {structuredSaveDegraded && (
+                          <p className="font-mono text-[7px] uppercase tracking-widest text-tertiary/70">
+                            Progress sync is unavailable — diagnosis saved for this visit only.
+                          </p>
+                        )}
                       </div>
                     )}
 
                     {/* New session */}
                     <button
-                      onClick={() => { setRiyazPhase('idle'); setSessionStats(null); setSessionDiagnosis(null); setJournalSaved(false) }}
+                      onClick={() => { setRiyazPhase('idle'); setSessionStats(null); setSessionDiagnosis(null); setJournalSaved(false); setStructuredSaveDegraded(false) }}
                       className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-outline-variant/10 text-on-surface-variant/40 hover:text-on-surface font-mono text-[8px] uppercase tracking-widest transition-all"
                     >
                       <span className="material-symbols-outlined !text-sm">replay</span>

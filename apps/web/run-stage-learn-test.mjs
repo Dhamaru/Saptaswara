@@ -19,7 +19,7 @@ const checks = [
   ['curriculum file exists', curriculum.includes('export const CURRICULUM_STAGES') && curriculum.includes('export const CURRICULUM_LESSONS')],
   ['practice sessions API exists', sessionsApi.length > 0],
   ['learn progress API exists', progressApi.length > 0],
-  ['library has Learn this raga CTA', library.includes('Learn this raga') && library.includes('/learn?raga_id=')],
+  ['library has Practise this raga CTA', library.includes('Practise this raga') && library.includes('/riyaz?raga_name=')],
 ]
 const failed = checks.filter(([, ok]) => !ok)
 for (const [label, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`)

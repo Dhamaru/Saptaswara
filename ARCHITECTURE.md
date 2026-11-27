@@ -25,6 +25,7 @@
     - [13.4 Ornament System](#134-ornament-system)
     - [13.5 AI-Assisted Guidance](#135-ai-assisted-guidance)
     - [13.6 Practice Intelligence — Saptaswara Riyaz](#136-practice-intelligence--saptaswara-riyaz)
+    - [13.7 Learning Loop](#137-learning-loop)
 
 ---
 
@@ -189,7 +190,8 @@ Browser
 | `/` | `app/page.tsx` | Landing page |
 | `/studio` | `app/studio/page.tsx` | Multi-track sequencer, Piano, DrumPad, MIDI export, ConformanceScore |
 | `/library` | `app/library/page.tsx` | Raga browser — mood/swara filters, sort, compare, load-more |
-| `/riyaz` | `app/riyaz/page.tsx` | Grammar-aware swara practice — gamaka, mic pitch detection, stats |
+| `/riyaz` | `app/riyaz/page.tsx` | Grammar-aware swara practice — gamaka, mic pitch detection, stats, diagnosed feedback |
+| `/learn` | `app/learn/page.tsx` | Staged beginner curriculum hub with lesson completion and recent practice |
 | `/journal` | `app/journal/page.tsx` | Practice log, AI "Inspire me" prompt, monthly heatmap, streak |
 | `/profile` | `app/profile/page.tsx` | User profile, practice streak from `practice_logs` |
 | `/import` | `app/import/page.tsx` | Detect-raga from audio |
@@ -848,6 +850,9 @@ Supabase verifies the JWT and sets `auth.uid()` to the user's UUID for that conn
 | 6 | `20260408120000_grant_anon_access.sql` | `GRANT SELECT ON ALL TABLES TO anon` role |
 | 7 | `20260424000000_rls_hardening.sql` | Explicit per-operation RLS policies (INSERT/SELECT/UPDATE/DELETE) on `projects`, `layers`, `practice_logs` |
 | 8 | `20260503000000_raga_grammar_seed.sql` | `ALTER TABLE ragas ADD COLUMN grammar JSONB`; adds `modern_moods TEXT[]`, `starter_raga BOOLEAN`; creates `user_preferences` + `conformance_scores` tables; seeds grammar for 10 ragas (Yaman, Bhairav, Bhairavi, Darbari, Kafi, Todi, Bilawal, Khamaj, Bhoopali, Bageshri); `match_ragas` function patched with `SET search_path = public`; `storage.recordings` owner-scoped RLS added |
+| 9 | `20261128000000_practice_progress.sql` | Additive learning-loop tables: `practice_sessions`, `user_raga_progress`, `user_lesson_progress` with RLS, private grants, and indexes. Safe to rerun; must be applied manually if the environment does not run migrations automatically. |
+
+> Note: the table above highlights foundational and learning-loop migrations; the full chronological set is in `supabase/migrations/`.
 
 ---
 
@@ -872,7 +877,7 @@ Supabase verifies the JWT and sets `auth.uid()` to the user's UUID for that conn
 
 ### Route Protection (`middleware.ts`)
 
-`apps/web/middleware.ts` intercepts all requests. Protected routes (`/studio`, `/journal`, `/riyaz`, `/profile`, `/import`, `/explore/*`) redirect unauthenticated users to `/login`. Public routes (`/`, `/library`, `/login`, `/signup`, `/auth/*`, `/api/*`) pass through without auth check.
+`apps/web/middleware.ts` intercepts all requests. Protected routes (`/studio`, `/learn`, `/journal`, `/riyaz`, `/profile`, `/import`, `/explore/*`) redirect unauthenticated users to `/login`. Public routes (`/`, `/library`, `/login`, `/signup`, `/auth/*`, `/api/*`) pass through without auth check.
 
 ### Token Lifecycle in API Calls
 
@@ -1073,6 +1078,22 @@ Tests for `GET` and `POST /api/journal`:
 - POST validates `date` field against `/^\d{4}-\d{2}-\d{2}$/`
 - POST validates required fields (`raga`, `notes`)
 - 401 on missing Bearer token
+
+### practiceFeedback.test.ts
+
+Tests for `diagnosePracticeSession()` (pure, deterministic rule engine):
+- Score clamping and zero-total guard
+- Varjya, wrong-variety, and missing-vadi diagnoses
+- Low swara coverage and positive-session messages
+- Grammar-context handling when name is absent
+
+### api.practice.test.ts
+
+Tests for the learning-loop API routes:
+- `GET /api/practice/sessions` returns sessions and progress, and preserves sessions when only progress storage is missing
+- `POST /api/practice/sessions` validates stats/timestamps, persists sessions, updates progress, and keeps the session when side-car tables are missing
+- `GET/PATCH /api/learn/progress` returns lesson progress, keeps the best score, and clears `completed_at` when a lesson is un-completed
+- Degraded-storage responses for missing tables (503)
 
 ### api.midi.test.ts
 
@@ -1704,12 +1725,12 @@ All three are owner-scoped with RLS and are safe to read when absent: APIs retur
       → diagnosePracticeSession() in @saptaswara/core
       → insert practice_sessions
       → upsert user_raga_progress
-      → optionally upsert user_lesson_progress
+      → optionally upsert user_lesson_progress (when a lessonId is supplied)
 
 /learn
   → GET /api/learn/progress
   → PATCH /api/learn/progress
-  → links to existing studio/library/riyaz/journal surfaces
+  → staged curriculum cards that link to existing studio/library/riyaz/journal surfaces
 
 /profile
   → reads user_raga_progress for a compact progress card

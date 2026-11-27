@@ -1165,11 +1165,11 @@ export default function LibraryPage() {
                 Ask AI about {selectedRaga.name}
               </button>
               <Link
-                href={`/learn?raga_id=${selectedRaga.id}`}
+                href={`/riyaz?raga_name=${encodeURIComponent(selectedRaga.name)}`}
                 className="w-full py-3 bg-surface-container-high/60 border border-outline-variant/10 rounded-2xl font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/70 hover:text-primary hover:border-primary/30 transition-all flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined !text-base">school</span>
-                Learn this raga
+                Practise this raga
               </Link>
               <button
                 onClick={() => router.push(`/studio?raga_id=${selectedRaga.id}`)}

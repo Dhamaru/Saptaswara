@@ -141,7 +141,7 @@ export function diagnosePracticeSession(
         : 'Keep building';
 
   const summary = hasHighIssues
-    ? `You scored ${score}%. Work through the highlighted issues to make your ${ragaName} practice more accurate.`
+    ? `You scored ${score}%. Work through the highlighted issues to make your practice in ${ragaName} more accurate.`
     : score >= 80
       ? `You scored ${score}%. Great accuracy — keep this momentum going.`
       : score >= 60

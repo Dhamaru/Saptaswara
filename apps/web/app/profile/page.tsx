@@ -101,6 +101,7 @@ export default function ProfilePage() {
   const [savedRagas, setSavedRagas] = useState<{ id: string; name: string }[]>([])
   const [practiceDates, setPracticeDates] = useState<string[]>([])
   const [ragaProgress, setRagaProgress] = useState<any[]>([])
+  const [ragaProgressUnavailable, setRagaProgressUnavailable] = useState(false)
 
   // Skill-level dropdown state
   const [skillDropdownOpen, setSkillDropdownOpen] = useState(false)
@@ -184,8 +185,10 @@ export default function ProfilePage() {
             .order('last_practiced_at', { ascending: false })
             .limit(5)
           setRagaProgress(progressError ? [] : progressRows ?? [])
+          setRagaProgressUnavailable(Boolean(progressError))
         } catch {
           setRagaProgress([])
+          setRagaProgressUnavailable(true)
         }
 
         // 4. Favourite ragas from localStorage
@@ -504,6 +507,10 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
+          ) : ragaProgressUnavailable ? (
+            <p className="font-sans text-sm text-on-surface-variant/50">
+              Raga progress is temporarily unavailable. Your saved sessions are still in the journal.
+            </p>
           ) : (
             <p className="font-sans text-sm text-on-surface-variant/50">
               No raga progress yet.{' '}
