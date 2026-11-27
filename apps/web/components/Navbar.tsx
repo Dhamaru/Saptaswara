@@ -61,7 +61,7 @@ export default function Navbar() {
   return (
     <>
     <nav className={`fixed top-0 left-0 right-0 h-16 md:h-20 z-[100] px-4 md:px-8 flex items-center justify-between border-b border-outline-variant/5 bg-surface-lowest/40 backdrop-blur-xl transition-transform duration-300 ${isImmersive ? '-translate-y-full pointer-events-none' : 'translate-y-0'}`}>
-      <div className="flex items-center gap-6 md:gap-12">
+      <div className="flex items-center gap-4 md:gap-6 lg:gap-12">
         <Link href="/" className="group flex items-center gap-3 transition-all">
           <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl overflow-hidden border border-primary/20 shadow-glow group-hover:scale-110 transition-transform">
             <img src="/logo.png" alt="Saptaswara Logo" className="w-full h-full object-cover scale-150" />
@@ -70,7 +70,7 @@ export default function Navbar() {
             Saptaswara
           </span>
         </Link>
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-4 lg:gap-8">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -181,7 +181,7 @@ export default function Navbar() {
 
     {/* Mobile nav drawer */}
     {mobileMenuOpen && (
-      <div className="fixed inset-0 z-[99] pt-16 bg-surface-lowest/95 backdrop-blur-xl md:hidden flex flex-col">
+      <div className="fixed inset-0 z-[99] pt-16 bg-surface-lowest/95 backdrop-blur-xl md:hidden flex flex-col overflow-y-auto">
         <div className="flex flex-col px-4 py-6 gap-2">
           {navLinks.map((link) => (
             <Link
