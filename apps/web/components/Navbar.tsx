@@ -18,6 +18,7 @@ export default function Navbar() {
   const { theme, toggle: toggleTheme } = useTheme()
 
   const navLinks = [
+    { name: 'Learn', href: '/learn', title: 'Learn — beginner curriculum' },
     { name: 'Naad', href: '/studio', title: 'Naad — sound studio' },
     { name: 'Ragam', href: '/library', title: 'Ragam — raga library' },
     { name: 'Saadhana', href: '/riyaz', title: 'Saadhana — daily practice' },

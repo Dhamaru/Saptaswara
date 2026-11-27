@@ -100,6 +100,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [savedRagas, setSavedRagas] = useState<{ id: string; name: string }[]>([])
   const [practiceDates, setPracticeDates] = useState<string[]>([])
+  const [ragaProgress, setRagaProgress] = useState<any[]>([])
 
   // Skill-level dropdown state
   const [skillDropdownOpen, setSkillDropdownOpen] = useState(false)
@@ -173,6 +174,19 @@ export default function ProfilePage() {
         const { current: streak, longest: longest_streak } = computeStreak(
           (logRows ?? []).map((r: any) => r.log_date ?? '')
         )
+
+        // Raga progress: new additive table may not exist in every environment.
+        try {
+          const { data: progressRows, error: progressError } = await supabase
+            .from('user_raga_progress')
+            .select('raga_name,sessions_count,best_score,latest_score,mastery_level,last_practiced_at')
+            .eq('user_id', user.id)
+            .order('last_practiced_at', { ascending: false })
+            .limit(5)
+          setRagaProgress(progressError ? [] : progressRows ?? [])
+        } catch {
+          setRagaProgress([])
+        }
 
         // 4. Favourite ragas from localStorage
         let savedRagasCount = 0
@@ -449,6 +463,54 @@ export default function ProfilePage() {
                 <p className="font-mono text-[9px] text-on-surface-variant/30 pb-1">Log a session today to start your streak.</p>
               )}
             </div>
+          )}
+        </div>
+
+        {/* ── Raga progress ───────────────────────────────────────────────── */}
+        <div className="rounded-[28px] bg-surface-container-lowest border border-outline-variant/10 px-7 py-6">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="material-symbols-outlined !text-base text-primary/50">trending_up</span>
+            <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/40">Raga Progress</span>
+          </div>
+          {loading ? (
+            <div className="space-y-2">
+              {[0, 1, 2].map(i => <SkeletonBlock key={i} className="h-10 w-full" />)}
+            </div>
+          ) : ragaProgress.length > 0 ? (
+            <div className="space-y-2">
+              {ragaProgress.slice(0, 5).map((row, i) => (
+                <div key={`${row.raga_name ?? 'raga'}-${i}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-surface-container-low/40 border border-outline-variant/10 px-4 py-3">
+                  <span className="font-display text-base font-light text-on-surface flex-1 min-w-0 truncate">
+                    {row.raga_name ?? '—'}
+                  </span>
+                  {row.mastery_level && (
+                    <span className="px-2 py-0.5 rounded-full border bg-primary/15 border-primary/30 text-primary-light font-mono text-[8px] uppercase tracking-widest font-bold">
+                      {row.mastery_level}
+                    </span>
+                  )}
+                  <span className="font-mono text-[9px] text-on-surface-variant/50">
+                    Best {row.best_score ?? 0}%
+                  </span>
+                  <span className="font-mono text-[9px] text-on-surface-variant/40">
+                    {row.sessions_count ?? 0} sessions
+                  </span>
+                  <Link
+                    href={`/riyaz?raga_name=${encodeURIComponent(row.raga_name ?? '')}`}
+                    title="Practise this raga"
+                    className="p-1.5 rounded-xl text-on-surface-variant/40 hover:text-secondary hover:bg-secondary/8 transition-all"
+                  >
+                    <Activity className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="font-sans text-sm text-on-surface-variant/50">
+              No raga progress yet.{' '}
+              <Link href="/learn" className="font-mono text-[9px] uppercase tracking-widest text-primary/70 hover:text-primary transition-colors">
+                Explore lessons →
+              </Link>
+            </p>
           )}
         </div>
 

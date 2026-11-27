@@ -1,5 +1,6 @@
 export * from './types';
 export * from './ragaEngine';
+export * from './practiceFeedback';
 
 /**
  * Utility to calculate frequency from a base root Sa (Hz) and semitone offset
