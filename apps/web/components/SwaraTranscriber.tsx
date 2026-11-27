@@ -54,6 +54,10 @@ export function SwaraTranscriber({ aroha, avaroha, vadi, samvadi, onInsert, onSe
   const startingRef  = useRef(false)
 
   const sessionStatsRef = useRef<SessionStats>({ total: 0, correct: 0, wrongVariety: 0, varjya: 0, vadiHits: 0, noteCounts: {} })
+  // Keep the callback in a ref so stopListening stays stable: an inline parent
+  // callback must not re-run the unmount cleanup mid-session.
+  const onSessionEndRef = useRef(onSessionEnd)
+  onSessionEndRef.current = onSessionEnd
 
   const stopListening = useCallback(() => {
     listenerRef.current?.stop()
@@ -63,11 +67,11 @@ export function SwaraTranscriber({ aroha, avaroha, vadi, samvadi, onInsert, onSe
     if (silenceTimer.current) { clearTimeout(silenceTimer.current); silenceTimer.current = null }
     setListening(false)
     setCurrent(null)
-    if (onSessionEnd && sessionStatsRef.current.total > 0) {
-      onSessionEnd({ ...sessionStatsRef.current })
+    if (onSessionEndRef.current && sessionStatsRef.current.total > 0) {
+      onSessionEndRef.current({ ...sessionStatsRef.current })
     }
     sessionStatsRef.current = { total: 0, correct: 0, wrongVariety: 0, varjya: 0, vadiHits: 0, noteCounts: {} }
-  }, [onSessionEnd])
+  }, [])
 
   const startListening = useCallback(async () => {
     // BUG-024: prevent re-entrant start

@@ -98,6 +98,10 @@ jobs:
       - name: Run Vitest
         run: npx vitest run --reporter=verbose
 
+      - name: Run learning-loop stage smoke test
+        run: npm run test:stage-learn
+        working-directory: .
+
   # ── Build ───────────────────────────────────────────────────────────────────
   build:
     name: Build

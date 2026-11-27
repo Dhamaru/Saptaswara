@@ -138,7 +138,14 @@ export default function LearnPage() {
         headers,
         body: JSON.stringify({ lessonId: lesson.id, completed: true }),
       })
-      if (!res.ok) throw new Error(`Save failed: ${res.status}`)
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        if (json?.degraded === true) {
+          setCompleted(prev => new Set(prev).add(lesson.id))
+          return
+        }
+        throw new Error(`Save failed: ${res.status}`)
+      }
       setCompleted(prev => new Set(prev).add(lesson.id))
     } catch (err) {
       console.error('Failed to save lesson progress:', err)
@@ -261,17 +268,16 @@ export default function LearnPage() {
             <p className="text-xs text-on-surface-variant/50">
               Recent practice is temporarily unavailable. Your lessons and journal are still available.
             </p>
+          ) : sessionsDegraded ? (
+            <p className="text-xs text-on-surface-variant/50">
+              Structured practice history is temporarily unavailable. Your journal is still available.
+            </p>
           ) : sessions.length === 0 ? (
             <p className="text-xs text-on-surface-variant/50">
               No practice sessions yet. Try the 90s riyaz above to see your first one here.
             </p>
           ) : (
             <>
-              {sessionsDegraded && (
-                <p className="mb-3 font-mono text-[9px] uppercase tracking-widest text-tertiary">
-                  Structured practice history is temporarily unavailable.
-                </p>
-              )}
               <ul className="divide-y divide-outline-variant/10" data-testid="recent-practice-list">
                 {sessions.map((session, index) => (
                   <li key={session.id ?? `${session.raga_name ?? 'session'}-${index}`} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">

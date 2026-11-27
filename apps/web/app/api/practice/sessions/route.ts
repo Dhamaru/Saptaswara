@@ -16,8 +16,11 @@ const StatsSchema = z.object({
   wrongVariety: z.number().int().min(0).max(10000),
   varjya: z.number().int().min(0).max(10000),
   vadiHits: z.number().int().min(0).max(10000),
-  noteCounts: z.record(z.string(), z.number().int().min(0).max(10000)),
-}).strict()
+  noteCounts: z.record(z.string().max(20), z.number().int().min(0).max(10000)),
+}).strict().refine(
+  (stats) => Object.keys(stats.noteCounts).length <= 32,
+  { message: 'noteCounts has too many keys' }
+)
 
 const GrammarSchema = z.object({
   name: z.string().max(100).nullish(),
@@ -39,7 +42,13 @@ const CreateSessionSchema = z.object({
   // The riyaz client sends its locally computed score; the server always
   // recomputes it from stats, so this field is accepted but ignored.
   score: z.number().int().min(0).max(100).optional(),
-}).strict()
+}).strict().refine(
+  (data) => {
+    if (!data.startedAt || !data.endedAt) return true
+    return new Date(data.endedAt).getTime() >= new Date(data.startedAt).getTime()
+  },
+  { message: 'endedAt must be at or after startedAt', path: ['endedAt'] }
+)
 
 type MasteryLevel = 'Exploring' | 'Developing' | 'Proficient' | 'Strong'
 
@@ -54,7 +63,8 @@ function isMissingTableError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const code = (error as { code?: string }).code
   const message = (error as { message?: string }).message ?? ''
-  return code === 'PGRST205' || code === '42P01' || /schema cache|does not exist/i.test(message)
+  return code === 'PGRST205' || code === '42P01'
+    || /relation .* does not exist|could not find the table .* in the schema cache/i.test(message)
 }
 
 function storageUnavailable(where: string, error: unknown) {
@@ -63,6 +73,15 @@ function storageUnavailable(where: string, error: unknown) {
     { error: 'practice_storage_unavailable', degraded: true },
     { status: 503 }
   )
+}
+
+/** Progress writes are side-car data: log failures without failing the session. */
+function logProgressError(where: string, error: unknown) {
+  if (isMissingTableError(error)) {
+    console.error(`[practice sessions ${where}] storage unavailable:`, error)
+  } else {
+    console.error(`[practice sessions ${where}]`, error)
+  }
 }
 
 /** Extract and validate Bearer token; returns null if missing or malformed. */
@@ -125,20 +144,26 @@ export async function GET(req: Request) {
         .limit(50),
     ])
 
-    const error = sessionsResult.error ?? progressResult.error
-    if (error) {
-      if (isMissingTableError(error)) {
-        console.error('[practice sessions GET] storage unavailable:', error)
-        return NextResponse.json({ sessions: [], progress: [], degraded: true })
-      }
-      console.error('[practice sessions GET]', error)
+    const sessionsError = sessionsResult.error
+    const progressError = progressResult.error
+    const hardError = [sessionsError, progressError].find(
+      (error) => error && !isMissingTableError(error)
+    )
+
+    if (hardError) {
+      console.error('[practice sessions GET]', hardError)
       return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
     }
 
+    const degraded = Boolean(sessionsError || progressError)
+    if (degraded) {
+      console.error('[practice sessions GET] storage unavailable:', sessionsError ?? progressError)
+    }
+
     return NextResponse.json({
-      sessions: sessionsResult.data ?? [],
-      progress: progressResult.data ?? [],
-      degraded: false,
+      sessions: sessionsError ? [] : sessionsResult.data ?? [],
+      progress: progressError ? [] : progressResult.data ?? [],
+      degraded,
     })
   } catch (error) {
     console.error('[practice sessions GET]', error)
@@ -202,10 +227,16 @@ export async function POST(req: Request) {
 
     if (insertError) {
       if (isMissingTableError(insertError)) return storageUnavailable('insert', insertError)
+      if ((insertError as { code?: string }).code === '23503') {
+        return NextResponse.json({ error: 'ragaId does not match a known raga' }, { status: 400 })
+      }
       console.error('[practice sessions insert]', insertError)
       return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
     }
 
+    // Progress is a side-car of the saved session. Any failure here is logged
+    // and reported via `degraded` rather than undoing or failing the session.
+    let progressDegraded = false
     let ragaProgress: unknown = null
     if (ragaId) {
       const { data: existing, error: readError } = await supabase
@@ -216,37 +247,36 @@ export async function POST(req: Request) {
         .maybeSingle()
 
       if (readError) {
-        if (isMissingTableError(readError)) return storageUnavailable('raga progress read', readError)
-        console.error('[practice sessions raga progress read]', readError)
-        return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
-      }
+        logProgressError('raga progress read', readError)
+        progressDegraded = true
+      } else {
+        const bestScore = Math.max(existing?.best_score ?? 0, score)
+        const { data: updated, error: upsertError } = await supabase
+          .from('user_raga_progress')
+          .upsert(
+            {
+              user_id: user.id,
+              raga_id: ragaId,
+              raga_name: ragaName,
+              sessions_count: (existing?.sessions_count ?? 0) + 1,
+              best_score: bestScore,
+              latest_score: score,
+              mastery_level: masteryLevel(bestScore),
+              last_practiced_at: endedAt ?? now,
+              updated_at: now,
+            },
+            { onConflict: 'user_id,raga_id' }
+          )
+          .select()
+          .single()
 
-      const bestScore = Math.max(existing?.best_score ?? 0, score)
-      const { data: updated, error: upsertError } = await supabase
-        .from('user_raga_progress')
-        .upsert(
-          {
-            user_id: user.id,
-            raga_id: ragaId,
-            raga_name: ragaName,
-            sessions_count: (existing?.sessions_count ?? 0) + 1,
-            best_score: bestScore,
-            latest_score: score,
-            mastery_level: masteryLevel(bestScore),
-            last_practiced_at: endedAt ?? now,
-            updated_at: now,
-          },
-          { onConflict: 'user_id,raga_id' }
-        )
-        .select()
-        .single()
-
-      if (upsertError) {
-        if (isMissingTableError(upsertError)) return storageUnavailable('raga progress upsert', upsertError)
-        console.error('[practice sessions raga progress upsert]', upsertError)
-        return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
+        if (upsertError) {
+          logProgressError('raga progress upsert', upsertError)
+          progressDegraded = true
+        } else {
+          ragaProgress = updated
+        }
       }
-      ragaProgress = updated
     }
 
     let lessonProgress: unknown = null
@@ -259,33 +289,32 @@ export async function POST(req: Request) {
         .maybeSingle()
 
       if (readError) {
-        if (isMissingTableError(readError)) return storageUnavailable('lesson progress read', readError)
-        console.error('[practice sessions lesson progress read]', readError)
-        return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
-      }
+        logProgressError('lesson progress read', readError)
+        progressDegraded = true
+      } else {
+        const { data: updated, error: upsertError } = await supabase
+          .from('user_lesson_progress')
+          .upsert(
+            {
+              user_id: user.id,
+              lesson_id: lessonId,
+              completed: true,
+              best_score: Math.max(existing?.best_score ?? 0, score),
+              completed_at: now,
+              updated_at: now,
+            },
+            { onConflict: 'user_id,lesson_id' }
+          )
+          .select()
+          .single()
 
-      const { data: updated, error: upsertError } = await supabase
-        .from('user_lesson_progress')
-        .upsert(
-          {
-            user_id: user.id,
-            lesson_id: lessonId,
-            completed: true,
-            best_score: Math.max(existing?.best_score ?? 0, score),
-            completed_at: now,
-            updated_at: now,
-          },
-          { onConflict: 'user_id,lesson_id' }
-        )
-        .select()
-        .single()
-
-      if (upsertError) {
-        if (isMissingTableError(upsertError)) return storageUnavailable('lesson progress upsert', upsertError)
-        console.error('[practice sessions lesson progress upsert]', upsertError)
-        return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
+        if (upsertError) {
+          logProgressError('lesson progress upsert', upsertError)
+          progressDegraded = true
+        } else {
+          lessonProgress = updated
+        }
       }
-      lessonProgress = updated
     }
 
     return NextResponse.json({
@@ -293,6 +322,7 @@ export async function POST(req: Request) {
       session,
       diagnosis,
       progress: { raga: ragaProgress, lesson: lessonProgress },
+      degraded: progressDegraded,
     })
   } catch (error) {
     console.error('[practice sessions POST]', error)

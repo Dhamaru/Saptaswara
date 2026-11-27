@@ -182,6 +182,73 @@ describe('/api/practice/sessions', () => {
     expect(body).toMatchObject({ sessions: [], progress: [], degraded: true })
   })
 
+  it('GET keeps sessions when only the progress table is missing', async () => {
+    mockDb.limitResult.mockImplementation((table: string) => ({
+      data: table === 'practice_sessions' ? [{ id: 'session-1' }] : null,
+      error: table === 'practice_sessions'
+        ? null
+        : { code: 'PGRST205', message: 'relation does not exist in schema cache' },
+    }))
+
+    const response = await getSessions(makeRequest('http://localhost/api/practice/sessions'))
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.degraded).toBe(true)
+    expect(body.sessions).toHaveLength(1)
+    expect(body.progress).toEqual([])
+  })
+
+  it('POST keeps the saved session and returns degraded when progress tables are missing', async () => {
+    mockDb.maybeSingleResult.mockReturnValue({
+      data: null,
+      error: { code: 'PGRST205', message: 'relation does not exist in schema cache' },
+    })
+
+    const response = await postSession(
+      makeRequest('http://localhost/api/practice/sessions', 'POST', {
+        ragaId: RAGA_ID,
+        ragaName: 'Yaman',
+        durationSeconds: 90,
+        lessonId: 'guided-riyaz',
+        stats: validStats,
+      })
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.success).toBe(true)
+    expect(body.degraded).toBe(true)
+    expect(body.session.id).toBe('session-1')
+    expect(body.progress.raga).toBeNull()
+    expect(body.progress.lesson).toBeNull()
+    expect(mockDb.insert).toHaveBeenCalled()
+  })
+
+  it('POST rejects timestamps where endedAt precedes startedAt', async () => {
+    const response = await postSession(
+      makeRequest('http://localhost/api/practice/sessions', 'POST', {
+        ragaName: 'Yaman',
+        startedAt: '2026-01-02T00:00:00Z',
+        endedAt: '2026-01-01T00:00:00Z',
+        stats: validStats,
+      })
+    )
+    expect(response.status).toBe(400)
+  })
+
+  it('POST rejects an unbounded noteCounts object', async () => {
+    const noteCounts: Record<string, number> = {}
+    for (let i = 0; i < 33; i++) noteCounts[`n${i}`] = 1
+
+    const response = await postSession(
+      makeRequest('http://localhost/api/practice/sessions', 'POST', {
+        ragaName: 'Yaman',
+        stats: { ...validStats, noteCounts },
+      })
+    )
+    expect(response.status).toBe(400)
+  })
+
   it('POST persists a session and updates raga and lesson progress', async () => {
     const response = await postSession(
       makeRequest('http://localhost/api/practice/sessions', 'POST', {
@@ -295,6 +362,27 @@ describe('/api/learn/progress', () => {
       makeRequest('http://localhost/api/learn/progress', 'PATCH', { lessonId: 'find-sa' })
     )
     expect(response.status).toBe(400)
+  })
+
+  it('PATCH clears completed_at when a lesson is un-completed', async () => {
+    mockDb.maybeSingleResult.mockReturnValue({
+      data: { best_score: 80, completed: true, completed_at: '2026-01-01T00:00:00Z' },
+      error: null,
+    })
+
+    const response = await patchLessonProgress(
+      makeRequest('http://localhost/api/learn/progress', 'PATCH', {
+        lessonId: 'find-sa',
+        completed: false,
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockDb.upsert).toHaveBeenCalledWith(
+      'user_lesson_progress',
+      expect.objectContaining({ completed: false, completed_at: null }),
+      { onConflict: 'user_id,lesson_id' }
+    )
   })
 
   it('PATCH reports degraded storage when the table is missing', async () => {
