@@ -1676,3 +1676,43 @@ LLM generates observations grounded in measured session data — not generic enc
 - Assessment philosophy: rule-based only, LLM-evaluated, or human spot-check for Stage 7?
 - Cross-session data: retention policy, user ownership, exportability?
 - Relationship to traditional teaching: engagement strategy with the guru community?
+
+---
+
+### 13.7 Learning Loop — Structured Practice and Curriculum
+
+**Status: Stage 2 foundation shipped as an additive learning loop.**
+
+The November 2026 learning-loop sprint adds structured persistence without changing the existing journal contract.
+
+**New tables (`20261128000000_practice_progress.sql`):**
+
+| Table | Purpose |
+|---|---|
+| `practice_sessions` | One structured riyaz attempt: raga, duration, lesson/stage, raw stats, score, diagnosis |
+| `user_raga_progress` | Per-user, per-raga sessions, best/latest score, derived mastery label |
+| `user_lesson_progress` | Curriculum lesson completion and best score |
+
+All three are owner-scoped with RLS and are safe to read when absent: APIs return degraded/empty responses instead of breaking the app.
+
+**Data flow:**
+
+```
+/riyaz session end
+  → POST /api/journal (unchanged, human-readable entry)
+  → POST /api/practice/sessions
+      → diagnosePracticeSession() in @saptaswara/core
+      → insert practice_sessions
+      → upsert user_raga_progress
+      → optionally upsert user_lesson_progress
+
+/learn
+  → GET /api/learn/progress
+  → PATCH /api/learn/progress
+  → links to existing studio/library/riyaz/journal surfaces
+
+/profile
+  → reads user_raga_progress for a compact progress card
+```
+
+Diagnosis is deterministic and rule-based. LLM feedback stays optional and out of the assessment path. See `docs/decision-records/0001-learning-loop.md` for the architecture decision.

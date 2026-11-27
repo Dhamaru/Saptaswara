@@ -9,8 +9,8 @@ import { RagaDetector } from '@/components/RagaDetector'
 import { createClient } from '@/lib/supabase/client'
 import { getAudioEngine } from '@/lib/audio'
 import { swaraToFrequency } from '@/lib/musicalMath'
-import { RagaEngine } from '@saptaswara/core'
-import type { Raga } from '@saptaswara/core'
+import { RagaEngine, diagnosePracticeSession } from '@saptaswara/core'
+import type { Raga, PracticeDiagnosis, PracticeSessionStats } from '@saptaswara/core'
 import {
   DEFAULT_LEARNING_PREFERENCES,
   STARTER_RAGA_NAMES,
@@ -56,6 +56,31 @@ function octaveLabel(raw: string): string | null {
 /** Get the normalized bare name (no octave marks) */
 function bareName(raw: string): string {
   return raw.replace(/[\^'.]/g, '').trim()
+}
+
+/** Grammar summary used for structured session writes and local diagnosis. */
+function practiceGrammar(raga: Raga) {
+  return {
+    name: raga.name,
+    vadi: raga.vadi,
+    samvadi: raga.samvadi,
+    varjyaSwaras: (raga.grammar?.swaras ?? []).filter(s => s.varjya).map(s => s.name),
+  }
+}
+
+/** Severity -> Tailwind colors for the "What to work on next" panel. */
+function diagnosisSeverityClass(severity: unknown): string {
+  const value = String(severity ?? '').toLowerCase()
+  if (value === 'critical' || value === 'high' || value === 'error' || value === 'danger') {
+    return 'border-error/20 bg-error/8 text-error'
+  }
+  if (value === 'warning' || value === 'medium' || value === 'moderate') {
+    return 'border-amber-400/20 bg-amber-500/8 text-amber-400'
+  }
+  if (value === 'low') {
+    return 'border-primary/20 bg-primary/8 text-primary'
+  }
+  return 'border-secondary/20 bg-secondary/8 text-secondary'
 }
 
 // ── Swara Card ────────────────────────────────────────────────────────────────
@@ -215,6 +240,7 @@ export default function RiyazPage() {
   const [andolanMode, setAndolanMode] = useState(false)
   const [gamakaHistory, setGamakaHistory] = useState<{ swara: string; ornament: string; ts: number }[]>([])
   const [sessionStats, setSessionStats] = useState<SessionStats | null>(null)
+  const [sessionDiagnosis, setSessionDiagnosis] = useState<PracticeDiagnosis | null>(null)
   const [swaraFeedback, setSwaraFeedback] = useState<string | null>(null)
   const [feedbackLoading, setFeedbackLoading] = useState(false)
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -252,6 +278,7 @@ export default function RiyazPage() {
     setRiyazPhase('running')
     setSecondsLeft(90)
     setSessionStats(null)
+    setSessionDiagnosis(null)
     setJournalSaved(false)
     setShowTranscriber(true)
     riyazTimerRef.current = setInterval(() => {
@@ -288,6 +315,34 @@ export default function RiyazPage() {
       })
       if (!res.ok) throw new Error(String(res.status))
       setJournalSaved(true)
+
+      // Structured side-car write — never blocks or undoes the journal save.
+      const stats = sessionStats as PracticeSessionStats
+      const grammar = practiceGrammar(selectedRaga)
+      const fallback = () => setSessionDiagnosis(diagnosePracticeSession(stats, grammar))
+      try {
+        const sessionRes = await fetch('/api/practice/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ragaId: selectedRaga.id ?? null,
+            ragaName: selectedRaga.name,
+            durationSeconds: 90,
+            stats,
+            grammar,
+            score,
+          }),
+        })
+        if (!sessionRes.ok) {
+          fallback()
+        } else {
+          const json = await sessionRes.json()
+          if (json?.diagnosis) setSessionDiagnosis(json.diagnosis as PracticeDiagnosis)
+          else fallback()
+        }
+      } catch {
+        fallback()
+      }
     } catch {}
     setJournalSaving(false)
   }, [selectedRaga, sessionStats, journalIntensity])
@@ -1075,7 +1130,7 @@ export default function RiyazPage() {
                 <div className="rounded-2xl bg-surface-container-low/40 border border-outline-variant/15 p-5 text-center space-y-3 animate-fade-in">
                   <span className="material-symbols-outlined !text-3xl text-on-surface-variant/30">mic_off</span>
                   <div className="font-sans text-sm text-on-surface-variant/50">No notes detected — try again closer to the mic.</div>
-                  <button onClick={() => { setRiyazPhase('idle'); setSessionStats(null); setSecondsLeft(90) }}
+                  <button onClick={() => { setRiyazPhase('idle'); setSessionStats(null); setSessionDiagnosis(null); setSecondsLeft(90) }}
                     className="px-4 py-2 rounded-xl border border-outline-variant/15 font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/50 hover:text-on-surface transition-all">
                     New session
                   </button>
@@ -1157,6 +1212,42 @@ export default function RiyazPage() {
                       )
                     })()}
 
+                    {/* What to work on next */}
+                    {(() => {
+                      const diagnosis = sessionDiagnosis ?? diagnosePracticeSession(
+                        sessionStats as PracticeSessionStats,
+                        practiceGrammar(selectedRaga),
+                      )
+                      return (
+                        <div className="rounded-2xl bg-surface-container-high/30 border border-outline-variant/10 p-4 space-y-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined !text-sm text-primary/50">auto_awesome</span>
+                            <span className="font-mono text-[8px] uppercase tracking-widest text-on-surface-variant/40">
+                              What to work on next
+                            </span>
+                          </div>
+                          {diagnosis.headline && (
+                            <p className="font-display text-lg font-light text-on-surface leading-snug">{diagnosis.headline}</p>
+                          )}
+                          {diagnosis.summary && (
+                            <p className="font-sans text-xs text-on-surface-variant/60 leading-relaxed">{diagnosis.summary}</p>
+                          )}
+                          {(diagnosis.items ?? []).length > 0 && (
+                            <ul className="space-y-1.5">
+                              {(diagnosis.items ?? []).map((item, i) => (
+                                <li key={i} className={`flex flex-col gap-0.5 rounded-xl border px-3 py-2 ${diagnosisSeverityClass(item.severity)}`}>
+                                  <span className="font-sans text-xs leading-snug">{item.message}</span>
+                                  {item.hint && (
+                                    <span className="font-mono text-[8px] uppercase tracking-widest opacity-70">{item.hint}</span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )
+                    })()}
+
                     {/* Journal save */}
                     {!journalSaved ? (
                       <div className="pt-2 border-t border-outline-variant/10 space-y-2">
@@ -1192,7 +1283,7 @@ export default function RiyazPage() {
 
                     {/* New session */}
                     <button
-                      onClick={() => { setRiyazPhase('idle'); setSessionStats(null); setJournalSaved(false) }}
+                      onClick={() => { setRiyazPhase('idle'); setSessionStats(null); setSessionDiagnosis(null); setJournalSaved(false) }}
                       className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-outline-variant/10 text-on-surface-variant/40 hover:text-on-surface font-mono text-[8px] uppercase tracking-widest transition-all"
                     >
                       <span className="material-symbols-outlined !text-sm">replay</span>

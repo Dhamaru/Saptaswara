@@ -1164,6 +1164,13 @@ export default function LibraryPage() {
                 <span className="material-symbols-outlined !text-base">auto_awesome</span>
                 Ask AI about {selectedRaga.name}
               </button>
+              <Link
+                href={`/learn?raga_id=${selectedRaga.id}`}
+                className="w-full py-3 bg-surface-container-high/60 border border-outline-variant/10 rounded-2xl font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/70 hover:text-primary hover:border-primary/30 transition-all flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined !text-base">school</span>
+                Learn this raga
+              </Link>
               <button
                 onClick={() => router.push(`/studio?raga_id=${selectedRaga.id}`)}
                 className="w-full py-4 bg-gradient-to-r from-primary to-primary/70 rounded-2xl font-medium text-on-primary shadow-glow hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 cursor-pointer"
